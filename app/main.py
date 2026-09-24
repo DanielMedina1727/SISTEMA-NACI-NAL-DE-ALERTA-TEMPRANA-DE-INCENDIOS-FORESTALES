@@ -13,6 +13,9 @@ from typing import Optional
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.model import RiskModel
@@ -20,10 +23,35 @@ from app.propagation import propagate_risk
 from app.telegram_alerts import send_red_alert
 
 app = FastAPI(
-    title="Wildfire Risk Prediction API",
-    description="API para la predicción de riesgo de incendios forestales y motor de propagación por viento (Capstone)",
-    version="1.0.0",
+    title="AlertaForestal Perú — API Pública",
+    description=(
+        "API de acceso abierto para el Sistema Nacional de Alerta Temprana de Incendios Forestales. "
+        "Proporciona datos satelitales, predicciones de riesgo y motor de propagación. "
+        "Portal ciudadano en /web/ · Swagger UI en /docs"
+    ),
+    version="2.0.0",
 )
+
+# CORS abierto para que el portal web pueda consumir la API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Montar el portal web público en /web
+_WEB_DIR = Path(__file__).parent.parent / "web"
+if _WEB_DIR.exists():
+    app.mount("/web", StaticFiles(directory=str(_WEB_DIR), html=True), name="portal-web")
+
+@app.get("/", include_in_schema=False)
+def root():
+    """Redirige a la página principal del portal ciudadano."""
+    index = _WEB_DIR / "index.html"
+    if index.exists():
+        return FileResponse(str(index))
+    return {"message": "AlertaForestal Perú API v2.0 — Portal en /web · Docs en /docs"}
 
 model = RiskModel()
 DATASET_PATH = Path(__file__).parent.parent / "data" / "dataset.parquet"
@@ -126,9 +154,10 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
     features = []
     cell_size = 0.009
 
-    for idx, row in df.iterrows():
-        proba = float(probas[idx])
+    for i, (idx, row) in enumerate(df.iterrows()):
+        proba = float(probas[i])
         nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.35 else "Verde"
+
         
         lon, lat = float(row["longitude"]), float(row["latitude"])
         poly_coords = [
@@ -296,3 +325,96 @@ def get_social_environment_matrix():
     }
 
 
+# ─────────────────────────────────────────────
+# NASA FIRMS — Focos de calor satelitales reales
+# ─────────────────────────────────────────────
+import csv
+import io
+import os
+import urllib.request
+
+FIRMS_MAP_KEY = os.getenv("FIRMS_MAP_KEY", "a86632ae3bb704ddc1818342f63bf8b0")
+
+# Bounding boxes predefinidas (minLon, minLat, maxLon, maxLat)
+BBOXES = {
+    "peru":       "-81.5,-18.5,-68.5,0",
+    "cajamarca":  "-79.5,-7.8,-77.5,-4.5",
+    "norte":      "-80.5,-6.0,-75.0,0",
+    "sur":        "-81.5,-18.5,-68.5,-6.0",
+    "amazonia":   "-77.0,-14.0,-68.5,-1.0",
+}
+
+# Mapa de confianza VIIRS: 'l' = baja, 'n' = nominal, 'h' = alta
+CONF_MAP = {"l": 0.40, "n": 0.75, "h": 0.95}
+
+
+@app.get("/firms/hotspots")
+def get_firms_hotspots(
+    region: str = Query(default="peru", description="Region preset: peru, cajamarca, norte, sur, amazonia"),
+    source: str = Query(default="VIIRS_SNPP_NRT", description="VIIRS_SNPP_NRT | VIIRS_NOAA20_NRT | MODIS_NRT"),
+    days: int   = Query(default=1, ge=1, le=7, description="Últimos N días (1-7)"),
+):
+    """
+    Retorna focos de calor satelitales reales de NASA FIRMS en GeoJSON.
+    Fuente: VIIRS (375m resolución) o MODIS (1km resolución).
+    """
+    bbox = BBOXES.get(region, BBOXES["peru"])
+    url  = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{FIRMS_MAP_KEY}/{source}/{bbox}/{days}"
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "AlertaForestalPeru/2.0"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw = resp.read().decode("utf-8")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Error al consultar NASA FIRMS: {exc}")
+
+    reader  = csv.DictReader(io.StringIO(raw))
+    features = []
+
+    for row in reader:
+        try:
+            lat  = float(row["latitude"])
+            lon  = float(row["longitude"])
+            frp  = float(row.get("frp", 0) or 0)       # Fire Radiative Power (MW)
+            conf_raw = row.get("confidence", "n")
+            # VIIRS usa 'l'/'n'/'h'; MODIS usa 0-100
+            if conf_raw in ("l", "n", "h"):
+                confidence = CONF_MAP.get(conf_raw, 0.75)
+            else:
+                confidence = min(float(conf_raw or 75), 100) / 100.0
+
+            # Clasificar nivel según confianza + FRP
+            if confidence >= 0.75 and frp >= 5:
+                nivel = "Rojo"
+            elif confidence >= 0.50 or frp >= 1:
+                nivel = "Amarillo"
+            else:
+                nivel = "Verde"
+
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": {
+                    "satellite":    row.get("satellite", source),
+                    "instrument":   row.get("instrument", "VIIRS"),
+                    "acq_date":     row.get("acq_date", ""),
+                    "acq_time":     row.get("acq_time", ""),
+                    "frp":          round(frp, 2),
+                    "confidence":   round(confidence, 2),
+                    "bright_ti4":   float(row.get("bright_ti4") or row.get("brightness") or 0),
+                    "daynight":     row.get("daynight", "D"),
+                    "nivel":        nivel,
+                    "source":       source,
+                }
+            })
+        except (ValueError, KeyError):
+            continue
+
+    return {
+        "type":    "FeatureCollection",
+        "count":   len(features),
+        "region":  region,
+        "source":  source,
+        "days":    days,
+        "features": features,
+    }

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AlertaForestal Perú — Monitoreo de Incendios en Tiempo Real</title>
+  <meta name="description" content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Información satelital en tiempo real, reportes ciudadanos y alertas por WhatsApp." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet (Mapa) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet Heatmap -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- NAVBAR                                         -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#hero" class="nav-logo">
+        <span class="logo-icon">🔥</span>
+        <span class="logo-text">AlertaForestal<span class="logo-accent">Perú</span></span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#mapa">Mapa en Vivo</a></li>
+        <li><a href="#whatsapp">Alertas</a></li>
+        <li><a href="#reporte">Reportar</a></li>
+        <li><a href="#recursos">Recursos</a></li>
+        <li><a href="#transparencia">Proyecto</a></li>
+      </ul>
+      <button class="btn-nav-cta" onclick="scrollToSection('reporte')">⚠️ Reportar Foco</button>
+      <button class="nav-toggle" id="navToggle" aria-label="Menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- A. HERO SECTION                                -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section class="hero" id="hero">
+    <div class="hero-bg-particles" id="particles"></div>
+    <div class="hero-content">
+
+      <!-- Badge de estado en tiempo real -->
+      <div class="risk-badge-container">
+        <div class="risk-badge" id="riskBadge">
+          <span class="badge-pulse"></span>
+          <span class="badge-label">Nivel de Riesgo Hoy</span>
+          <span class="badge-level" id="badgeLevel">Cargando...</span>
+        </div>
+      </div>
+
+      <h1 class="hero-title">
+        Monitoreo y alerta temprana de<br />
+        <span class="gradient-text">incendios forestales</span><br />
+        al alcance de todos.
+      </h1>
+      <p class="hero-subtitle">
+        Información satelital y comunitaria en tiempo real para proteger nuestras tierras,
+        recursos y vidas — sin barreras de acceso, sin costo, sin restricciones.
+      </p>
+
+      <!-- Botonera de Acción Rápida -->
+      <div class="hero-actions">
+        <a href="#mapa" class="btn btn-primary" id="btnMapaVivo">
+          <span class="btn-icon">🗺️</span>
+          Ver Mapa en Vivo
+        </a>
+        <a href="#whatsapp" class="btn btn-whatsapp">
+          <span class="btn-icon">📲</span>
+          Unirme a Alertas WhatsApp
+        </a>
+        <a href="#reporte" class="btn btn-danger">
+          <span class="btn-icon">⚠️</span>
+          Reportar un Foco / Humo
+        </a>
+      </div>
+
+      <!-- Métricas en tiempo real -->
+      <div class="hero-stats" id="heroStats">
+        <div class="stat-item">
+          <span class="stat-number" id="statFIRMS">--</span>
+          <span class="stat-label">🛰️ Focos VIIRS Reales</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="statRojas">--</span>
+          <span class="stat-label">🔴 Zonas Alto Riesgo</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="statAmarillas">--</span>
+          <span class="stat-label">🟡 Vigilancia</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number" id="statTotal">--</span>
+          <span class="stat-label">📊 Zonas Monitoreadas</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-number">24h</span>
+          <span class="stat-label">⏱ Anticipación IA</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-scroll-hint">
+      <span>Desplázate para explorar</span>
+      <div class="scroll-arrow">↓</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- B. MAPA INTERACTIVO                            -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section class="section section-dark" id="mapa">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">🛰️ En Tiempo Real</span>
+        <h2 class="section-title">Mapa de Monitoreo Abierto</h2>
+        <p class="section-desc">
+          Visualización de focos de calor satelitales detectados en las últimas 24 horas.
+          Datos actualizados continuamente desde NASA FIRMS (VIIRS/MODIS).
+        </p>
+      </div>
+
+      <!-- Controles del mapa -->
+      <div class="map-controls">
+        <div class="map-filters">
+          <label class="filter-label">📍 Filtrar por región:</label>
+          <select class="filter-select" id="regionFilter" onchange="filterByRegion()">
+            <option value="all">Todo Perú</option>
+            <option value="cajamarca" selected>Cajamarca</option>
+            <option value="norte">Sector Norte</option>
+            <option value="sur">Sector Sur</option>
+          </select>
+          <label class="filter-label">⏱ Horizonte:</label>
+          <select class="filter-select" id="timeFilter" onchange="loadMapData()">
+            <option value="6">Últimas 6 horas</option>
+            <option value="12">Últimas 12 horas</option>
+            <option value="24" selected>Últimas 24 horas</option>
+          </select>
+        </div>
+        <div class="map-layer-toggles">
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleHeatmap" checked onchange="toggleHeatmapLayer()">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">🌡️ Mapa de Calor</span>
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="togglePolygons" checked onchange="togglePolygonLayer()">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">🟥 Zonas IA</span>
+          </label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleFIRMS" checked onchange="toggleFIRMSLayer()">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">🛰️ Focos Reales VIIRS</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="map-wrapper">
+        <div id="map"></div>
+        <div class="map-legend">
+          <div class="legend-title">Simbología</div>
+          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Foco activo (≥70%)</div>
+          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Bajo observación (35-69%)</div>
+          <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Zona controlada (&lt;35%)</div>
+          <div class="legend-item" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1)">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;margin-right:4px"></span>
+            <b>Punto:</b> Foco VIIRS real
+          </div>
+          <div class="legend-update" id="legendUpdate">Actualizando...</div>
+        </div>
+        <div class="map-loading" id="mapLoading">
+          <div class="spinner"></div>
+          <span>Cargando datos satelitales...</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- C. RED DE DISTRIBUCIÓN COMUNITARIA (WhatsApp)  -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section class="section section-gradient" id="whatsapp">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">📲 Red Comunitaria</span>
+        <h2 class="section-title">Alertas Instantáneas por WhatsApp</h2>
+        <p class="section-desc">
+          Recibe notificaciones directas cuando se detecte un foco de calor en tu zona.
+          Gratis, sin aplicaciones adicionales y con protocolos para evitar noticias falsas.
+        </p>
+      </div>
+
+      <div class="whatsapp-grid">
+        <!-- Flujo de información -->
+        <div class="flow-card">
+          <h3 class="flow-title">🔄 Cómo fluye la información</h3>
+          <div class="flow-steps">
+            <div class="flow-step">
+              <div class="flow-step-icon">🛰️</div>
+              <div class="flow-step-content">
+                <strong>Satélite detecta foco</strong>
+                <span>NASA FIRMS actualiza cada 3 horas</span>
+              </div>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step">
+              <div class="flow-step-icon">🤖</div>
+              <div class="flow-step-content">
+                <strong>IA clasifica el riesgo</strong>
+                <span>LightGBM evalúa 8 variables en &lt;2ms</span>
+              </div>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step">
+              <div class="flow-step-icon">⚡</div>
+              <div class="flow-step-content">
+                <strong>Alerta automática</strong>
+                <span>Solo focos de riesgo ALTO llegan al grupo</span>
+              </div>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-step">
+              <div class="flow-step-icon">📱</div>
+              <div class="flow-step-content">
+                <strong>Tu teléfono recibe la alerta</strong>
+                <span>Coordenadas GPS + nivel de riesgo + mapa</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QR y botón de suscripción -->
+        <div class="whatsapp-subscribe-card">
+          <div class="wa-icon-big">💬</div>
+          <h3>Únete al grupo de alertas</h3>
+          <p>Selecciona tu provincia y empieza a recibir alertas en tiempo real</p>
+
+          <div class="wa-zone-selector">
+            <select class="filter-select full-width" id="waZone">
+              <option value="">Selecciona tu zona</option>
+              <option value="cajamarca">Cajamarca Centro</option>
+              <option value="jaen">Jaén - San Ignacio</option>
+              <option value="chota">Chota - Cutervo</option>
+              <option value="celendin">Celendín - Amazonas</option>
+            </select>
+          </div>
+
+          <a class="btn btn-whatsapp btn-lg" id="waJoinBtn" href="#" onclick="joinWhatsApp(event)">
+            <span class="btn-icon">📲</span>
+            Unirme al Grupo de Alertas
+          </a>
+
+          <div class="wa-qr-container">
+            <div class="qr-placeholder">
+              <div class="qr-grid" id="qrCode"></div>
+              <span class="qr-label">Escanea para unirte</span>
+            </div>
+          </div>
+
+          <div class="wa-protocols">
+            <h4>📋 Protocolo de difusión responsable</h4>
+            <ul>
+              <li>✅ Comparte solo mensajes enviados por el bot oficial</li>
+              <li>✅ Verifica en el mapa antes de reenviar</li>
+              <li>✅ Llama siempre a Bomberos: <strong>116</strong></li>
+              <li>❌ No difundas información sin confirmar</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- D. MÓDULO DE REPORTE CIUDADANO                 -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section class="section section-dark" id="reporte">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">👥 Crowdsourcing</span>
+        <h2 class="section-title">Reportar un Foco o Humo</h2>
+        <p class="section-desc">
+          ¿Detectaste fuego o humo? Tu reporte puede salvar vidas. Completa el formulario
+          y nuestro equipo lo verificará con datos satelitales de inmediato.
+        </p>
+      </div>
+
+      <!-- Aviso de emergencia -->
+      <div class="emergency-banner">
+        <span class="emergency-icon">🚨</span>
+        <div>
+          <strong>Si hay riesgo inmediato para personas:</strong>
+          Llama primero a <strong>Bomberos: 116</strong> | <strong>Policía: 105</strong> |
+          <strong>Defensa Civil: 115</strong>
+        </div>
+      </div>
+
+      <div class="report-grid">
+        <!-- Formulario -->
+        <form class="report-form" id="reportForm" onsubmit="submitReport(event)">
+          <div class="form-group">
+            <label class="form-label">📍 Ubicación del foco</label>
+            <div class="location-options">
+              <button type="button" class="btn btn-outline btn-sm" onclick="useMyLocation()">
+                🎯 Usar mi ubicación GPS
+              </button>
+              <span class="or-divider">o ingresa manualmente</span>
+            </div>
+            <div class="coords-group">
+              <input type="text" class="form-input" id="reportLat" placeholder="Latitud (ej: -7.1600)" />
+              <input type="text" class="form-input" id="reportLon" placeholder="Longitud (ej: -78.5000)" />
+            </div>
+            <div class="location-status" id="locationStatus"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🔥 Tipo de incidente</label>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="incidentType" value="fuego_activo" checked />
+                <span class="radio-custom"></span>
+                Fuego activo visible
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="incidentType" value="columna_humo" />
+                <span class="radio-custom"></span>
+                Columna de humo
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="incidentType" value="quema_agricola" />
+                <span class="radio-custom"></span>
+                Quema agrícola/pastizal
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="incidentType" value="cenizas" />
+                <span class="radio-custom"></span>
+                Área quemada reciente
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">📝 Descripción (opcional)</label>
+            <textarea class="form-input form-textarea" id="reportDesc"
+              placeholder="Describe lo que ves: tamaño aproximado, dirección del humo, cercanía a viviendas..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">📸 Foto (opcional)</label>
+            <div class="file-upload" id="fileUploadZone">
+              <input type="file" id="reportPhoto" accept="image/*" onchange="previewPhoto()" />
+              <div class="file-upload-content">
+                <span class="upload-icon">📷</span>
+                <span>Arrastra una foto o haz clic para seleccionar</span>
+              </div>
+              <img id="photoPreview" class="photo-preview" />
+            </div>
+          </div>
+
+          <div class="form-check">
+            <input type="checkbox" id="reportConfirm" required />
+            <label for="reportConfirm">
+              Confirmo que este reporte es verídico y comprendo que es complementario
+              a las acciones oficiales de emergencia.
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-danger btn-lg btn-full" id="submitReportBtn">
+            <span class="btn-icon">⚠️</span> Enviar Reporte Ciudadano
+          </button>
+        </form>
+
+        <!-- Mapa mini para seleccionar coordenadas -->
+        <div class="report-map-container">
+          <h3 class="report-map-title">📌 Selecciona el punto en el mapa</h3>
+          <p class="report-map-hint">Haz clic en el mapa para fijar las coordenadas automáticamente</p>
+          <div id="reportMap"></div>
+          <div class="recent-reports">
+            <h4>Reportes recientes verificados</h4>
+            <div class="report-list" id="recentReportsList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- E. CENTRO DE RECURSOS Y PREVENCIÓN             -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section class="section section-light" id="recursos">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">📚 Prevención</span>
+        <h2 class="section-title">Centro de Recursos</h2>
+        <p class="section-desc">
+          Guías rápidas, protocolos de seguridad y mapas de condiciones meteorológicas
+          para comunidades en zonas de riesgo.
+        </p>
+      </div>
+
+      <div class="resources-grid">
+        <!-- Tarjeta 1 -->
+        <div class="resource-card" onclick="openResource('vivir-zona-riesgo')">
+          <div class="resource-icon">🏠</div>
+          <h3>Si vives cerca de una zona de riesgo</h3>
+          <p>Pasos concretos para preparar tu hogar y familia ante una emergencia por incendio forestal.</p>
+          <div class="resource-tags">
+            <span class="tag">Preparación</span>
+            <span class="tag">Evacuación</span>
+          </div>
+          <span class="resource-cta">Leer guía →</span>
+        </div>
+
+        <!-- Tarjeta 2 -->
+        <div class="resource-card" onclick="openResource('prevenir-quemas')">
+          <div class="resource-icon">🚜</div>
+          <h3>Prevenir incendios agrícolas y de pastizales</h3>
+          <p>Alternativas a la quema y técnicas seguras para agricultores y comunidades rurales.</p>
+          <div class="resource-tags">
+            <span class="tag">Agricultura</span>
+            <span class="tag">Comunidades</span>
+          </div>
+          <span class="resource-cta">Leer guía →</span>
+        </div>
+
+        <!-- Tarjeta 3: Mapa meteorológico -->
+        <div class="resource-card resource-card-wide" onclick="openResource('mapa-condiciones')">
+          <div class="resource-icon">💨</div>
+          <h3>Condiciones meteorológicas de riesgo</h3>
+          <p>Mapa interactivo de viento, sequía e índice de peligro de incendio (FWI) para las próximas 48 horas.</p>
+          <div class="weather-mini-grid" id="weatherMiniGrid">
+            <div class="weather-item">
+              <span class="weather-val" id="wTemp">--°C</span>
+              <span class="weather-lbl">Temperatura</span>
+            </div>
+            <div class="weather-item">
+              <span class="weather-val" id="wHumidity">--%</span>
+              <span class="weather-lbl">Humedad</span>
+            </div>
+            <div class="weather-item">
+              <span class="weather-val" id="wWind">-- km/h</span>
+              <span class="weather-lbl">Viento</span>
+            </div>
+            <div class="weather-item">
+              <span class="weather-val weather-fwi" id="wFWI">--</span>
+              <span class="weather-lbl">Índice FWI</span>
+            </div>
+          </div>
+          <div class="resource-tags">
+            <span class="tag">ERA5</span>
+            <span class="tag">48h</span>
+          </div>
+          <span class="resource-cta">Ver mapa completo →</span>
+        </div>
+
+        <!-- Tarjeta 4 -->
+        <div class="resource-card" onclick="openResource('numeros-emergencia')">
+          <div class="resource-icon">📞</div>
+          <h3>Números de emergencia</h3>
+          <p>Directorio oficial de contactos para reportar y solicitar ayuda durante un incendio.</p>
+          <div class="emergency-numbers">
+            <div class="em-num"><strong>116</strong> Bomberos</div>
+            <div class="em-num"><strong>105</strong> Policía</div>
+            <div class="em-num"><strong>115</strong> Defensa Civil</div>
+            <div class="em-num"><strong>117</strong> SAMU</div>
+          </div>
+          <span class="resource-cta">Ver directorio completo →</span>
+        </div>
+      </div>
+
+      <!-- Modal de recursos -->
+      <div class="resource-modal" id="resourceModal">
+        <div class="modal-backdrop" onclick="closeResource()"></div>
+        <div class="modal-content">
+          <button class="modal-close" onclick="closeResource()">✕</button>
+          <div id="modalBody"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- F. TRANSPARENCIA Y FILOSOFÍA OPEN SOURCE       -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <section class="section section-dark" id="transparencia">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">🔓 Proyecto Abierto</span>
+        <h2 class="section-title">Transparencia y Filosofía</h2>
+        <p class="section-desc">
+          Creemos que la información para proteger vidas no debe tener barreras. Este proyecto es de
+          acceso libre, gratuito y comunitario.
+        </p>
+      </div>
+
+      <div class="transparency-grid">
+        <!-- Fuentes de datos -->
+        <div class="transparency-card">
+          <h3>🛰️ Origen de los Datos</h3>
+          <div class="data-source-list">
+            <div class="data-source">
+              <div class="ds-logo">NASA</div>
+              <div class="ds-info">
+                <strong>NASA FIRMS</strong>
+                <span>Focos de calor VIIRS/MODIS — actualización cada 3h</span>
+              </div>
+              <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" class="ds-link">↗</a>
+            </div>
+            <div class="data-source">
+              <div class="ds-logo">ERA5</div>
+              <div class="ds-info">
+                <strong>Copernicus ERA5</strong>
+                <span>Temperatura, humedad, viento — reanálisis climático</span>
+              </div>
+              <a href="https://cds.climate.copernicus.eu/" target="_blank" class="ds-link">↗</a>
+            </div>
+            <div class="data-source">
+              <div class="ds-logo">USGS</div>
+              <div class="ds-info">
+                <strong>USGS SRTM</strong>
+                <span>Topografía y pendiente del terreno — 30m resolución</span>
+              </div>
+              <a href="https://earthexplorer.usgs.gov/" target="_blank" class="ds-link">↗</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modelo de IA -->
+        <div class="transparency-card">
+          <h3>🤖 Modelo de Inteligencia Artificial</h3>
+          <p>El sistema usa <strong>LightGBM</strong> — un algoritmo de árboles de decisión potenciados por gradiente, elegido por su:</p>
+          <div class="ai-metrics">
+            <div class="ai-metric">
+              <span class="ai-val">97.85%</span>
+              <span class="ai-lbl">Detección de focos reales</span>
+            </div>
+            <div class="ai-metric">
+              <span class="ai-val">0.9966</span>
+              <span class="ai-lbl">ROC-AUC</span>
+            </div>
+            <div class="ai-metric">
+              <span class="ai-val">&lt;2ms</span>
+              <span class="ai-lbl">Tiempo de inferencia</span>
+            </div>
+          </div>
+          <p class="ai-note">
+            💡 <strong>¿Por qué no Deep Learning?</strong> LightGBM es más interpretable
+            (funcionarios entienden por qué se emite una alerta), más rápido y funciona
+            sin GPU costosas.
+          </p>
+        </div>
+
+        <!-- Declaración de uso -->
+        <div class="transparency-card transparency-card-full">
+          <h3>📜 Declaración de Interés Público</h3>
+          <div class="declaration-grid">
+            <div class="declaration-item">
+              <span class="decl-icon">🆓</span>
+              <div>
+                <strong>100% Gratuito</strong>
+                <p>Sin suscripciones, sin publicidad, sin datos de usuario vendidos.</p>
+              </div>
+            </div>
+            <div class="declaration-item">
+              <span class="decl-icon">🔓</span>
+              <div>
+                <strong>Código Abierto</strong>
+                <p>Todo el código está disponible en GitHub bajo Licencia MIT.</p>
+              </div>
+            </div>
+            <div class="declaration-item">
+              <span class="decl-icon">🤝</span>
+              <div>
+                <strong>Complementario, no reemplazante</strong>
+                <p>Esta plataforma <em>apoya</em> pero no sustituye a Bomberos, SERFOR, INDECI ni Defensa Civil.</p>
+              </div>
+            </div>
+            <div class="declaration-item">
+              <span class="decl-icon">🌿</span>
+              <div>
+                <strong>Interés Comunitario</strong>
+                <p>Desarrollado por estudiantes de Ingeniería de Sistemas Computacionales de Perú.</p>
+              </div>
+            </div>
+          </div>
+          <a href="https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES"
+             target="_blank" class="btn btn-outline btn-github">
+            <span>⭐</span> Ver código en GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- FOOTER                                         -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <span class="logo-icon">🔥</span>
+          <span class="logo-text">AlertaForestal<span class="logo-accent">Perú</span></span>
+          <p>Portal ciudadano de acceso abierto para la prevención y alerta temprana de incendios forestales.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Plataforma</h4>
+          <ul>
+            <li><a href="#mapa">Mapa en Vivo</a></li>
+            <li><a href="#whatsapp">Alertas WhatsApp</a></li>
+            <li><a href="#reporte">Reportar Foco</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Recursos</h4>
+          <ul>
+            <li><a href="#recursos">Guías de Prevención</a></li>
+            <li><a href="#transparencia">Fuentes de Datos</a></li>
+            <li><a href="#transparencia">Sobre el Proyecto</a></li>
+          </ul>
+        </div>
+        <div class="footer-emergency">
+          <h4>🚨 Emergencias</h4>
+          <div class="footer-numbers">
+            <span><strong>116</strong> Bomberos</span>
+            <span><strong>105</strong> Policía</span>
+            <span><strong>115</strong> Defensa Civil</span>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2025 AlertaForestal Perú — Licencia MIT — Uso libre y gratuito</span>
+        <span>Datos: NASA FIRMS · Copernicus ERA5 · USGS SRTM</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast de notificación -->
+  <div class="toast" id="toast">
+    <span class="toast-icon" id="toastIcon">✅</span>
+    <span id="toastMsg">Mensaje</span>
+  </div>
+
+  <script src="app.js?v=20260924"></script>
+</body>
+</html>
