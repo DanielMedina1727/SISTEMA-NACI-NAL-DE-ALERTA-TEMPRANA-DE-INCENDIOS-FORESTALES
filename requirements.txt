@@ -14,7 +14,7 @@ sqlalchemy>=2.0.34
 folium>=0.17.0
 streamlit>=1.38.0
 plotly>=5.24.0
-python-telegram-bot>=21.5
+# WhatsApp Cloud API usa requests (ya incluido como dependencia)
 locust>=2.31.5
 minio>=7.2.8
 scipy>=1.14.1
@@ -22,3 +22,4 @@ joblib>=1.4.2
 pyarrow>=15.0.0
 streamlit-folium>=0.20.0
 python-multipart>=0.0.12
+apscheduler>=3.10.0

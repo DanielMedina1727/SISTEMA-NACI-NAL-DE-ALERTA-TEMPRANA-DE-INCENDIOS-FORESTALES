@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AlertaForestal Perú — Monitoreo de Incendios en Tiempo Real</title>
-  <meta name="description" content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Información satelital en tiempo real, reportes ciudadanos y alertas por WhatsApp." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
+  <meta name="description"
+    content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Información satelital en tiempo real, reportes ciudadanos y alertas por WhatsApp." />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
 
   <!-- Leaflet (Mapa) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -20,6 +25,7 @@
 
   <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
 
   <!-- ═══════════════════════════════════════════════ -->
@@ -177,10 +183,13 @@
         <div class="map-legend">
           <div class="legend-title">Simbología</div>
           <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Foco activo (≥70%)</div>
-          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Bajo observación (35-69%)</div>
+          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Bajo observación (35-69%)
+          </div>
           <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Zona controlada (&lt;35%)</div>
-          <div class="legend-item" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1)">
-            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;margin-right:4px"></span>
+          <div class="legend-item"
+            style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1)">
+            <span
+              style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;margin-right:4px"></span>
             <b>Punto:</b> Foco VIIRS real
           </div>
           <div class="legend-update" id="legendUpdate">Actualizando...</div>
@@ -246,6 +255,7 @@
           </div>
         </div>
 
+        <!-- Grupos activos por zona -->
         <!-- QR y botón de suscripción -->
         <div class="whatsapp-subscribe-card">
           <div class="wa-icon-big">💬</div>
@@ -253,16 +263,18 @@
           <p>Selecciona tu provincia y empieza a recibir alertas en tiempo real</p>
 
           <div class="wa-zone-selector">
-            <select class="filter-select full-width" id="waZone">
-              <option value="">Selecciona tu zona</option>
-              <option value="cajamarca">Cajamarca Centro</option>
-              <option value="jaen">Jaén - San Ignacio</option>
-              <option value="chota">Chota - Cutervo</option>
-              <option value="celendin">Celendín - Amazonas</option>
+            <select class="filter-select full-width" id="waZone" onchange="updateWaLink()">
+              <option value="">Selecciona tu provincia</option>
+              <option value="https://chat.whatsapp.com/KwUi6b2Ty7DE0P3kngZnIc?mode=gi_t" data-zone="San Marcos">San Marcos</option>
+              <option value="https://chat.whatsapp.com/FpO9Etz6KVo1zY0iLZCaIh?mode=gi_t" data-zone="San Pablo">San Pablo</option>
+              <option value="https://chat.whatsapp.com/GW6UZu8ywvTJqpKJhrqsSc?mode=gi_t" data-zone="Bambamarca">Bambamarca</option>
+              <option value="https://chat.whatsapp.com/CYgwoRd1TL88ZV1tvtIr5D?mode=gi_t" data-zone="Celendín">Celendín</option>
+              <option value="https://chat.whatsapp.com/FSlnpXkSzgz1NdR6qQRMJp?mode=gi_t" data-zone="Chota">Chota</option>
+              <option value="https://chat.whatsapp.com/GDvHyn0XVrf1WeRac1cDrC?mode=gi_t" data-zone="Cajamarca">Cajamarca</option>
             </select>
           </div>
 
-          <a class="btn btn-whatsapp btn-lg" id="waJoinBtn" href="#" onclick="joinWhatsApp(event)">
+          <a class="btn btn-whatsapp btn-lg" id="waJoinBtn" href="#" target="_blank" rel="noopener" onclick="return checkWaLink(event)">
             <span class="btn-icon">📲</span>
             Unirme al Grupo de Alertas
           </a>
@@ -273,6 +285,37 @@
               <span class="qr-label">Escanea para unirte</span>
             </div>
           </div>
+
+          <script>
+            function updateWaLink() {
+              const sel = document.getElementById('waZone');
+              const btn = document.getElementById('waJoinBtn');
+              const qrContainer = document.getElementById('qrCode');
+              
+              if (sel.value) {
+                 btn.href = sel.value;
+                 // Insertamos el QR real usando una API pública
+                 qrContainer.style.display = 'flex';
+                 qrContainer.style.justifyContent = 'center';
+                 qrContainer.style.alignItems = 'center';
+                 qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=104x104&data=${encodeURIComponent(sel.value)}" alt="QR Code" style="border-radius:4px;">`;
+              } else {
+                 btn.href = '#';
+                 qrContainer.innerHTML = '';
+              }
+            }
+            function checkWaLink(e) {
+              const sel = document.getElementById('waZone');
+              if (!sel.value) {
+                 e.preventDefault();
+                 if (typeof showToast === 'function') showToast('Selecciona tu provincia para unirte.', '⚠️');
+                 return false;
+              }
+              return true;
+            }
+          </script>
+
+
 
           <div class="wa-protocols">
             <h4>📋 Protocolo de difusión responsable</h4>
@@ -287,6 +330,7 @@
       </div>
     </div>
   </section>
+
 
   <!-- ═══════════════════════════════════════════════ -->
   <!-- D. MÓDULO DE REPORTE CIUDADANO                 -->
@@ -545,7 +589,8 @@
         <!-- Modelo de IA -->
         <div class="transparency-card">
           <h3>🤖 Modelo de Inteligencia Artificial</h3>
-          <p>El sistema usa <strong>LightGBM</strong> — un algoritmo de árboles de decisión potenciados por gradiente, elegido por su:</p>
+          <p>El sistema usa <strong>LightGBM</strong> — un algoritmo de árboles de decisión potenciados por gradiente,
+            elegido por su:</p>
           <div class="ai-metrics">
             <div class="ai-metric">
               <span class="ai-val">97.85%</span>
@@ -601,7 +646,7 @@
             </div>
           </div>
           <a href="https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES"
-             target="_blank" class="btn btn-outline btn-github">
+            target="_blank" class="btn btn-outline btn-github">
             <span>⭐</span> Ver código en GitHub
           </a>
         </div>
@@ -660,4 +705,5 @@
 
   <script src="app.js?v=20260924"></script>
 </body>
+
 </html>

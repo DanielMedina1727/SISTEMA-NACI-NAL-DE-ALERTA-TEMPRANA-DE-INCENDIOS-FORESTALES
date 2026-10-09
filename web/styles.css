@@ -408,6 +408,61 @@ img { max-width: 100%; }
 .wa-protocols ul { display: flex; flex-direction: column; gap: 0.4rem; }
 .wa-protocols li { font-size: 0.82rem; color: var(--color-text-muted); }
 
+/* Cuadrícula de grupos AlertaForestal reales */
+.wa-groups-grid {
+  display: flex; flex-direction: column; gap: 0.65rem;
+  margin: 1.25rem 0; text-align: left;
+}
+.wa-group-card {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--color-bg-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.1rem;
+  transition: var(--transition);
+  cursor: pointer;
+  text-decoration: none; color: var(--color-text);
+}
+.wa-group-card:hover {
+  border-color: var(--color-whatsapp);
+  background: rgba(37, 211, 102, 0.06);
+  transform: translateX(4px);
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.12);
+}
+.wa-group-icon {
+  font-size: 1.5rem; flex-shrink: 0;
+  width: 40px; height: 40px;
+  background: rgba(37,211,102,0.1);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.wa-group-info {
+  flex: 1; display: flex; flex-direction: column; gap: 0.1rem;
+}
+.wa-group-info strong {
+  font-size: 0.88rem; font-weight: 600; color: var(--color-text);
+}
+.wa-group-info span {
+  font-size: 0.75rem; color: var(--color-text-muted);
+}
+.wa-group-arrow {
+  color: var(--color-whatsapp); font-size: 1rem; font-weight: 700;
+  opacity: 0; transition: var(--transition);
+}
+.wa-group-card:hover .wa-group-arrow { opacity: 1; }
+
+/* Nota informativa sobre grupos archivados */
+.wa-note {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem; color: var(--color-text-muted);
+  text-align: left; margin-bottom: 0.5rem;
+}
+.wa-note span { font-size: 1rem; flex-shrink: 0; }
+
 /* ══════════════════════════════════════════════════════
    D. REPORTE CIUDADANO
    ══════════════════════════════════════════════════════ */
@@ -687,6 +742,7 @@ img { max-width: 100%; }
   .hero-stats { padding: 1rem 1.25rem; gap: 1rem; }
   .stat-divider { display: none; }
   .whatsapp-grid, .report-grid { grid-template-columns: 1fr; }
+  .wa-group-card { padding: 0.7rem 0.9rem; }
   .resources-grid { grid-template-columns: 1fr; }
   .resource-card-wide { grid-column: span 1; }
   .weather-mini-grid { grid-template-columns: repeat(2,1fr); }

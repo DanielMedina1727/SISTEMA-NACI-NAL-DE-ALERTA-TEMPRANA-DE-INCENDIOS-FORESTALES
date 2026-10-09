@@ -331,7 +331,7 @@ with tab3:
     col_alt1, col_alt2 = st.columns([1.2, 1])
 
     with col_alt1:
-        st.markdown("### Enviar Alerta Crítica a Telegram / SMS")
+        st.markdown("### Enviar Alerta Crítica por WhatsApp")
         grid_target_alert = st.selectbox("Grilla Objetiva para Despacho:", red_grid_options, key="alert_target")
         
         try:
@@ -345,13 +345,13 @@ with tab3:
         if st.button("🔴 Notificar Inmediatamente a Bomberos y Rondas"):
             try:
                 if api_online:
-                    r_alert = requests.post(f"{API_URL}/alert/telegram", json={
+                    r_alert = requests.post(f"{API_URL}/alert/whatsapp", json={
                         "grid_id": grid_target_alert,
                         "lat": lat_a,
                         "lon": lon_a,
                         "confianza": 0.95
                     }).json()
-                    st.success("📩 Alerta enviada con éxito al Bot de Telegram de las Brigadas.")
+                    st.success("📩 Alerta enviada con éxito por WhatsApp a las Brigadas.")
                 else:
                     st.success(f"📩 Alerta simulada transmitida para la grilla {grid_target_alert} ({lat_a:.4f}, {lon_a:.4f}).")
             except Exception as e:
@@ -360,8 +360,8 @@ with tab3:
     with col_alt2:
         st.markdown("### Registro de Alertas Recientes")
         df_log = pd.DataFrame([
-            {"Hora": "06:15:00", "Grilla": "-78.5000_-7.1600", "Estado": "Alerta Roja", "Canal": "Telegram + SMS", "Confirmado": "Sí"},
-            {"Hora": "06:14:30", "Grilla": "-78.5500_-7.2000", "Estado": "Alerta Roja", "Canal": "Telegram", "Confirmado": "En Verificación"},
+            {"Hora": "06:15:00", "Grilla": "-78.5000_-7.1600", "Estado": "Alerta Roja", "Canal": "WhatsApp + SMS", "Confirmado": "Sí"},
+            {"Hora": "06:14:30", "Grilla": "-78.5500_-7.2000", "Estado": "Alerta Roja", "Canal": "WhatsApp", "Confirmado": "En Verificación"},
             {"Hora": "06:00:12", "Grilla": "-78.4910_-7.1510", "Estado": "Vigilancia", "Canal": "Sistema Local", "Confirmado": "Automático"},
         ])
         st.dataframe(df_log, use_container_width=True)

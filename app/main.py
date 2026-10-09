@@ -6,7 +6,9 @@ Expone:
   GET  /risk/{grid_id}      -> detalle de una grilla específica
   POST /predict             -> inferencia del modelo LightGBM
   POST /propagate           -> motor de propagación espacial por viento
-  POST /alert/telegram      -> dispara alerta de Telegram para grilla Roja
+  POST /alert/whatsapp      -> dispara alerta de WhatsApp para grilla Roja
+  POST /alert/daily         -> dispara manualmente el resumen diario a todos los grupos
+  GET  /alert/status        -> muestra el estado del scheduler y próxima ejecución
 """
 from pathlib import Path
 from typing import Optional
@@ -20,7 +22,8 @@ from pydantic import BaseModel
 
 from app.model import RiskModel
 from app.propagation import propagate_risk
-from app.telegram_alerts import send_red_alert
+from app.whatsapp_alerts import send_red_alert
+from app.scheduler import init_scheduler, run_daily_alerts
 
 app = FastAPI(
     title="AlertaForestal Perú — API Pública",
@@ -44,6 +47,9 @@ app.add_middleware(
 _WEB_DIR = Path(__file__).parent.parent / "web"
 if _WEB_DIR.exists():
     app.mount("/web", StaticFiles(directory=str(_WEB_DIR), html=True), name="portal-web")
+
+# Inicializar el scheduler de alertas automáticas (07:00 Lima todos los días)
+_scheduler = init_scheduler(app)
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -76,7 +82,7 @@ class PredictionResponse(BaseModel):
     nivel: str  # "Verde" | "Amarillo" | "Rojo"
 
 
-class TelegramAlertRequest(BaseModel):
+class WhatsAppAlertRequest(BaseModel):
     grid_id: str
     lat: float
     lon: float
@@ -201,9 +207,9 @@ def propagate(grid_id: str, viento_direccion: float = 45.0, viento_velocidad: fl
     return propagate_risk(grid_id, viento_direccion, viento_velocidad)
 
 
-@app.post("/alert/telegram")
-def trigger_alert(alert_req: TelegramAlertRequest):
-    """Dispara alerta de Telegram a los bomberos/brigadas."""
+@app.post("/alert/whatsapp")
+def trigger_alert(alert_req: WhatsAppAlertRequest):
+    """Dispara alerta de WhatsApp a los bomberos/brigadas."""
     try:
         res = send_red_alert(
             grid_id=alert_req.grid_id,
@@ -211,9 +217,45 @@ def trigger_alert(alert_req: TelegramAlertRequest):
             lon=alert_req.lon,
             confianza=alert_req.confianza,
         )
-        return {"status": "alerta_enviada", "telegram_response": res}
+        return {"status": "alerta_enviada", "whatsapp_response": res}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error enviando alerta Telegram: {exc}")
+        raise HTTPException(status_code=500, detail=f"Error enviando alerta WhatsApp: {exc}")
+
+
+@app.post("/alert/daily", tags=["Alertas"])
+async def trigger_daily_alerts():
+    """
+    Dispara manualmente el resumen diario de riesgo a todos los grupos de WhatsApp.
+    Útil para pruebas o cuando se quiere enviar un boletín fuera del horario programado.
+    """
+    try:
+        await run_daily_alerts()
+        return {"status": "ok", "mensaje": "Alertas diarias enviadas a todos los grupos."}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error en el envío de alertas: {exc}")
+
+
+@app.get("/alert/status", tags=["Alertas"])
+def get_alert_status():
+    """
+    Consulta el estado del scheduler de alertas automáticas.
+    Muestra la próxima ejecución programada y el estado de cada job.
+    """
+    jobs = []
+    for job in _scheduler.get_jobs():
+        next_run = job.next_run_time.isoformat() if job.next_run_time else "no programado"
+        jobs.append({
+            "id":       job.id,
+            "nombre":   job.name,
+            "proxima_ejecucion": next_run,
+            "activo":   job.next_run_time is not None,
+        })
+    return {
+        "scheduler_activo": _scheduler.running,
+        "zona_horaria":    "America/Lima (UTC-5)",
+        "horario":         "07:00 todos los días",
+        "jobs":            jobs,
+    }
 
 
 @app.get("/report/pdf")
@@ -290,7 +332,7 @@ def get_social_environment_matrix():
             "n_total": 25,
             "composicion": [
                 {"grupo": "Bomberos / Jefes Brigada", "cantidad": 5, "rol": "Validación de mapa de riesgo y coordenadas de alerta"},
-                {"grupo": "Rondas Campesinas", "cantidad": 5, "rol": "Recepción y claridad de mensajes Telegram/SMS"},
+                {"grupo": "Rondas Campesinas", "cantidad": 5, "rol": "Recepción y claridad de mensajes WhatsApp/SMS"},
                 {"grupo": "Defensa Civil Local", "cantidad": 3, "rol": "Revisión de informes ejecutivos PDF para expedientes"},
                 {"grupo": "SENAMHI / Técnicos", "cantidad": 2, "rol": "Validación de variables climáticas ERA5"},
                 {"grupo": "Pobladores Rurales", "cantidad": 10, "rol": "Prueba de usabilidad del semáforo Verde/Amarillo/Rojo"}
@@ -301,7 +343,7 @@ def get_social_environment_matrix():
                 "id": 1,
                 "restriccion": "Brecha Digital y Alfabetización Tecnológica",
                 "descripcion": "Agricultores mayores de 50 años carecen de smartphones o conectividad mívil rápida.",
-                "mitigacion": "El sistema envía alertas SMS/Telegram en texto plano con iconografía básica; el Dashboard es exclusivo para bomberos y funcionarios capacitados."
+                "mitigacion": "El sistema envía alertas SMS/WhatsApp en texto plano con iconografía básica; el Dashboard es exclusivo para bomberos y funcionarios capacitados."
             },
             {
                 "id": 2,
