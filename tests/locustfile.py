@@ -3,9 +3,9 @@ Prueba de carga concurrente para la API (Semana 15-16).
 Simula 100 peticiones simultáneas sobre endpoints críticos.
 
 Uso:
-    locust -f tests/locustfile.py --host=http://localhost:8000
+    locust -f tests/locustfile.py --host=http://localhost:5050
     O en modo headless:
-    locust -f tests/locustfile.py --host=http://localhost:8000 --headless -u 100 -r 10 --run-time 30s
+    locust -f tests/locustfile.py --host=http://localhost:5050 --headless -u 100 -r 10 --run-time 30s
 """
 from locust import HttpUser, between, task
 

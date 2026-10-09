@@ -232,15 +232,16 @@ docker compose up -d
 
 ### 5. Iniciar la API y el Portal Ciudadano
 ```bash
-uvicorn app.main:app --reload --port 5050
+# Recomendado usar python -m para evitar problemas de rutas (PATH)
+python -m uvicorn app.main:app --reload --port 5050 --host 0.0.0.0
 ```
-- **Portal ciudadano:** `http://localhost:5050`
+- **Portal ciudadano (se auto-redirige a /web/):** `http://localhost:5050`
 - **Swagger UI (documentación API):** `http://localhost:5050/docs`
-- **Portal web estático:** `http://localhost:5050/web/`
 
 ### 6. (Opcional) Iniciar Dashboard Técnico Streamlit
+Asegúrate de haber instalado los requerimientos primero (`pip install -r requirements.txt`).
 ```bash
-streamlit run dashboard/app.py
+python -m streamlit run dashboard/app.py
 ```
 Accede en: `http://localhost:8501`
 

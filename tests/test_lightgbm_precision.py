@@ -44,7 +44,7 @@ FEATURE_ORDER = [
 ]
 
 UMBRAL_ROJO     = 0.70  # >= Rojo
-UMBRAL_AMARILLO = 0.35  # >= Amarillo
+UMBRAL_AMARILLO = 0.15  # >= Amarillo
 
 def clasificar(p: float) -> str:
     if p >= UMBRAL_ROJO:
@@ -251,7 +251,7 @@ TEST_CASES = [
         None,  # Sin expectativa fija — medimos probabilidad exacta
     ),
     (
-        "Frontera A/V — Condiciones cerca umbral Amarillo (0.35)",
+        "Frontera A/V — Condiciones cerca umbral Amarillo (0.15)",
         {
             "pendiente_pct": 10.0,
             "ndvi": 0.50,

@@ -7,7 +7,7 @@
 /* ═══════════════════════════════════════════════════
    CONFIGURACIÓN GLOBAL
    ═══════════════════════════════════════════════════ */
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://localhost:5050';
 
 // NASA FIRMS — acceso directo desde frontend o vía proxy FastAPI
 const FIRMS_KEY  = 'a86632ae3bb704ddc1818342f63bf8b0';
@@ -40,7 +40,7 @@ function generateDemoFeatures() {
     for (let lon = -79.0; lon <= -77.9; lon += 0.05) {
       const noise = Math.sin(lat * 47) * Math.cos(lon * 31) * 0.5 + 0.5;
       const prob  = Math.max(0.01, Math.min(0.99, noise + (Math.random() - 0.5) * 0.2));
-      const nivel = prob >= 0.70 ? 'Rojo' : prob >= 0.35 ? 'Amarillo' : 'Verde';
+      const nivel = prob >= 0.70 ? 'Rojo' : prob >= 0.15 ? 'Amarillo' : 'Verde';
 
       // En modo demo solo mostramos zonas de riesgo real (Rojo/Amarillo)
       // Las zonas verdes se omiten para no crear un "tapete" artificial
@@ -155,8 +155,8 @@ function initMainMap() {
     zoomControl: true,
   });
 
-  L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3w0w_1_edb38c89c08e55d3c9622c84', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
   }).addTo(mainMap);
 
@@ -240,8 +240,8 @@ function renderMapLayers(features) {
       L.polygon(coords, {
         color: '#000', weight: 0.4,
         fillColor: color,
-        fillOpacity: isDemo ? 0.35 : 0.55,   // más transparente en demo
-        dashArray:  isDemo ? '4 3' : null,    // bordes discontinuos en demo
+        fillOpacity: 0.60,
+        dashArray:  isDemo ? '4 3' : null,
       }).bindPopup(popup).addTo(polygonLayerGroup);
     });
   }
@@ -351,8 +351,8 @@ async function loadFIRMSHotspots() {
     features = generateRealisticFIRMSDemo(bboxKey);
     source   = 'simulación';
     console.info(
-      '%c🛰️ NASA FIRMS: inicia la API FastAPI en puerto 8000 para focos REALES.\n' +
-      'Comando: uvicorn app.main:app --reload --port 8000',
+      '%c🛰️ NASA FIRMS: inicia la API FastAPI en puerto 5050 para focos REALES.\n' +
+      'Comando: uvicorn app.main:app --reload --port 5050',
       'color:#f97316;font-weight:bold'
     );
   }
@@ -456,8 +456,8 @@ function renderFIRMSLayer(features, apiContactado = false) {
       color:       '#fff',
       weight:      isDemo ? 1 : 2,
       fillColor:   color,
-      fillOpacity: isDemo ? 0.65 : 0.88,
-      dashArray:   isDemo ? '3 2' : null,   // borde discontinuo = demo
+      fillOpacity: 0.88,
+      dashArray:   isDemo ? '3 2' : null,
     }).bindPopup(popup).addTo(firmsLayerGroup);
   });
 }
@@ -522,8 +522,8 @@ let reportMap, reportMarker;
 
 function initReportMap() {
   reportMap = L.map('reportMap', { center: [-7.16, -78.5], zoom: 9 });
-  L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3w0w_1_edb38c89c08e55d3c9622c84', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
   }).addTo(reportMap);
 

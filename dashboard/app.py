@@ -24,7 +24,7 @@ try:
 except ImportError:
     st_folium = None
 
-API_URL = "http://localhost:8000"
+API_URL = "http://localhost:5050"
 COLOR_MAP = {"Verde": "#2ecc71", "Amarillo": "#f1c40f", "Rojo": "#e74c3c"}
 
 st.set_page_config(
@@ -122,7 +122,7 @@ if not features:
             lon, lat = float(row["longitude"]), float(row["latitude"])
             prob = float(row.get("target", 0)) * 0.85 + (0.1 if idx % 5 == 0 else 0.02)
             prob = min(0.99, max(0.01, prob))
-            nivel = "Rojo" if prob >= 0.70 else "Amarillo" if prob >= 0.35 else "Verde"
+            nivel = "Rojo" if prob >= 0.70 else "Amarillo" if prob >= 0.15 else "Verde"
             features.append({
                 "type": "Feature",
                 "geometry": {

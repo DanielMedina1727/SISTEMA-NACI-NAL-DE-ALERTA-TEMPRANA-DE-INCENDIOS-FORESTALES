@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -43,6 +43,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 # Montar el portal web público en /web
 _WEB_DIR = Path(__file__).parent.parent / "web"
 if _WEB_DIR.exists():
@@ -51,13 +59,12 @@ if _WEB_DIR.exists():
 # Inicializar el scheduler de alertas automáticas (07:00 Lima todos los días)
 _scheduler = init_scheduler(app)
 
+from fastapi.responses import RedirectResponse
+
 @app.get("/", include_in_schema=False)
 def root():
     """Redirige a la página principal del portal ciudadano."""
-    index = _WEB_DIR / "index.html"
-    if index.exists():
-        return FileResponse(str(index))
-    return {"message": "AlertaForestal Perú API v2.0 — Portal en /web · Docs en /docs"}
+    return RedirectResponse(url="/web/")
 
 model = RiskModel()
 DATASET_PATH = Path(__file__).parent.parent / "data" / "dataset.parquet"
@@ -112,7 +119,7 @@ def predict(features: GridFeatures):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.35 else "Verde"
+    nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.15 else "Verde"
     return PredictionResponse(grid_id=features.grid_id, probabilidad=round(proba, 4), nivel=nivel)
 
 
@@ -162,7 +169,7 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
 
     for i, (idx, row) in enumerate(df.iterrows()):
         proba = float(probas[i])
-        nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.35 else "Verde"
+        nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.15 else "Verde"
 
         
         lon, lat = float(row["longitude"]), float(row["latitude"])
@@ -375,7 +382,7 @@ import io
 import os
 import urllib.request
 
-FIRMS_MAP_KEY = os.getenv("FIRMS_MAP_KEY", "a86632ae3bb704ddc1818342f63bf8b0")
+FIRMS_MAP_KEY = os.getenv("FIRMS_MAP_KEY", "")  # Configura FIRMS_MAP_KEY en .env (ver .env.example)
 
 # Bounding boxes predefinidas (minLon, minLat, maxLon, maxLat)
 BBOXES = {

@@ -129,7 +129,7 @@ def _fetch_risk_data() -> list[dict]:
         features = []
         for i, (_, row) in enumerate(df.iterrows()):
             proba = float(probas[i])
-            nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.35 else "Verde"
+            nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.15 else "Verde"
             lon, lat = float(row["longitude"]), float(row["latitude"])
             poly_coords = [
                 [lon - cell_size/2, lat - cell_size/2],
