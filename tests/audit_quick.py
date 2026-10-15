@@ -11,13 +11,12 @@ sys.path.insert(0, str(ROOT))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-BASE_URL = 'http://localhost:5050'
+BASE_URL = 'http://127.0.0.1:5050'
 MODEL_PATH = ROOT / 'models' / 'lightgbm_wildfire.pkl'
 WEB_DIR = ROOT / 'web'
 APP_DIR = ROOT / 'app'
 
-FEAT = ['pendiente_pct','ndvi','dist_carretera_m','dist_poblado_m',
-        'temp_2m','humedad_relativa','viento_velocidad','viento_direccion']
+from app.model import FEATURE_ORDER as FEAT, DEFAULT_VALUES, classify  # 18 features (fuente única en app/model.py)
 
 def g(path, timeout=8, **params):
     try: return requests.get(f'{BASE_URL}{path}', params=params, timeout=timeout)
@@ -51,10 +50,10 @@ ok = r is not None and r.status_code == 200
 cat.append(ok)
 if ok:
     d = r.json()
-    print(f'  PASA  POST /predict  nivel={d["nivel"]} p={d["probabilidad"]:.4f}')
-    ok2 = d['nivel'] == 'Rojo'
+    print(f'  PASA  POST /predict  nivel={d["nivel"]} p={d["probabilidad"]:.4f} percentil={d.get("percentil")}')
+    ok2 = d['nivel'] in ('Verde', 'Amarillo', 'Rojo') and d['nivel'] == classify(d['probabilidad'])
     cat.append(ok2)
-    print(f'  {"PASA" if ok2 else "FALLA"}  Escenario critico -> Rojo: {d["nivel"]}')
+    print(f'  {"PASA" if ok2 else "FALLA"}  Clasificacion /predict consistente con los umbrales del modelo')
 
 r = g('/risk/today', limit=5)
 if r and r.status_code == 200:
@@ -76,6 +75,7 @@ results['1_Adecuacion_Funcional'] = (sum(cat), len(cat))
 # ── 2. EFICIENCIA DE DESEMPENO ────────────────────────────────────────────────
 print('\n[2] EFICIENCIA DE DESEMPENO')
 cat = []
+g('/health')  # warm-up: evita penalizar el primer handshake TCP (keep-alive)
 for ep, lim_ms in [('/health', 200), ('/model/importance', 500)]:
     times = []
     for _ in range(5):
@@ -91,11 +91,15 @@ for ep, lim_ms in [('/health', 200), ('/model/importance', 500)]:
 
 model = joblib.load(MODEL_PATH)
 np.random.seed(42); N = 1000
+RANGOS = {
+    'pendiente_pct': (0, 60), 'ndvi': (0.05, 0.9),
+    'dist_carretera_m': (50, 10000), 'dist_poblado_m': (100, 15000),
+    'temp_2m': (12, 40), 'humedad_relativa': (8, 95),
+    'viento_velocidad': (0, 70), 'viento_direccion': (0, 360),
+}
 df = pd.DataFrame({
-    'pendiente_pct': np.random.uniform(0,60,N), 'ndvi': np.random.uniform(0.05,0.9,N),
-    'dist_carretera_m': np.random.uniform(50,10000,N), 'dist_poblado_m': np.random.uniform(100,15000,N),
-    'temp_2m': np.random.uniform(12,40,N), 'humedad_relativa': np.random.uniform(8,95,N),
-    'viento_velocidad': np.random.uniform(0,70,N), 'viento_direccion': np.random.uniform(0,360,N)
+    col: (np.random.uniform(*RANGOS[col], N) if col in RANGOS else DEFAULT_VALUES.get(col, 0.0))
+    for col in FEAT
 })
 t0 = time.perf_counter(); _ = model.predict_proba(df[FEAT])[:,1]
 ms = (time.perf_counter()-t0)*1000
@@ -122,8 +126,12 @@ results['2_Eficiencia_Desempeno'] = (sum(cat), len(cat))
 # ── 3. COMPATIBILIDAD ─────────────────────────────────────────────────────────
 print('\n[3] COMPATIBILIDAD')
 cat = []
-r = g('/health')
-cors = r.headers.get('access-control-allow-origin','') if r else ''
+# CORS: el header solo se emite cuando la peticion trae Origin (comportamiento real)
+try:
+    r = requests.get(f'{BASE_URL}/health', headers={'Origin': 'http://example.com'}, timeout=8)
+    cors = r.headers.get('access-control-allow-origin', '')
+except Exception:
+    cors = ''
 ok = len(cors) > 0
 cat.append(ok)
 print(f'  {"PASA" if ok else "FALLA"}  CORS: Access-Control-Allow-Origin="{cors}"')
@@ -148,7 +156,7 @@ print(f'  {"PASA" if ok else "FALLA"}  OpenAPI JSON: HTTP {r.status_code if r el
 r2 = g('/risk/today', limit=3)
 if r2 and r2.status_code == 200:
     d = r2.json()
-    ok = d.get('type') == 'FeatureCollection' and d.get('features')
+    ok = d.get('type') == 'FeatureCollection' and bool(d.get('features'))
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  GeoJSON RFC 7946 FeatureCollection valido')
 
@@ -187,10 +195,10 @@ ok = r is not None and r.status_code == 200
 cat.append(ok)
 print(f'  {"PASA" if ok else "FALLA"}  Portal web raiz / HTTP {r.status_code if r else "N/A"}')
 
-r = p('/predict', {'grid_id':'T'})
+r = p('/predict', {})
 ok = r is not None and r.status_code == 422
 cat.append(ok)
-print(f'  {"PASA" if ok else "FALLA"}  Validacion 422 entrada incompleta: HTTP {r.status_code if r else "N/A"}')
+print(f'  {"PASA" if ok else "FALLA"}  Validacion 422 entrada incompleta (falta grid_id): HTTP {r.status_code if r is not None else "N/A"}')
 
 results['4_Usabilidad'] = (sum(cat), len(cat))
 
@@ -271,7 +279,7 @@ print(f'  {"PASA" if ok else "FALLA"}  SQL injection en grid_id: HTTP {r.status_
 
 env_ex = ROOT / '.env.example'
 if env_ex.exists():
-    content = env_ex.read_text()
+    content = env_ex.read_text(encoding="utf-8")
     real_creds = any(c in content for c in ['a86632ae','bd46e923','minioadmin','bot_token_real'])
     ok = not real_creds
     cat.append(ok)

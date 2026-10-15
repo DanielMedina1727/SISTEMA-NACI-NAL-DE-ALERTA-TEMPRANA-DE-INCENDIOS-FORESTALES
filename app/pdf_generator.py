@@ -84,12 +84,12 @@ def generate_executive_pdf(risk_data: dict) -> bytes:
             Paragraph(f"<b>Fecha / Hora Sello:</b> {now_str}", body_style)
         ],
         [
-            Paragraph("<b>Modelo Evaluador:</b> LightGBM Classifier v1.0", body_style),
+            Paragraph("<b>Modelo Evaluador:</b> Ensemble (LightGBM + XGBoost + RandomForest) v2.2.0", body_style),
             Paragraph(f"<b>Firma Digital Hash SHA-256:</b> <font color='#c0392b'>{data_hash}</font>", body_style)
         ],
         [
             Paragraph("<b>Ventana Temporal:</b> Predicción a 24-48 Horas", body_style),
-            Paragraph("<b>Confianza Global Modelo:</b> 97.85% Recall / F1 0.8867", body_style)
+            Paragraph("<b>Desempeño:</b> ROC-AUC 0.61 (validación espacial 5-fold)", body_style)
         ]
     ]
 

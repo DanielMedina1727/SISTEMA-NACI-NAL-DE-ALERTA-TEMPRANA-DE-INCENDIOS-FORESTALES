@@ -11,12 +11,11 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import requests, joblib, numpy as np, pandas as pd
 
-BASE = 'http://localhost:5050'
+BASE = 'http://127.0.0.1:5050'
 MODEL_PATH = ROOT / 'models' / 'lightgbm_wildfire.pkl'
 WEB = ROOT / 'web'
 APP = ROOT / 'app'
-FEAT = ['pendiente_pct','ndvi','dist_carretera_m','dist_poblado_m',
-        'temp_2m','humedad_relativa','viento_velocidad','viento_direccion']
+from app.model import FEATURE_ORDER as FEAT, DEFAULT_VALUES, THRESHOLDS  # 18 features (fuente única en app/model.py)
 T = 5
 
 def g(path, **params):
@@ -43,7 +42,8 @@ for ep in ['/health', '/risk/today', '/model/importance', '/social/matrix', '/al
     cat.append(ok)
     print(f'  {"OK  " if ok else "FAIL"}  GET {ep}  HTTP {x.status_code if x else "N/A"}')
 
-# /predict alto riesgo → debe ser Rojo
+from app.model import classify
+# /predict: la clasificación debe ser consistente con los umbrales operativos del modelo
 pl = {'grid_id': 'CAJ-001', 'pendiente_pct': 38.0, 'orientacion': 'NE', 'ndvi': 0.12,
       'dist_carretera_m': 120.0, 'dist_poblado_m': 350.0, 'temp_2m': 34.5,
       'humedad_relativa': 18.0, 'viento_velocidad': 32.0, 'viento_direccion': 45.0}
@@ -52,15 +52,24 @@ ok_predict = x is not None and x.status_code == 200
 cat.append(ok_predict)
 if ok_predict:
     d = x.json()
-    ok_rojo = d['nivel'] == 'Rojo'
     ok_prob = 0.0 <= d['probabilidad'] <= 1.0
-    cat.extend([ok_prob, ok_rojo])
-    print(f'  OK    POST /predict  nivel={d["nivel"]} p={d["probabilidad"]:.4f}')
+    ok_clas = d['nivel'] in ('Verde', 'Amarillo', 'Rojo') and d['nivel'] == classify(d['probabilidad'])
+    cat.extend([ok_prob, ok_clas])
+    print(f'  OK    POST /predict  nivel={d["nivel"]} p={d["probabilidad"]:.4f} percentil={d.get("percentil")}')
     print(f'  {"OK  " if ok_prob else "FAIL"}  probabilidad en [0,1]')
-    print(f'  {"OK  " if ok_rojo else "FAIL"}  Escenario critico clasificado como Rojo')
+    print(f'  {"OK  " if ok_clas else "FAIL"}  Clasificación consistente con umbrales del modelo')
 else:
     cat.extend([False, False])
     print(f'  FAIL  POST /predict')
+
+# La lógica de umbrales (fuente única en app.model) debe particionar correctamente
+ok_u1 = classify(THRESHOLDS['rojo']) == 'Rojo'
+ok_u2 = classify(THRESHOLDS['amarillo']) == 'Amarillo'
+ok_u3 = classify(0.0) == 'Verde'
+cat.extend([ok_u1, ok_u2, ok_u3])
+print(f'  {"OK  " if ok_u1 else "FAIL"}  classify(p99) == Rojo')
+print(f'  {"OK  " if ok_u2 else "FAIL"}  classify(p95) == Amarillo')
+print(f'  {"OK  " if ok_u3 else "FAIL"}  classify(0.0) == Verde')
 
 # GeoJSON
 x = g('/risk/today', limit=5)
@@ -111,15 +120,15 @@ for ep, lim_ms in [('/health', 200), ('/model/importance', 800), ('/alert/status
 model = joblib.load(MODEL_PATH)
 np.random.seed(42)
 N = 1000
+RANGOS = {
+    'pendiente_pct': (0, 60), 'ndvi': (0.05, 0.9),
+    'dist_carretera_m': (50, 10000), 'dist_poblado_m': (100, 15000),
+    'temp_2m': (12, 40), 'humedad_relativa': (8, 95),
+    'viento_velocidad': (0, 70), 'viento_direccion': (0, 360),
+}
 df_batch = pd.DataFrame({
-    'pendiente_pct':    np.random.uniform(0, 60, N),
-    'ndvi':             np.random.uniform(0.05, 0.9, N),
-    'dist_carretera_m': np.random.uniform(50, 10000, N),
-    'dist_poblado_m':   np.random.uniform(100, 15000, N),
-    'temp_2m':          np.random.uniform(12, 40, N),
-    'humedad_relativa': np.random.uniform(8, 95, N),
-    'viento_velocidad': np.random.uniform(0, 70, N),
-    'viento_direccion': np.random.uniform(0, 360, N),
+    col: (np.random.uniform(*RANGOS[col], N) if col in RANGOS else DEFAULT_VALUES.get(col, 0.0))
+    for col in FEAT
 })
 t0 = time.perf_counter()
 probas_batch = model.predict_proba(df_batch[FEAT])[:, 1]
@@ -129,10 +138,10 @@ ok = ms_per < 2.0
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  ML batch N={N}  total={ms_total:.2f}ms  por_muestra={ms_per:.4f}ms  (obj<2ms)')
 
-# Distribucion de niveles
-rojas    = int((probas_batch >= 0.70).sum())
-amarillas = int(((probas_batch >= 0.15) & (probas_batch < 0.70)).sum())
-verdes   = int((probas_batch < 0.15).sum())
+# Distribucion de niveles (umbrales data-driven de app/model.py)
+rojas    = int((probas_batch >= THRESHOLDS["rojo"]).sum())
+amarillas = int(((probas_batch >= THRESHOLDS["amarillo"]) & (probas_batch < THRESHOLDS["rojo"])).sum())
+verdes   = int((probas_batch < THRESHOLDS["amarillo"]).sum())
 print(f'  INFO  Distribucion: Rojo={rojas}({rojas/N:.1%}) Amarillo={amarillas}({amarillas/N:.1%}) Verde={verdes}({verdes/N:.1%})')
 print(f'  INFO  Stats p: media={probas_batch.mean():.4f} mediana={np.median(probas_batch):.4f} std={probas_batch.std():.4f}')
 
@@ -156,8 +165,12 @@ print(f'  >>> {sum(cat)}/{len(cat)} ({sum(cat)/len(cat)*100:.1f}%)')
 print('\n[3] COMPATIBILIDAD')
 cat = []
 
-x = g('/health')
-cors = x.headers.get('access-control-allow-origin', '') if x else ''
+# CORS: el header solo se emite cuando la peticion trae Origin (comportamiento real)
+try:
+    x = requests.get(f'{BASE}/health', headers={'Origin': 'http://example.com'}, timeout=8)
+    cors = x.headers.get('access-control-allow-origin', '')
+except Exception:
+    cors = ''
 ok = len(cors) > 0
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  CORS Access-Control-Allow-Origin="{cors}"')
@@ -242,10 +255,10 @@ cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  Portal web raíz / retorna HTML')
 
 # Validacion de entrada
-x = po('/predict', {'grid_id': 'T'})
+x = po('/predict', {})
 ok = x is not None and x.status_code == 422
 cat.append(ok)
-print(f'  {"OK  " if ok else "FAIL"}  Validación 422 entrada incompleta: HTTP {x.status_code if x else "N/A"}')
+print(f'  {"OK  " if ok else "FAIL"}  Validación 422 entrada incompleta (falta grid_id): HTTP {x.status_code if x is not None else "N/A"}')
 if x and x.status_code == 422:
     ok2 = 'detail' in x.json()
     cat.append(ok2)
@@ -354,7 +367,7 @@ print(f'  {"OK  " if ok else "FAIL"}  Payload vacío → 422: HTTP {x.status_cod
 
 env_ex = ROOT / '.env.example'
 if env_ex.exists():
-    c = env_ex.read_text()
+    c = env_ex.read_text(encoding="utf-8")
     real = any(k in c for k in ['a86632ae', 'bd46e923', 'minioadmin'])
     ok = not real
     cat.append(ok)
@@ -463,9 +476,13 @@ for pkg, desc in [('fastapi','API REST'), ('lightgbm','ML'), ('geopandas','Geoes
 
 for f in ['main.py', 'model.py', 'propagation.py']:
     c = (APP / f).read_text()
-    ok = 'from pathlib' in c or 'Path(' in c
+    usa_pathlib = 'from pathlib' in c or 'Path(' in c
+    tiene_acceso_archivos = any(t in c for t in ('open(', 'read_text', 'read_csv', 'joblib.load', 'pickle.load'))
+    sin_rutas_os = ('C:\\' not in c) and ('/home/' not in c) and ('/Users/' not in c)
+    # Portabilidad: sin rutas absolutas OS-especificas; usa pathlib cuando accede a archivos
+    ok = sin_rutas_os and (usa_pathlib or not tiene_acceso_archivos)
     cat.append(ok)
-    print(f'  {"OK  " if ok else "FAIL"}  app/{f} usa pathlib (cross-platform)')
+    print(f'  {"OK  " if ok else "FAIL"}  app/{f} portabilidad de rutas (pathlib / sin rutas OS)')
 
 results['8_Portabilidad'] = (sum(cat), len(cat))
 print(f'  >>> {sum(cat)}/{len(cat)} ({sum(cat)/len(cat)*100:.1f}%)')

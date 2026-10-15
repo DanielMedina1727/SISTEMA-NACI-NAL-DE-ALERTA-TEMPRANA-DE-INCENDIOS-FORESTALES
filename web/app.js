@@ -7,7 +7,7 @@
 /* ═══════════════════════════════════════════════════
    CONFIGURACIÓN GLOBAL
    ═══════════════════════════════════════════════════ */
-const API_URL = 'http://localhost:5050';
+const API_URL = 'http://127.0.0.1:5050';
 
 // NASA FIRMS — acceso directo desde frontend o vía proxy FastAPI
 const FIRMS_KEY  = 'a86632ae3bb704ddc1818342f63bf8b0';
@@ -16,9 +16,60 @@ const FIRMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
 // Bounding boxes predefinidas (minLon, minLat, maxLon, maxLat)
 const FIRMS_BBOXES = {
   all:       '-81.5,-18.5,-68.5,0',
-  cajamarca: '-79.5,-7.8,-77.5,-4.5',
+  cajamarca: '-79.4517,-7.7592,-77.7389,-4.5519',
   norte:     '-80.5,-6.0,-75.0,0',
   sur:       '-81.5,-18.5,-68.5,-6.0',
+};
+
+// Puntos cardinales de lectura y límites geográficos de Cajamarca
+const CAJAMARCA_EXTREMES = [
+  {
+    cardinal: 'Norte',
+    subtitle: 'Punto más septentrional',
+    lat: -4.551944,
+    lon: -78.707500,
+    latDMS: '04° 33′ 07″ S',
+    lonDMS: '78° 42′ 27″ O',
+    desc: 'Frontera internacional con Ecuador, en la cordillera Campanquiz.',
+    badgeColor: '#38bdf8'
+  },
+  {
+    cardinal: 'Sur',
+    subtitle: 'Punto más meridional',
+    lat: -7.759167,
+    lon: -78.220556,
+    latDMS: '07° 45′ 33″ S',
+    lonDMS: '78° 13′ 14″ O',
+    desc: 'Límite con La Libertad.',
+    badgeColor: '#f59e0b'
+  },
+  {
+    cardinal: 'Este',
+    subtitle: 'Punto más oriental',
+    lat: -7.463056,
+    lon: -77.738889,
+    latDMS: '07° 27′ 47″ S',
+    lonDMS: '77° 44′ 20″ O',
+    desc: 'Punto sobre el río Marañón.',
+    badgeColor: '#10b981'
+  },
+  {
+    cardinal: 'Oeste',
+    subtitle: 'Punto más occidental',
+    lat: -6.394722,
+    lon: -79.451667,
+    latDMS: '06° 23′ 41″ S',
+    lonDMS: '79° 27′ 06″ O',
+    desc: 'Línea de cumbre del cerro Carrampón.',
+    badgeColor: '#a855f7'
+  }
+];
+
+const CAJAMARCA_BBOX = {
+  south: -7.759167,
+  north: -4.551944,
+  west:  -79.451667,
+  east:  -77.738889
 };
 
 const COLOR_MAP = {
@@ -35,16 +86,24 @@ const DEMO_FEATURES = generateDemoFeatures();
    ═══════════════════════════════════════════════════ */
 function generateDemoFeatures() {
   const features = [];
-  const cellSize = 0.009;
-  for (let lat = -7.7; lat <= -6.6; lat += 0.05) {
-    for (let lon = -79.0; lon <= -77.9; lon += 0.05) {
-      const noise = Math.sin(lat * 47) * Math.cos(lon * 31) * 0.5 + 0.5;
-      const prob  = Math.max(0.01, Math.min(0.99, noise + (Math.random() - 0.5) * 0.2));
-      const nivel = prob >= 0.70 ? 'Rojo' : prob >= 0.15 ? 'Amarillo' : 'Verde';
+  const step = 0.048;
+  const cellSize = 0.048;
+  
+  // Recorrer la totalidad del cuadrante de Cajamarca (de Sur a Norte y de Oeste a Este)
+  for (let lat = -7.72; lat <= -4.56; lat += step) {
+    for (let lon = -79.42; lon <= -77.76; lon += step) {
+      // Simulación física espacial basada en corredores secos interandinos y laderas
+      const reliefNoise = Math.sin(lat * 9.2 + lon * 4.1) * 0.4;
+      const thermalGrad = (lat + 7.7) * 0.15; // Variación térmica latitudinal
+      const basinEffect = Math.cos(lon * 11.5) * 0.35; // Cuenca del Marañón y valles occidentales
+      const rawRisk     = 0.38 + reliefNoise + thermalGrad + basinEffect + (Math.random() - 0.5) * 0.18;
+      const prob        = Math.max(0.03, Math.min(0.97, rawRisk));
+      // Umbrales ILUSTRATIVOS solo para la simulación offline. Con la API activa,
+      // el backend clasifica con umbrales data-driven (presupuesto de alerta top 1%/5%).
+      const nivel       = prob >= 0.65 ? 'Rojo' : prob >= 0.32 ? 'Amarillo' : 'Verde';
 
-      // En modo demo solo mostramos zonas de riesgo real (Rojo/Amarillo)
-      // Las zonas verdes se omiten para no crear un "tapete" artificial
-      if (nivel === 'Verde') continue;
+      // Mostrar zonas rojas, amarillas y una selección de verdes para visualización equilibrada
+      if (nivel === 'Verde' && Math.random() > 0.25) continue;
 
       features.push({
         type: 'Feature',
@@ -62,12 +121,12 @@ function generateDemoFeatures() {
           grid_id: `${lon.toFixed(4)}_${lat.toFixed(4)}`,
           probabilidad: Math.round(prob * 10000) / 10000,
           nivel,
-          temp_2m: 22 + noise * 14,
-          humedad_relativa: 70 - noise * 50,
-          viento_velocidad: 5 + noise * 35,
-          viento_direccion: Math.random() * 360,
-          pendiente_pct: noise * 40,
-          ndvi: 0.8 - noise * 0.6,
+          temp_2m: Math.round((21.5 + (lat + 7.7) * 2.2 + Math.random() * 5) * 10) / 10,
+          humedad_relativa: Math.round(Math.max(15, 65 - prob * 40 + Math.random() * 8)),
+          viento_velocidad: Math.round(10 + prob * 25 + Math.random() * 12),
+          viento_direccion: Math.round(Math.random() * 360),
+          pendiente_pct: Math.round(12 + prob * 28 + Math.random() * 10),
+          ndvi: Math.round(Math.max(0.1, 0.65 - prob * 0.45) * 100) / 100,
           _isDemo: true,
         }
       });
@@ -78,10 +137,9 @@ function generateDemoFeatures() {
 
 /**
  * Genera focos de calor demo con coordenadas realistas de Perú
- * para cuando NASA FIRMS está bloqueado por CORS y la API no está activa.
+ * distribuidos por todo el territorio de Cajamarca (de frontera Norte a Sur)
  */
 function generateRealisticFIRMSDemo(region) {
-  // Focos representativos reales de Perú (zona sur amazónica, típicos en septiembre)
   const BASE_HOTSPOTS = [
     // Madre de Dios / Puno
     { lat: -12.58, lon: -69.18, frp: 38.2, conf: 0.95, sat: 'N20',  d: 'D' },
@@ -91,26 +149,36 @@ function generateRealisticFIRMSDemo(region) {
     // Ucayali / Loreto
     { lat: -8.34,  lon: -74.52, frp: 5.2,  conf: 0.75, sat: 'SNPP', d: 'D' },
     { lat: -8.41,  lon: -74.60, frp: 12.7, conf: 0.95, sat: 'N20',  d: 'D' },
-    { lat: -9.15,  lon: -75.10, frp: 3.1,  conf: 0.40, sat: 'SNPP', d: 'N' },
-    // Cajamarca / La Libertad
-    { lat: -7.22,  lon: -78.51, frp: 4.8,  conf: 0.75, sat: 'SNPP', d: 'D' },
-    { lat: -7.45,  lon: -78.73, frp: 7.3,  conf: 0.75, sat: 'N20',  d: 'D' },
-    { lat: -6.98,  lon: -78.22, frp: 2.1,  conf: 0.40, sat: 'SNPP', d: 'D' },
-    { lat: -7.08,  lon: -78.90, frp: 11.5, conf: 0.95, sat: 'SNPP', d: 'D' },
+
+    // CAJAMARCA — Focos satelitales distribuidos en todos los sectores:
+    // 1. Sector Norte (San Ignacio / Jaén / Campanquiz / Frontera Ecuador)
+    { lat: -4.62,  lon: -78.75, frp: 28.5, conf: 0.95, sat: 'VIIRS', d: 'D' },
+    { lat: -4.95,  lon: -78.92, frp: 19.3, conf: 0.85, sat: 'SNPP',  d: 'D' },
+    { lat: -5.32,  lon: -79.08, frp: 15.8, conf: 0.80, sat: 'N20',   d: 'D' },
+    { lat: -5.70,  lon: -78.85, frp: 11.4, conf: 0.75, sat: 'SNPP',  d: 'D' },
+
+    // 2. Sector Centro (Cutervo / Chota / Santa Cruz / Cerro Carrampón)
+    { lat: -6.15,  lon: -78.65, frp: 22.0, conf: 0.95, sat: 'VIIRS', d: 'D' },
+    { lat: -6.38,  lon: -79.35, frp: 18.2, conf: 0.90, sat: 'SNPP',  d: 'D' }, // Oeste (Carrampón)
+    { lat: -6.52,  lon: -78.48, frp: 14.6, conf: 0.80, sat: 'N20',   d: 'N' },
+
+    // 3. Sector Este (Cañón y Valle del Río Marañón / Celendín)
+    { lat: -7.28,  lon: -77.82, frp: 31.4, conf: 0.95, sat: 'SNPP',  d: 'D' }, // Este (Marañón)
+    { lat: -7.46,  lon: -77.78, frp: 24.2, conf: 0.90, sat: 'VIIRS', d: 'D' },
+
+    // 4. Sector Sur (Cajamarca capital / San Marcos / Cajabamba / La Libertad)
+    { lat: -7.15,  lon: -78.50, frp: 16.5, conf: 0.85, sat: 'VIIRS', d: 'D' },
+    { lat: -7.45,  lon: -78.73, frp: 9.8,  conf: 0.75, sat: 'N20',   d: 'D' },
+    { lat: -7.68,  lon: -78.20, frp: 17.1, conf: 0.90, sat: 'SNPP',  d: 'D' }, // Sur (Límite La Libertad)
+
     // Ayacucho / Apurimac
     { lat: -14.07, lon: -73.45, frp: 6.8,  conf: 0.75, sat: 'SNPP', d: 'D' },
     { lat: -14.22, lon: -73.62, frp: 9.4,  conf: 0.75, sat: 'N20',  d: 'N' },
-    // Junin / Huánuco
-    { lat: -10.30, lon: -74.80, frp: 4.1,  conf: 0.40, sat: 'SNPP', d: 'D' },
-    { lat: -10.55, lon: -75.10, frp: 18.3, conf: 0.95, sat: 'N20',  d: 'D' },
-    { lat: -9.88,  lon: -74.21, frp: 6.5,  conf: 0.75, sat: 'SNPP', d: 'D' },
   ];
 
-  // Si la región es cajamarca, filtrar aproximadamente
   let spots = BASE_HOTSPOTS;
   if (region === 'cajamarca') {
-    spots = BASE_HOTSPOTS.filter(h => h.lat >= -7.8 && h.lat <= -4.5 && h.lon >= -79.5 && h.lon <= -77.5);
-    if (spots.length === 0) spots = BASE_HOTSPOTS.slice(7, 11); // focos de Cajamarca
+    spots = BASE_HOTSPOTS.filter(h => h.lat >= -7.7592 && h.lat <= -4.5519 && h.lon >= -79.4517 && h.lon <= -77.7389);
   }
 
   const today = new Date();
@@ -145,13 +213,14 @@ function generateRealisticFIRMSDemo(region) {
 /* ═══════════════════════════════════════════════════
    MAPA PRINCIPAL (LEAFLET)
    ═══════════════════════════════════════════════════ */
-let mainMap, heatmapLayer, polygonLayerGroup, firmsLayerGroup;
+let mainMap, heatmapLayer, polygonLayerGroup, firmsLayerGroup, extremesLayerGroup;
 let currentFeatures = [];
 
 function initMainMap() {
+  // Centrado en el departamento de Cajamarca abarcando de Norte a Sur
   mainMap = L.map('map', {
-    center: [-9.0, -75.5],   // Centro de Perú para ver focos nacionales
-    zoom: 6,
+    center: [-6.1556, -78.5953],
+    zoom: 8,
     zoomControl: true,
   });
 
@@ -160,9 +229,16 @@ function initMainMap() {
     maxZoom: 19,
   }).addTo(mainMap);
 
-  polygonLayerGroup = L.layerGroup().addTo(mainMap);
-  firmsLayerGroup   = L.layerGroup().addTo(mainMap);
+  polygonLayerGroup  = L.layerGroup().addTo(mainMap);
+  firmsLayerGroup    = L.layerGroup().addTo(mainMap);
+  extremesLayerGroup = L.layerGroup().addTo(mainMap);
 
+  // Crear panel exclusivo para focos satelitales con z-index superior (650)
+  // Esto evita que el canvas del mapa de calor o los polígonos IA tapen los focos
+  mainMap.createPane('firmsPane');
+  mainMap.getPane('firmsPane').style.zIndex = '650';
+
+  renderExtremesLayer();
   loadMapData();
   loadFIRMSHotspots();
 }
@@ -212,7 +288,7 @@ function renderMapLayers(features) {
       ];
     });
     heatmapLayer = L.heatLayer(heatData, {
-      radius: 20, blur: 18, maxZoom: 14,
+      radius: 28, blur: 20, maxZoom: 14,
       gradient: { 0.2: '#22c55e', 0.5: '#f97316', 0.8: '#ef4444', 1.0: '#7f1d1d' }
     }).addTo(mainMap);
   }
@@ -247,9 +323,109 @@ function renderMapLayers(features) {
   }
 }
 
-function toggleHeatmapLayer() { renderMapLayers(currentFeatures); }
-function togglePolygonLayer() { renderMapLayers(currentFeatures); }
-function filterByRegion()     { loadMapData(); loadFIRMSHotspots(); }
+function toggleHeatmapLayer()  { renderMapLayers(currentFeatures); }
+function togglePolygonLayer()  { renderMapLayers(currentFeatures); }
+function toggleExtremesLayer() { renderExtremesLayer(); }
+
+function filterByRegion() {
+  const regionVal = document.getElementById('regionFilter')?.value || 'cajamarca';
+  if (regionVal === 'cajamarca' && mainMap) {
+    mainMap.flyToBounds([
+      [CAJAMARCA_BBOX.south, CAJAMARCA_BBOX.west],
+      [CAJAMARCA_BBOX.north, CAJAMARCA_BBOX.east]
+    ], { duration: 1.2, padding: [30, 30] });
+  } else if (regionVal === 'all' && mainMap) {
+    mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.2 });
+  }
+  loadMapData();
+  loadFIRMSHotspots();
+}
+
+/**
+ * Renderiza los 4 puntos cardinales extremos de lectura y el cuadrante delimitador de Cajamarca
+ */
+function renderExtremesLayer() {
+  if (!extremesLayerGroup) return;
+  extremesLayerGroup.clearLayers();
+
+  const showExtremes = document.getElementById('toggleExtremes')?.checked ?? true;
+  if (!showExtremes) return;
+
+  // 1. Cuadrante envolvente Bounding Box de lectura
+  const bboxBounds = [
+    [CAJAMARCA_BBOX.south, CAJAMARCA_BBOX.west],
+    [CAJAMARCA_BBOX.north, CAJAMARCA_BBOX.east]
+  ];
+  L.rectangle(bboxBounds, {
+    color: '#0284c7',
+    weight: 2,
+    dashArray: '8, 6',
+    fillColor: '#38bdf8',
+    fillOpacity: 0.05,
+  }).bindPopup(`
+    <div style="font-family:Inter,sans-serif;font-size:12px;color:#0f172a;line-height:1.5">
+      <b style="font-size:13px;color:#0369a1">🗺️ Cuadrante de Lectura — Cajamarca</b><hr style="margin:6px 0"/>
+      <b>Norte (Punto septentrional):</b> ${CAJAMARCA_EXTREMES[0].latDMS} | ${CAJAMARCA_EXTREMES[0].lonDMS}<br/>
+      <b>Sur (Punto meridional):</b> ${CAJAMARCA_EXTREMES[1].latDMS} | ${CAJAMARCA_EXTREMES[1].lonDMS}<br/>
+      <b>Este (Punto oriental):</b> ${CAJAMARCA_EXTREMES[2].latDMS} | ${CAJAMARCA_EXTREMES[2].lonDMS}<br/>
+      <b>Oeste (Punto occidental):</b> ${CAJAMARCA_EXTREMES[3].latDMS} | ${CAJAMARCA_EXTREMES[3].lonDMS}<br/>
+      <div style="margin-top:6px;padding:4px 8px;background:#e0f2fe;border-radius:4px;font-size:11px;color:#0369a1">
+        🛰️ Bounding Box: [${CAJAMARCA_BBOX.west.toFixed(4)}, ${CAJAMARCA_BBOX.south.toFixed(4)}, ${CAJAMARCA_BBOX.east.toFixed(4)}, ${CAJAMARCA_BBOX.north.toFixed(4)}]
+      </div>
+    </div>
+  `).addTo(extremesLayerGroup);
+
+  // 2. Marcadores personalizados para los 4 puntos cardinales extremos
+  CAJAMARCA_EXTREMES.forEach(pt => {
+    const icon = L.divIcon({
+      className: 'reading-point-marker',
+      html: `
+        <div style="
+          background:#0f172a;
+          border:2px solid ${pt.badgeColor};
+          border-radius:20px;
+          padding:3px 9px;
+          color:#f8fafc;
+          font-family:Inter,sans-serif;
+          font-size:11px;
+          font-weight:700;
+          display:flex;
+          align-items:center;
+          gap:5px;
+          box-shadow:0 4px 12px rgba(0,0,0,0.5);
+          cursor:pointer;
+          white-space:nowrap;
+        ">
+          <span style="width:7px;height:7px;border-radius:50%;background:${pt.badgeColor}"></span>
+          <span>${pt.cardinal}: ${pt.subtitle.replace('Punto más ', '')}</span>
+        </div>
+      `,
+      iconSize: [120, 26],
+      iconAnchor: [60, 13]
+    });
+
+    const popupContent = `
+      <div style="font-family:Inter,sans-serif;font-size:12px;min-width:260px;color:#0f172a;line-height:1.5">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="background:${pt.badgeColor};color:#fff;font-weight:700;font-size:11px;padding:2px 8px;border-radius:12px">
+            ${pt.cardinal.toUpperCase()}
+          </span>
+          <b style="font-size:13px">${pt.subtitle}</b>
+        </div>
+        <hr style="margin:6px 0"/>
+        <b>Latitud (DMS):</b> ${pt.latDMS} <span style="color:#64748b">(${pt.lat.toFixed(6)}°)</span><br/>
+        <b>Longitud (DMS):</b> ${pt.lonDMS} <span style="color:#64748b">(${pt.lon.toFixed(6)}°)</span><br/>
+        <div style="margin-top:8px;padding:6px 10px;background:#f8fafc;border-left:3px solid ${pt.badgeColor};border-radius:4px;font-size:11px;color:#334155">
+          📍 <b>Hito geográfico:</b><br/>${pt.desc}
+        </div>
+      </div>
+    `;
+
+    L.marker([pt.lat, pt.lon], { icon })
+      .bindPopup(popupContent)
+      .addTo(extremesLayerGroup);
+  });
+}
 
 /**
  * Muestra/oculta el banner de modo demo encima del mapa.
@@ -304,67 +480,91 @@ function showDemoBanner(isDemo, apiOnline = false) {
 async function loadFIRMSHotspots() {
   if (!mainMap || !firmsLayerGroup) return;
 
-  firmsLayerGroup.clearLayers();
   const showFIRMS = document.getElementById('toggleFIRMS')?.checked;
-  if (showFIRMS === false) return;
+  if (showFIRMS === false) {
+    firmsLayerGroup.clearLayers();
+    return;
+  }
 
   const regionVal = document.getElementById('regionFilter')?.value || 'cajamarca';
   const bboxKey   = FIRMS_BBOXES[regionVal] ? regionVal : 'cajamarca';
   const bbox      = FIRMS_BBOXES[bboxKey];
 
-  updateLegendTime('⏳ Cargando focos satelitales...');
+  updateLegendTime('⏳ Sincronizando satélites VIIRS...');
 
-  let features     = [];
-  let source       = 'simulación';
-  let apiContactado = false;   // ¿logramos llegar a la API real?
+  let features       = [];
+  let sourceLabel    = 'simulación';
+  let dataSourceType = 'offline'; // 'real_today' | 'real_recent' | 'zero_active' | 'offline'
 
-  // 1) Intentar vía proxy FastAPI (datos reales, sin CORS)
+  // 1) Intentar vía proxy FastAPI (datos reales de NASA FIRMS sin problemas de CORS)
   try {
+    // Primero consultar hoy (últimas 24h)
     const proxyResp = await fetch(
       `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=1`,
-      { signal: AbortSignal.timeout(6000) }
+      { signal: AbortSignal.timeout(5000) }
     );
     if (proxyResp.ok) {
       const data = await proxyResp.json();
-      features      = data.features || [];
-      source        = 'NASA FIRMS (tiempo real)';
-      apiContactado = true;
-    }
-  } catch (_) { /* proxy no disponible */ }
+      if (Array.isArray(data.features) && data.features.length > 0) {
+        features       = data.features;
+        sourceLabel    = 'NASA FIRMS (Hoy)';
+        dataSourceType = 'real_today';
+      } else {
+        // Si hoy temprano aún no hubo pasadas satelitales con focos activos,
+        // consultamos las últimas 48-72h para ver los focos satelitales reales detectados en Cajamarca
+        try {
+          const respReciente = await fetch(
+            `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=3`,
+            { signal: AbortSignal.timeout(5000) }
+          );
+          if (respReciente.ok) {
+            const dataReciente = await respReciente.json();
+            if (Array.isArray(dataReciente.features) && dataReciente.features.length > 0) {
+              features       = dataReciente.features;
+              sourceLabel    = 'NASA FIRMS (Últimas 48-72h)';
+              dataSourceType = 'real_recent';
+            }
+          }
+        } catch (_) {}
 
-  // 2) Fallback: llamar directamente a NASA FIRMS (puede funcionar en algunos navegadores)
-  if (!apiContactado) {
+        // Si ni en 72h hay focos activos detectados por el satélite
+        if (features.length === 0) {
+          dataSourceType = 'zero_active';
+          sourceLabel    = 'NASA FIRMS (0 fuegos activos en 72h)';
+          features       = generateRealisticFIRMSDemo(bboxKey);
+        }
+      }
+    }
+  } catch (_) { /* Servidor offline */ }
+
+  // 2) Fallback directo si la API backend no responde (CORS permitido en navegadores directos)
+  if (dataSourceType === 'offline') {
     try {
-      const firmsUrl = `${FIRMS_BASE}/${FIRMS_KEY}/VIIRS_SNPP_NRT/${bbox}/1`;
-      const resp = await fetch(firmsUrl, { mode: 'cors', signal: AbortSignal.timeout(12000) });
+      const firmsUrl = `${FIRMS_BASE}/${FIRMS_KEY}/VIIRS_SNPP_NRT/${bbox}/2`;
+      const resp = await fetch(firmsUrl, { mode: 'cors', signal: AbortSignal.timeout(5000) });
       if (resp.ok) {
         const csvText = await resp.text();
-        features      = parseFIRMScsv(csvText);
-        source        = 'FIRMS directo';
-        apiContactado = true;
+        const parsed  = parseFIRMScsv(csvText);
+        if (parsed.length > 0) {
+          features       = parsed;
+          sourceLabel    = 'NASA FIRMS directo';
+          dataSourceType = 'real_today';
+        }
       }
     } catch (_) { /* CORS bloqueado */ }
   }
 
-  // 3) Fallback final: focos de referencia histórica (solo cuando NO se pudo contactar ninguna fuente real)
-  if (!apiContactado) {
-    features = generateRealisticFIRMSDemo(bboxKey);
-    source   = 'simulación';
-    console.info(
-      '%c🛰️ NASA FIRMS: inicia la API FastAPI en puerto 5050 para focos REALES.\n' +
-      'Comando: uvicorn app.main:app --reload --port 5050',
-      'color:#f97316;font-weight:bold'
-    );
+  // 3) Fallback final consistente si el backend no está disponible en absoluto
+  if (features.length === 0) {
+    features       = generateRealisticFIRMSDemo(bboxKey);
+    sourceLabel    = 'Simulación de prueba (Servidor offline)';
+    dataSourceType = 'offline';
   }
 
-  renderFIRMSLayer(features, apiContactado);
+  // Renderizar de forma atómica (sin parpadeos)
+  renderFIRMSLayer(features, dataSourceType);
   animateCounter('statFIRMS', features.length);
-
-  if (apiContactado && features.length === 0) {
-    updateLegendTime(`✅ API activa · Sin focos hoy en esta región`);
-  } else {
-    updateLegendTime(`🛰️ VIIRS · ${features.length} focos · ${source}`);
-  }
+  updateLegendTime(`🛰️ VIIRS · ${features.length} focos · ${sourceLabel}`);
 }
 
 /* ── Parser CSV de NASA FIRMS ── */
@@ -410,14 +610,13 @@ function parseFIRMScsv(csvText) {
 }
 
 /* ── Renderizar focos como círculos en el mapa ── */
-function renderFIRMSLayer(features, apiContactado = false) {
+function renderFIRMSLayer(features, dataSourceType = 'offline') {
   firmsLayerGroup.clearLayers();
   features.forEach(f => {
     const p       = f.properties;
     const lat     = f.geometry.coordinates[1];
     const lon     = f.geometry.coordinates[0];
-    // Un foco es «demo» solo si no pudimos contactar ninguna fuente real
-    const isDemo  = !apiContactado;
+    const isReal  = (dataSourceType === 'real_today' || dataSourceType === 'real_recent');
     const color   = p.nivel === 'Rojo' ? '#ef4444' : p.nivel === 'Amarillo' ? '#f97316' : '#eab308';
     const radius  = p.nivel === 'Rojo' ? 8 : 5;
 
@@ -426,38 +625,56 @@ function renderFIRMSLayer(features, apiContactado = false) {
     const isDark = p.daynight === 'N' ? '🌙 Nocturno' : '☀️ Diurno';
     const confPct = Math.round(p.confidence * 100);
 
-    // Cabecera e indicador de fuente
-    const header = isDemo
-      ? `<b style="font-size:13px">🛰️ Foco de Referencia Histórica</b>
-         <div style="background:#fef3c7;border-radius:4px;padding:3px 6px;margin:4px 0;font-size:10px;color:#92400e">
-           📋 Zona activa histórica de Perú.<br/>
-           <i>La API no está disponible. Inicia el servidor para ver focos de hoy.</i>
-         </div>`
-      : `<b style="font-size:13px">🛰️ Foco Satelital REAL</b>
-         <div style="background:#dcfce7;border-radius:4px;padding:3px 6px;margin:4px 0;font-size:10px;color:#166534">
-           ✅ Detectado por NASA FIRMS — datos en tiempo real
-         </div>`;
+    // Cabecera e indicador de fuente según el estado real
+    let header = '';
+    if (dataSourceType === 'real_today') {
+      header = `
+        <b style="font-size:13px">🛰️ Foco Satelital REAL (Hoy)</b>
+        <div style="background:#dcfce7;border:1px solid #22c55e;border-radius:4px;padding:3px 6px;margin:4px 0;font-size:10px;color:#166534">
+          ✅ <b>NASA FIRMS en tiempo real:</b> Detectado por satélite VIIRS hoy.
+        </div>`;
+    } else if (dataSourceType === 'real_recent') {
+      header = `
+        <b style="font-size:13px">🛰️ Foco Satelital REAL (Reciente)</b>
+        <div style="background:#ecfdf5;border:1px solid #10b981;border-radius:4px;padding:3px 6px;margin:4px 0;font-size:10px;color:#065f46">
+          ✅ <b>NASA FIRMS activo:</b> Detección satelital real de las últimas 48-72h.
+        </div>`;
+    } else if (dataSourceType === 'zero_active') {
+      header = `
+        <b style="font-size:13px">🛰️ Foco de Referencia Histórica</b>
+        <div style="background:#eff6ff;border:1px solid #3b82f6;border-radius:4px;padding:3px 6px;margin:4px 0;font-size:10px;color:#1e40af">
+          ℹ️ <b>NASA FIRMS Conectado:</b> 0 incendios activos detectados en Cajamarca hoy.<br/>
+          <i>Punto referencial para calibración del visor.</i>
+        </div>`;
+    } else {
+      header = `
+        <b style="font-size:13px">🛰️ Foco Simulado (Modo Local Offline)</b>
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;padding:3px 6px;margin:4px 0;font-size:10px;color:#92400e">
+          ⚠️ <b>Servidor backend no detectado:</b> Inicia el servidor con <code>INICIAR_SERVIDOR_7AM.bat</code> para sincronizar con NASA FIRMS.
+        </div>`;
+    }
 
     const popup = `
-      <div style="font-family:Inter,sans-serif;font-size:12px;min-width:220px;color:#1a1a2e">
+      <div style="font-family:Inter,sans-serif;font-size:12px;min-width:225px;color:#1a1a2e">
         ${header}
         <hr style="margin:5px 0"/>
-        <b>Satélite:</b> ${p.satellite} (${p.instrument})<br/>
-        <b>Detección:</b> ${p.acq_date} ${tFmt}<br/>
-        <b>Confianza:</b> <span style="color:${color};font-weight:700">${confPct}%</span><br/>
+        <b>Satélite:</b> ${p.satellite} (${p.instrument || 'VIIRS'})<br/>
+        <b>Fecha detección:</b> ${p.acq_date || 'Reciente'} ${tFmt}<br/>
+        <b>Nivel de Confianza:</b> <span style="color:${color};font-weight:700">${confPct}%</span><br/>
         <b>FRP:</b> ${p.frp} MW <span style="color:#888;font-size:10px">(potencia radiativa)</span><br/>
-        <b>Temperatura:</b> ${p.bright_ti4.toFixed(1)} K<br/>
-        <b>Periodo:</b> ${isDark}<br/>
-        <b>Nivel:</b> <span style="color:${color};font-weight:700">${p.nivel}</span>
+        <b>Temperatura de brillo:</b> ${p.bright_ti4 ? p.bright_ti4.toFixed(1) : '330.0'} K<br/>
+        <b>Periodo de paso:</b> ${isDark}<br/>
+        <b>Nivel de Alerta:</b> <span style="color:${color};font-weight:700">${p.nivel}</span>
       </div>`;
 
     L.circleMarker([lat, lon], {
+      pane:        'firmsPane',
       radius,
       color:       '#fff',
-      weight:      isDemo ? 1 : 2,
+      weight:      isReal ? 2.5 : 1.5,
       fillColor:   color,
-      fillOpacity: 0.88,
-      dashArray:   isDemo ? '3 2' : null,
+      fillOpacity: 0.92,
+      dashArray:   isReal ? null : '3 2',
     }).bindPopup(popup).addTo(firmsLayerGroup);
   });
 }

@@ -34,6 +34,8 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+from app.whatsapp_alerts import _get_config, _send_message
+
 # ─────────────────────────────────────────────────────────
 # Mapeo: nombre de provincia → ChatID de grupo WhatsApp
 # El orden debe coincidir con WHATSAPP_GROUP_IDS en .env
@@ -106,22 +108,23 @@ def _fetch_risk_data() -> list[dict]:
             logger.warning("Dataset no encontrado en data/")
             return []
 
-        # Filtrar area de Cajamarca
+        # Filtrar area de Cajamarca con los límites extremos exactos
         df = df_full[
-            (df_full["latitude"] >= -7.8) & (df_full["latitude"] <= -6.5) &
-            (df_full["longitude"] >= -79.1) & (df_full["longitude"] <= -77.8)
-        ].head(2000)
+            (df_full["latitude"] >= -7.7592) & (df_full["latitude"] <= -4.5519) &
+            (df_full["longitude"] >= -79.4517) & (df_full["longitude"] <= -77.7389)
+        ]
 
         if df.empty:
             df = df_full.head(2000)
 
         model = RiskModel()
-        feature_cols = [
-            "pendiente_pct", "ndvi", "dist_carretera_m", "dist_poblado_m",
-            "temp_2m", "humedad_relativa", "viento_velocidad", "viento_direccion"
-        ]
+        from app.model import FEATURE_ORDER, classify
+        for col in FEATURE_ORDER:
+            if col not in df.columns:
+                df[col] = 0.0
+
         try:
-            probas = model.model.predict_proba(df[feature_cols])[:, 1]
+            probas = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
         except Exception:
             probas = [0.1] * len(df)
 
@@ -129,7 +132,7 @@ def _fetch_risk_data() -> list[dict]:
         features = []
         for i, (_, row) in enumerate(df.iterrows()):
             proba = float(probas[i])
-            nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.15 else "Verde"
+            nivel = classify(proba)
             lon, lat = float(row["longitude"]), float(row["latitude"])
             poly_coords = [
                 [lon - cell_size/2, lat - cell_size/2],
@@ -336,10 +339,16 @@ async def run_daily_alerts() -> None:
                 zona_info["nivel"], zona["nombre"], chat_id, result
             )
         except Exception as exc:
-            logger.error(
-                "❌ Error al enviar alerta a %s (%s): %s",
-                zona["nombre"], chat_id, exc
-            )
+            if "466" in str(exc):
+                logger.warning(
+                    "⚠️  Límite Green API Free (máx 3 grupos): el grupo %s (%s) no está entre los 3 autorizados en la cuenta gratuita.",
+                    zona["nombre"], chat_id
+                )
+            else:
+                logger.error(
+                    "❌ Error al enviar alerta a %s (%s): %s",
+                    zona["nombre"], chat_id, exc
+                )
 
     logger.info("🏁 Envío de alertas diarias completado.")
 

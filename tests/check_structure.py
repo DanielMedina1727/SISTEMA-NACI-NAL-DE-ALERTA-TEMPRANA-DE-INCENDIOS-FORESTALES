@@ -5,7 +5,7 @@ dirs = [d for d in ['app','web','data_pipeline','airflow','dashboard','data','mo
 files = [f for f in ['main.py','model.py','propagation.py','scheduler.py','pdf_generator.py','whatsapp_alerts.py'] if (APP/f).exists()]
 req = ROOT / 'requirements.txt'
 lines = [l for l in req.read_text().splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
-env_c = (ROOT/'.env.example').read_text()
+env_c = (ROOT/'.env.example').read_text(encoding='utf-8')
 creds_exposed = any(k in env_c for k in ['a86632ae','bd46e923','minioadmin'])
 mc = (APP/'main.py').read_text()
 key_in_code = 'a86632ae' in mc

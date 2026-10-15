@@ -3,7 +3,7 @@
 ## 📋 Información del Proyecto
 - **Título:** Diseño e implementación de una arquitectura de datos en tiempo real para la predicción de riesgo de incendios forestales mediante fusión de sensores remotos y variables atmosféricas.
 - **Ámbito:** Ingeniería de Sistemas Computacionales / Ciencia de Datos / Alerta Temprana.
-- **Zona de Estudio Prototipe:** Región Cajamarca, Perú (Bounding Box: `[-79.5, -7.5, -77.5, -4.5]`).
+- **Zona de Estudio Prototipe:** Región Cajamarca, Perú (Bounding Box: `[-79.4517, -7.7592, -77.7389, -4.5519]`, delimitada por sus 4 puntos cardinales extremos: Norte 04°33′07″S/78°42′27″O, Sur 07°45′33″S/78°13′14″O, Este 07°27′47″S/77°44′20″O, Oeste 06°23′41″S/79°27′06″O).
 
 ---
 
@@ -16,7 +16,7 @@ En la literatura de predicción de desastres naturales y aprendizaje automático
 3. **Costo Computacional y Tiempo de Inferencia:**
    - Entrenamiento en segundos vs. horas en GPU para CNN/LSTM.
    - Tiempo de inferencia por grilla $< 2\text{ ms}$, permitiendo evaluar 70,000+ grillas en tiempo real en servidores económicos ($t2.micro$ / Render / Docker local).
-4. **Resistencia al Desbalance de Clases:** Mediante la ponderación de la función de pérdida (`scale_pos_weight`) y optimización de F1-Score / Recall ($97.85\%$ de captura de focos de calor).
+4. **Resistencia al Desbalance de Clases:** Con apenas ~45 celdas positivas reales (0.07% del dataset), la ponderación de la función de pérdida (`scale_pos_weight`) se mantiene en un rango moderado y la selección de hiperparámetros se optimiza por **ROC-AUC espacial** (métrica libre de umbral y estable ante el desbalance), en lugar de F1@0.5.
 
 ---
 
@@ -26,13 +26,15 @@ En la literatura de predicción de desastres naturales y aprendizaje automático
 graph TD
     subgraph Fuentes Extrínsecas
         A1["NASA FIRMS API (Focos Satelitales VIIRS/MODIS)"]
-        A2["Copernicus ERA5 (Viento, Temp 2m, Humedad)"]
-        A3["USGS SRTM (Topografía y Pendiente)"]
+        A2["ERA5 vía Open-Meteo (Viento, Temp 2m, Humedad, Lluvia)"]
+        A3["Copernicus DEM GLO-30 (Elevación, Pendiente, Aspecto)"]
+        A4["Sentinel-2 L2A / AWS (NDVI)"]
+        A5["OpenStreetMap Overpass (Vías y Poblados)"]
     end
 
     subgraph Data Pipeline & Storage
-        B1["fetch_firms.py (ETL Ingesta)"]
-        B2["grid_builder.py (Grillas 1km²)"]
+        B1["fetch_firms.py (ETL Ingesta FIRMS)"]
+        B2["real_features.py + grid_builder.py (Grillas 1km² + features reales)"]
         B3["PostGIS DB / MinIO GeoTIFF"]
     end
 
@@ -51,6 +53,8 @@ graph TD
     A1 --> B1
     A2 --> B1
     A3 --> B2
+    A4 --> B2
+    A5 --> B2
     B1 --> B2
     B2 --> B3
     B2 --> C1
@@ -81,7 +85,34 @@ graph TD
 ---
 
 ## 📊 Métricas de Rendimiento del Modelo Final
-- **Algoritmo:** LightGBM Classifier (`scale_pos_weight = 23.64`)
-- **F1-Score:** `0.8867`
-- **Recall (Target=1 Detección):** `97.85%` (Supera la meta del $80\%$)
-- **ROC-AUC:** `0.9966`
+
+**Validación honesta (sin fuga de información):** partición espacial 5-fold *out-of-fold* por bloques de 50 km (GroupKFold), de modo que ninguna celda de test comparte vecindad de 50 km con el entrenamiento. Con solo **45 celdas positivas reales** (0.066%), esta es la única estimación defendible.
+
+- **Algoritmo:** Ensemble (LightGBM + XGBoost + RandomForest), sin calibración de probabilidades
+- **Etiqueta (target):** `fire_count > 0` (presencia real de focos NASA FIRMS en la celda)
+- **ROC-AUC (media por fold):** `0.61 ± 0.07` (línea base tutorial: `0.49`, es decir, azar)
+- **Recall @ Top-10% de celdas:** `~12%` (línea base: `~7.6%`)
+- **Recall @ Top-20% de celdas:** `~26%` (línea base: `~15%`; el azar daría 20%)
+
+**Fuentes de datos reales (todas sin credenciales):**
+- **Terreno:** Copernicus DEM GLO-30 (pendiente, aspecto, elevación).
+- **Vegetación:** Sentinel-2 L2A vía STAC de Element84/AWS (NDVI).
+- **Meteorología:** ERA5 vía Open-Meteo Archive (temperatura, humedad, viento, lluvia, sequía).
+- **Infraestructura:** OpenStreetMap Overpass (distancia a vías y poblados).
+- **Etiqueta:** NASA FIRMS (focos de calor reales).
+
+> **Nota metodológica:** Una versión previa reportaba `ROC-AUC = 0.9966` y `Recall = 97.85%`. Esos valores provenían de **fuga de información**: la variable `risk_score` (un índice físico calculado a partir de las mismas señales) se usaba como etiqueta. Al corregir la etiqueta a la evidencia real de incendios, el desempeño cae a un rango honesto de `~0.6` de AUC, coherente con la literatura cuando hay pocos positivos espacialmente autocorrelacionados.
+
+## 🚦 Semáforo de Riesgo: umbrales por Presupuesto de Alerta
+
+Los umbrales Verde/Amarillo/Rojo **no son valores fijos arbitrarios** (el antiguo `0.70/0.15`). Se calculan en el entrenamiento como **cuantiles de la distribución real de scores** que sirve la API y se guardan en `models/model_metadata.json` (`serving_thresholds`):
+
+| Nivel | Regla | Valor (aprox.) |
+| :--- | :--- | :--- |
+| 🔴 **Rojo** | Top 1% de celdas por score (p99) | ≈ 0.13 |
+| 🟡 **Amarillo** | Top 5% de celdas por score (p95) | ≈ 0.094 |
+| 🟢 **Verde** | Resto del territorio | < ≈ 0.09 |
+
+Esto es exactamente cómo operan los sistemas de alerta reales: un **presupuesto de alerta** fijo (el 1% de mayor riesgo se marca Rojo), independiente de la escala absoluta del modelo. `app/model.py` expone `classify()` como **fuente única de verdad**, consumida por la API (`/predict`, `/risk/today`), el scheduler de WhatsApp y el dashboard.
+
+> **Nota sobre `/predict`:** el endpoint acepta opcionalmente las variables temporales (sequía, lluvia acumulada, lags) y devuelve el **percentil** de la grilla. Conviene enviar condiciones coherentes con el régimen real de incendios de Cajamarca (temporada seca andina: temperaturas frescas, humedad alta, laderas con pendiente y cercanía a vías/poblados); un escenario genérico de "calor extremo" no necesariamente coincide con el patrón aprendido.

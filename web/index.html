@@ -175,6 +175,11 @@
             <span class="toggle-slider"></span>
             <span class="toggle-text">🛰️ Focos Reales VIIRS</span>
           </label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleExtremes" checked onchange="toggleExtremesLayer()">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">🧭 Puntos de Lectura</span>
+          </label>
         </div>
       </div>
 
@@ -182,15 +187,20 @@
         <div id="map"></div>
         <div class="map-legend">
           <div class="legend-title">Simbología</div>
-          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Foco activo (≥70%)</div>
-          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Bajo observación (35-69%)
+          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Riesgo muy alto (top 1% del territorio)</div>
+          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Riesgo alto (top 5%)
           </div>
-          <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Zona controlada (&lt;35%)</div>
+          <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Riesgo bajo (resto del territorio)</div>
           <div class="legend-item"
             style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.1)">
             <span
               style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;margin-right:4px"></span>
             <b>Punto:</b> Foco VIIRS real
+          </div>
+          <div class="legend-item" style="margin-top:0.3rem">
+            <span
+              style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#38bdf8;border:1px solid #fff;margin-right:4px"></span>
+            <b>Límites:</b> N, S, E, O (Lectura)
           </div>
           <div class="legend-update" id="legendUpdate">Actualizando...</div>
         </div>
@@ -233,7 +243,7 @@
               <div class="flow-step-icon">🤖</div>
               <div class="flow-step-content">
                 <strong>IA clasifica el riesgo</strong>
-                <span>LightGBM evalúa 8 variables en &lt;2ms</span>
+                <span>Ensemble (LightGBM/XGBoost/RF) evalúa 18 variables en &lt;2ms</span>
               </div>
             </div>
             <div class="flow-arrow">↓</div>
@@ -570,18 +580,34 @@
             <div class="data-source">
               <div class="ds-logo">ERA5</div>
               <div class="ds-info">
-                <strong>Copernicus ERA5</strong>
-                <span>Temperatura, humedad, viento — reanálisis climático</span>
+                <strong>ERA5 vía Open-Meteo</strong>
+                <span>Temperatura, humedad, viento, lluvia — reanálisis climático</span>
               </div>
-              <a href="https://cds.climate.copernicus.eu/" target="_blank" class="ds-link">↗</a>
+              <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" class="ds-link">↗</a>
             </div>
             <div class="data-source">
-              <div class="ds-logo">USGS</div>
+              <div class="ds-logo">GLO-30</div>
               <div class="ds-info">
-                <strong>USGS SRTM</strong>
-                <span>Topografía y pendiente del terreno — 30m resolución</span>
+                <strong>Copernicus DEM GLO-30</strong>
+                <span>Elevación, pendiente y aspecto del terreno — 30m resolución</span>
               </div>
-              <a href="https://earthexplorer.usgs.gov/" target="_blank" class="ds-link">↗</a>
+              <a href="https://dataspace.copernicus.eu/" target="_blank" class="ds-link">↗</a>
+            </div>
+            <div class="data-source">
+              <div class="ds-logo">S-2</div>
+              <div class="ds-info">
+                <strong>Sentinel-2 L2A</strong>
+                <span>Índice de vegetación NDVI — 10m resolución</span>
+              </div>
+              <a href="https://dataspace.copernicus.eu/" target="_blank" class="ds-link">↗</a>
+            </div>
+            <div class="data-source">
+              <div class="ds-logo">OSM</div>
+              <div class="ds-info">
+                <strong>OpenStreetMap</strong>
+                <span>Distancia a vías y poblados — infraestructura</span>
+              </div>
+              <a href="https://www.openstreetmap.org/" target="_blank" class="ds-link">↗</a>
             </div>
           </div>
         </div>
@@ -589,22 +615,27 @@
         <!-- Modelo de IA -->
         <div class="transparency-card">
           <h3>🤖 Modelo de Inteligencia Artificial</h3>
-          <p>El sistema usa <strong>LightGBM</strong> — un algoritmo de árboles de decisión potenciados por gradiente,
-            elegido por su:</p>
+          <p>El sistema usa un <strong>Ensemble (LightGBM + XGBoost + RandomForest)</strong> —
+            algoritmos de árboles de decisión potenciados por gradiente, elegidos por su:</p>
           <div class="ai-metrics">
             <div class="ai-metric">
-              <span class="ai-val">97.85%</span>
-              <span class="ai-lbl">Detección de focos reales</span>
+              <span class="ai-val">~26%</span>
+              <span class="ai-lbl">Focos capturados en el Top-20% de celdas de mayor riesgo</span>
             </div>
             <div class="ai-metric">
-              <span class="ai-val">0.9966</span>
-              <span class="ai-lbl">ROC-AUC</span>
+              <span class="ai-val">0.61</span>
+              <span class="ai-lbl">ROC-AUC (validación espacial 5-fold)</span>
             </div>
             <div class="ai-metric">
               <span class="ai-val">&lt;2ms</span>
               <span class="ai-lbl">Tiempo de inferencia</span>
             </div>
           </div>
+          <p class="ai-note">
+            💡 <strong>Nota metodológica:</strong> con ~45 celdas positivas reales (0.07%) y validación
+            espacial estricta, un ROC-AUC de ~0.6 es lo esperable. Una versión previa reportaba 0.9966
+            por fuga de información (la etiqueta usaba un índice derivado de las mismas señales).
+          </p>
           <p class="ai-note">
             💡 <strong>¿Por qué no Deep Learning?</strong> LightGBM es más interpretable
             (funcionarios entienden por qué se emite una alerta), más rápido y funciona
@@ -692,7 +723,7 @@
       </div>
       <div class="footer-bottom">
         <span>© 2025 AlertaForestal Perú — Licencia MIT — Uso libre y gratuito</span>
-        <span>Datos: NASA FIRMS · Copernicus ERA5 · USGS SRTM</span>
+        <span>Datos: NASA FIRMS · ERA5 (Open-Meteo) · Copernicus DEM · Sentinel-2 · OpenStreetMap</span>
       </div>
     </div>
   </footer>

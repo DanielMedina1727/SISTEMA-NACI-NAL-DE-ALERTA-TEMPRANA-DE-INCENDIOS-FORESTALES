@@ -1,6 +1,6 @@
 # 🔥 AlertaForestal Perú — Sistema Nacional de Alerta Temprana de Incendios Forestales
 
-Portal ciudadano y API de predicción en tiempo real que clasifica zonas geográficas (grillas de ~1 km²) en 3 niveles de riesgo (**Verde / Amarillo / Rojo**) con 24 horas de anticipación, integrando datos satelitales de NASA FIRMS (VIIRS), variables atmosféricas de Copernicus ERA5 y topografía USGS SRTM.
+Portal ciudadano y API de predicción en tiempo real que clasifica zonas geográficas (grillas de ~1 km²) en 3 niveles de riesgo (**Verde / Amarillo / Rojo**) con 24 horas de anticipación, integrando datos satelitales de NASA FIRMS (VIIRS), variables atmosféricas de ERA5 (vía Open-Meteo), topografía de Copernicus DEM GLO-30, vegetación de Sentinel-2 (NDVI) e infraestructura de OpenStreetMap.
 
 ---
 
@@ -12,7 +12,8 @@ Portal ciudadano y API de predicción en tiempo real que clasifica zonas geográ
 - [Estructura del Repositorio](#-estructura-del-repositorio)
 - [Guía de Instalación y Uso](#-guía-de-instalación-y-uso)
 - [Endpoints de la API](#-endpoints-de-la-api)
-- [Pruebas de Carga](#-pruebas-de-carga)
+- [Semáforo y Umbrales de Riesgo](#-semáforo-y-umbrales-de-riesgo)
+- [Pruebas y Auditorías](#-pruebas-y-auditorías)
 
 ---
 
@@ -49,8 +50,8 @@ El portal está disponible en **`http://localhost:5050`** al iniciar la API.
 | Métrica | Descripción |
 |---|---|
 | 🛰️ **Focos VIIRS Reales** | Focos de calor activos detectados por satélite hoy |
-| 🔴 **Zonas Alto Riesgo** | Grillas con probabilidad ≥ 70% |
-| 🟡 **Vigilancia** | Grillas con probabilidad entre 35–69% |
+| 🔴 **Zonas Alto Riesgo** | Grillas en el Top-1% de probabilidad del modelo (presupuesto de alerta) |
+| 🟡 **Vigilancia** | Grillas en el Top-5% de probabilidad |
 | 📊 **Zonas Monitoreadas** | Total de grillas analizadas |
 | ⏱ **Anticipación IA** | 24 horas de anticipación con LightGBM |
 
@@ -62,11 +63,11 @@ El portal está disponible en **`http://localhost:5050`** al iniciar la API.
 
 ### Simbología
 
-| Color | Umbral | Significado |
+| Color | Criterio (presupuesto de alerta) | Significado |
 |---|---|---|
-| 🔴 Rojo | ≥ 70% | Foco activo — acción inmediata |
-| 🟠 Naranja | 35–69% | Bajo observación — vigilancia activa |
-| 🟢 Verde | < 35% | Zona controlada |
+| 🔴 Rojo | Top 1% de celdas por score del modelo | Riesgo muy alto — acción inmediata |
+| 🟠 Naranja | Top 5% de celdas por score | Bajo observación — vigilancia activa |
+| 🟢 Verde | Resto del territorio | Riesgo bajo |
 | 📍 Punto | — | Foco VIIRS real detectado vía NASA FIRMS |
 
 ### Estados del mapa
@@ -98,17 +99,21 @@ El resumen diario se envía automáticamente a las **07:00 hora Lima (UTC-5)** c
 El flujo de trabajo se compone de 5 módulos principales:
 
 1. **Ingesta y Orquestación de Datos (ETL)**
-   - **NASA FIRMS**: Focos de calor VIIRS/MODIS satelitales en tiempo real.
-   - **Copernicus ERA5**: Variables meteorológicas (temperatura, humedad, viento).
-   - **USGS SRTM**: Elevación y pendiente del terreno a 30 m de resolución.
+   - **NASA FIRMS**: Focos de calor VIIRS/MODIS satelitales en tiempo real (etiqueta del modelo).
+   - **ERA5 vía Open-Meteo**: Variables meteorológicas (temperatura, humedad, viento, lluvia).
+   - **Copernicus DEM GLO-30**: Elevación, pendiente y aspecto del terreno.
+   - **Sentinel-2 L2A (STAC AWS)**: Índice de vegetación NDVI.
+   - **OpenStreetMap Overpass**: Distancia a vías y poblados.
    - **Apache Airflow**: DAGs para ejecución periódica y automatizada.
 
-2. **Almacenamiento Geoespacial**
-   - **PostGIS (PostgreSQL)**: Grillas vectoriales e índices espaciales.
-   - **MinIO**: Almacenamiento S3-compatible para archivos GeoTIFF y rásters.
+2. **Almacenamiento**
+   - **Parquet / CSV** (en `data/`): dataset de entrenamiento (~68 000 grillas × 28 columnas) y caché de features en `data/cache/`. El sistema funciona 100 % con estos archivos.
+   - **PostGIS / MinIO** *(infraestructura opcional vía `docker-compose.yml`)*: disponibles para despliegues que requieran almacenamiento espacial/S3, pero **no son necesarios** para ejecutar la API, el portal ni el entrenamiento.
 
 3. **Machine Learning y Simulación**
-   - **LightGBM**: Clasificador supervisado (Verde / Amarillo / Rojo). ROC-AUC: 0.9966, detección de focos reales: 97.85%, inferencia < 2 ms.
+   - **Ensemble (LightGBM + XGBoost + RandomForest)**: Clasificador de riesgo (Verde / Amarillo / Rojo) con **18 variables** derivadas de las 5 fuentes reales. Sin calibración de probabilidades. Hiperparámetros optimizados con **Optuna** (objetivo: ROC-AUC espacial) e interpretabilidad con **SHAP**.
+   - **Evaluación honesta (sin fuga de datos):** validación espacial 5-fold *out-of-fold* por bloques de 50 km. ROC-AUC `0.61 ± 0.07` (línea base `0.49` = azar), Recall @ Top-10% `~12%`, Recall @ Top-20% `~26%`; inferencia `< 2 ms` por celda.
+   - **Semáforo por presupuesto de alerta:** Rojo = Top-1% de celdas por score, Amarillo = Top-5%. Umbrales *data-driven* guardados en `models/model_metadata.json`. (Ver `docs/Memoria_Tecnica_Capstone.md`.)
    - **Motor de Propagación**: Simulación de dirección y velocidad del fuego según viento y topografía (`SciPy`).
 
 4. **API Backend (FastAPI)**
@@ -127,15 +132,15 @@ El flujo de trabajo se compone de 5 módulos principales:
 | Capa | Herramienta / Librería | Función Principal |
 |---|---|---|
 | **Orquestación ETL** | Apache Airflow | Automatización y programación de pipelines |
-| **Bases de Datos** | PostGIS / PostgreSQL | Almacenamiento espacial y consultas relacionales |
-| **Almacenamiento Ráster** | MinIO (S3 Compatible) | GeoTIFFs y archivos pesados |
-| **Machine Learning** | LightGBM, Scikit-Learn | Clasificación de riesgo e inferencia |
+| **Bases de Datos** *(opcional)* | PostGIS / PostgreSQL | Almacenamiento espacial (no requerido para operar) |
+| **Almacenamiento Ráster** *(opcional)* | MinIO (S3 Compatible) | GeoTIFFs y archivos pesados (no requerido para operar) |
+| **Machine Learning** | LightGBM, XGBoost, Scikit-Learn, Optuna, SHAP | Ensamble de clasificación, búsqueda de hiperparámetros e interpretabilidad |
 | **Procesamiento Espacial** | GeoPandas, Shapely, Rasterio | Vectores y datos ráster |
 | **Backend API** | FastAPI, Uvicorn | API REST de alto rendimiento |
 | **Portal Web** | HTML5, CSS3, JavaScript, Leaflet | Portal ciudadano de acceso abierto |
 | **Dashboard Interno** | Streamlit, Folium, Plotly | Dashboard técnico interactivo |
 | **Datos Satelitales** | NASA FIRMS (VIIRS/MODIS) | Focos de calor en tiempo real |
-| **Alertas & Reportes** | WhatsApp Business API (Meta), ReportLab | Notificaciones automáticas y PDF ejecutivo |
+| **Alertas & Reportes** | Green API (WhatsApp), ReportLab | Notificaciones automáticas y PDF ejecutivo |
 | **Pruebas de Carga** | Locust | Evaluación de rendimiento y concurrencia |
 | **Despliegue** | Docker & Docker Compose | Contenedorización de la infraestructura |
 
@@ -144,7 +149,7 @@ El flujo de trabajo se compone de 5 módulos principales:
 ## 💻 Herramientas y Programas Necesarios
 
 1. **Python 3.11+**: Lenguaje base para pipelines, API, modelo y dashboard.
-2. **Docker Desktop**: Para contenedores de PostGIS, MinIO y servicios del sistema.
+2. **Docker Desktop** *(opcional)*: Solo para los contenedores de PostGIS/MinIO. El sistema corre sin Docker.
 3. **VS Code** o **Cursor**: Editor de código recomendado.
 4. **DBeaver** o **pgAdmin**: Clientes para inspeccionar tablas espaciales en PostGIS.
 5. **QGIS**: SIG para inspeccionar GeoTIFFs y grillas de 1 km².
@@ -158,31 +163,31 @@ El flujo de trabajo se compone de 5 módulos principales:
 ```
 SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/
 ├── app/                         # Backend FastAPI
-│   ├── main.py                  # Endpoints: /risk/today, /firms/hotspots, /predict, /report/pdf…
-│   ├── model.py                 # Carga y ejecución del modelo LightGBM
+│   ├── main.py                  # Endpoints: /risk/today, /predict, /firms/hotspots, /report/pdf…
+│   ├── model.py                 # Modelo + umbrales operativos (classify) — fuente única de verdad
 │   ├── pdf_generator.py         # Generador de reportes ejecutivos en PDF
 │   ├── propagation.py           # Motor de simulación de propagación de fuego
 │   ├── scheduler.py             # Scheduler de alertas diarias automáticas (07:00 Lima)
-│   └── whatsapp_alerts.py       # Integración con WhatsApp Business Cloud API (Meta)
+│   └── whatsapp_alerts.py       # Alertas a grupos de WhatsApp vía Green API
 ├── web/                         # Portal web ciudadano (Leaflet + HTML/CSS/JS)
 │   ├── index.html               # Página principal del portal (AlertaForestal Perú)
 │   ├── app.js                   # Lógica del mapa, FIRMS, formularios y métricas
 │   └── styles.css               # Estilos del portal
-├── data_pipeline/               # Scripts ETL de ingesta de datos
+├── data_pipeline/               # ETL y entrenamiento
 │   ├── fetch_firms.py           # Descarga de focos térmicos (NASA FIRMS)
-│   ├── fetch_era5.py            # Extracción meteorológica (Copernicus ERA5)
-│   ├── fetch_srtm.py            # Extracción topográfica (USGS SRTM)
-│   ├── grid_builder.py          # Generador de grillas de 1 km² e integración de datos
-│   └── train_model.py           # Pipeline de entrenamiento del modelo ML
-├── airflow/
-│   └── dags/                    # DAGs para orquestación en Apache Airflow
-├── dashboard/
-│   └── app.py                   # Dashboard técnico en Streamlit y Folium
-├── data/                        # Datasets procesados (dataset.parquet / .csv)
-├── models/                      # Modelos entrenados (.pkl / .lgb)
-├── notebooks/                   # Exploración de datos y prototipado
-├── tests/
-│   └── locustfile.py            # Pruebas de carga con Locust
+│   ├── fetch_era5.py            # Meteorología legacy (ERA5 vía Copernicus CDS)
+│   ├── real_features.py         # Features reales SIN credenciales: DEM (Copernicus GLO-30), NDVI (Sentinel-2/AWS), OSM (Overpass), con caché
+│   ├── grid_builder.py          # Grillas de ~1 km², integración de features y etiqueta honesta (NASA FIRMS)
+│   └── train_model.py           # Entrenamiento: Optuna + validación espacial OOF + umbrales data-driven
+├── airflow/dags/                # DAGs para orquestación en Apache Airflow
+├── dashboard/app.py             # Dashboard técnico en Streamlit + Folium
+├── data/                        # dataset.parquet / dataset.csv + caché de features (data/cache/)
+├── models/                      # lightgbm_wildfire.pkl + model_metadata.json (métricas y umbrales)
+├── notebooks/model_evaluation.py# Comparación de modelos con validación espacial OOF
+├── scripts/                     # Utilidades (generar_documento_codigo.py, health_check.py, envío de alertas…)
+├── tests/                       # test_lightgbm_precision.py + auditorías ISO 25010 (audit_*.py)
+├── docs/                        # Memoria técnica del proyecto
+├── CODIGO_COMPLETO_SISTEMA.txt  # Volcado de todo el código fuente del sistema
 ├── docker-compose.yml           # Infraestructura (PostGIS, MinIO, API)
 ├── Dockerfile                   # Imagen Docker para la API
 ├── requirements.txt             # Dependencias de Python
@@ -204,13 +209,13 @@ cd SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES
 ```bash
 cp .env.example .env
 ```
-Edita `.env` y completa las credenciales:
+Edita `.env` y completa las credenciales. **Todas son opcionales:** la API arranca y sirve el portal sin `.env` (solo se desactivan los servicios asociados).
 
-> - **FIRMS_MAP_KEY**: API Key gratuita en [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/).
-> - **CDS_API_KEY**: Registro gratuito en [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/).
-> - **WHATSAPP_TOKEN**: Token de acceso de la app Meta. Obténlo en [Meta for Developers](https://developers.facebook.com/apps/).
-> - **WHATSAPP_PHONE_NUMBER_ID**: ID del número de teléfono empresarial en WhatsApp Business.
-> - **WHATSAPP_RECIPIENT_NUMBER**: Número de destino con código de país (ej. `51987654321`).
+> - **FIRMS_MAP_KEY** *(opcional)*: API Key gratuita en [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/). Habilita el proxy `/firms/hotspots` y la descarga de focos reales.
+> - **GREEN_API_INSTANCE_ID**, **GREEN_API_TOKEN** *(alertas WhatsApp)*: WhatsApp vía [Green API](https://green-api.com/) (plan gratuito, sin Meta). Vincula tu número escaneando un QR.
+> - **WHATSAPP_GROUP_IDS**: IDs de grupo/número separados por coma (formato `120363XXXXXXXX@g.us`), destino del resumen diario de las 07:00.
+> - **CDS_API_KEY** *(legacy, opcional)*: solo lo usa `data_pipeline/fetch_era5.py`. La ingesta de features reales (`real_features.py`) usa **Open-Meteo** y **AWS** y **no requiere credenciales**.
+> - **POSTGRES_\*** / **MINIO_\*** *(opcional)*: solo si levantas PostGIS/MinIO con Docker.
 
 ### 3. Crear Entorno Virtual e Instalar Dependencias
 ```bash
@@ -253,10 +258,9 @@ Accede en: `http://localhost:8501`
 |---|---|---|
 | `GET` | `/` | Portal web ciudadano (index.html) |
 | `GET` | `/health` | Estado del servicio y modelo LightGBM |
-| `GET` | `/risk/today` | GeoJSON con predicciones de riesgo por grilla (hoy) — área de Cajamarca |
-| `GET` | `/risk/{grid_id}` | Detalle de una grilla específica |
+| `GET` | `/risk/today` | GeoJSON con predicciones de riesgo por grilla (hoy) — área de Cajamarca (parámetro `limit`, por defecto 1200, máx. 5000) |
 | `GET` | `/firms/hotspots` | Focos de calor reales de NASA FIRMS (proxy sin CORS) |
-| `POST` | `/predict` | Inferencia individual del modelo LightGBM |
+| `POST` | `/predict` | Inferencia individual del modelo (devuelve `probabilidad`, `percentil` y `nivel`) |
 | `POST` | `/propagate` | Simulación de propagación de fuego por viento |
 | `POST` | `/alert/whatsapp` | Envía alerta de WhatsApp para grilla en nivel Rojo |
 | `POST` | `/alert/daily` | Dispara manualmente el resumen diario a todos los grupos WhatsApp |
@@ -275,6 +279,8 @@ Accede en: `http://localhost:8501`
 
 ### Campos de entrada de `/predict`
 
+Solo `grid_id` es obligatorio; el resto tiene valores por defecto. Las variables **temporales/espaciales son opcionales** (si se omiten, el modelo usa sus valores por defecto).
+
 ```json
 {
   "grid_id": "CAJ-001",
@@ -286,16 +292,64 @@ Accede en: `http://localhost:8501`
   "temp_2m": 26.5,
   "humedad_relativa": 35.0,
   "viento_velocidad": 18.0,
-  "viento_direccion": 45.0
+  "viento_direccion": 45.0,
+
+  "dias_sin_lluvia": 12.0,
+  "lluvia_acum_7d": 15.0,
+  "lluvia_acum_15d": 35.0,
+  "temp_lag1": 22.0,
+  "humedad_lag1": 45.0,
+  "ndvi_anomaly": 0.0,
+  "temp_vecindad_media": 22.0,
+  "humedad_vecindad_media": 45.0
 }
 ```
 
+**Respuesta** (`PredictionResponse`):
+
+```json
+{ "grid_id": "CAJ-001", "probabilidad": 0.0319, "percentil": 81.0, "nivel": "Verde" }
+```
+
+> El **percentil** ubica el score frente a la distribución real del modelo (Top-1% ⇒ Rojo, Top-5% ⇒ Amarillo). Una entrada incompleta (sin `grid_id`) devuelve **HTTP 422**.
+
 ---
 
-## 🧪 Pruebas de Carga
+## 🚦 Semáforo y Umbrales de Riesgo
+
+Los niveles **Verde / Amarillo / Rojo** se calculan con **presupuesto de alerta** (no con valores fijos arbitrarios):
+
+| Nivel | Regla | Valor actual (aprox.) |
+|---|---|---|
+| 🔴 Rojo | Top-1% de celdas por score del modelo (p99) | `0.130` |
+| 🟡 Amarillo | Top-5% de celdas por score (p95) | `0.094` |
+| 🟢 Verde | Resto del territorio | `< 0.094` |
+
+Los umbrales se recalculan en cada entrenamiento y se guardan en `models/model_metadata.json` (`serving_thresholds`). `app/model.py` expone `classify()` como **fuente única de verdad**, usada por `/predict`, `/risk/today`, el scheduler de WhatsApp y el dashboard.
+
+---
+
+## 🧪 Pruebas y Auditorías
+
+Requieren la API corriendo en el puerto 5050:
 
 ```bash
-locust -f tests/locustfile.py --host=http://localhost:5050
+python -m uvicorn app.main:app --port 5050
+```
+
+```bash
+python tests/test_lightgbm_precision.py   # comportamiento del modelo (separación por ranking + latencia)
+python tests/audit_quick.py               # resumen ejecutivo ISO 25010
+python tests/audit_final.py               # auditoría extendida
+python tests/iso25010_audit.py            # auditoría completa ISO/IEC 25010
+```
+
+**Último resultado:** `audit_quick` **85/85** · `audit_final` **106/106** · `iso25010` **133/133** · `test_lightgbm_precision` **APROBADO**.
+
+### Pruebas de Carga
+
+```bash
+locust -f tests/locustfile.py --host=http://127.0.0.1:5050
 ```
 Interfaz de Locust disponible en: `http://localhost:8089`
 
@@ -305,4 +359,4 @@ Interfaz de Locust disponible en: `http://localhost:8089`
 
 Este proyecto está bajo la **Licencia MIT** — uso libre y gratuito para comunidades, instituciones y desarrolladores.
 
-Desarrollado por estudiantes de **Ingeniería de Sistemas Computacionales** de Perú. Datos: NASA FIRMS · Copernicus ERA5 · USGS SRTM.
+Desarrollado por estudiantes de **Ingeniería de Sistemas Computacionales** de Perú. Datos: NASA FIRMS · ERA5 (Open-Meteo) · Copernicus DEM · Sentinel-2 · OpenStreetMap.

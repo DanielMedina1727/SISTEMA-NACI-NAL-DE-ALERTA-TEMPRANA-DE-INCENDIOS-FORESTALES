@@ -3,7 +3,7 @@ Descarga focos de calor históricos de NASA FIRMS (Fire Information for Resource
 Management System) para una región (bbox) y rango de fechas, y los guarda como CSV.
 
 Uso:
-    python fetch_firms.py --bbox -79.5 -7.5 -77.5 -4.5 --days 10 --out data/firms_raw.csv
+    python fetch_firms.py --bbox -79.4517 -7.7592 -77.7389 -4.5519 --days 10 --out data/firms_raw.csv
 
 Requiere FIRMS_MAP_KEY en tu .env (gratis en https://firms.modaps.eosdis.nasa.gov/api/)
 """
@@ -65,8 +65,8 @@ def fetch_firms_area(bbox_str: str, days: int, sensor: str = DEFAULT_SENSOR) -> 
 
 def main():
     parser = argparse.ArgumentParser(description="Descarga focos de calor de NASA FIRMS por área georeferenciada")
-    parser.add_argument("--bbox", nargs=4, type=float, default=[-79.5, -7.5, -77.5, -4.5],
-                        help="West South East North (ej: -79.5 -7.5 -77.5 -4.5 para Cajamarca)")
+    parser.add_argument("--bbox", nargs=4, type=float, default=[-79.4517, -7.7592, -77.7389, -4.5519],
+                        help="West South East North (ej: -79.4517 -7.7592 -77.7389 -4.5519 para Cajamarca)")
     parser.add_argument("--days", type=int, default=10, help="Días hacia atrás (máx 366)")
     parser.add_argument("--sensor", default=DEFAULT_SENSOR)
     parser.add_argument("--out", default="data/firms_raw.csv")

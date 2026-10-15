@@ -19,7 +19,7 @@ load_dotenv()
 # Bounding boxes de ejemplo [Norte, Oeste, Sur, Este]
 AREAS = {
     "PERU": [0.0, -81.5, -18.5, -68.5],
-    "CAJAMARCA": [-4.5, -79.5, -7.5, -77.5],
+    "CAJAMARCA": [-4.5519, -79.4517, -7.7592, -77.7389],
 }
 
 

@@ -10,6 +10,10 @@ from pathlib import Path
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
+ROOT = Path(__file__).parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import folium
 from folium.plugins import HeatMap
 import numpy as np
@@ -24,8 +28,11 @@ try:
 except ImportError:
     st_folium = None
 
-API_URL = "http://localhost:5050"
+API_URL = "http://127.0.0.1:5050"
 COLOR_MAP = {"Verde": "#2ecc71", "Amarillo": "#f1c40f", "Rojo": "#e74c3c"}
+
+# Fuente única de verdad del semáforo y de las features (app/model.py)
+from app.model import RiskModel, FEATURE_ORDER, classify, THRESHOLDS
 
 st.set_page_config(
     page_title="Centro de Control | Alerta de Incendios",
@@ -113,16 +120,26 @@ if not features:
         df_full = pd.read_csv(grid_path)
         # Filtrar espacialmente la zona 2D de Cajamarca
         caj_df = df_full[
-            (df_full["latitude"] >= -7.8) & (df_full["latitude"] <= -6.5) &
-            (df_full["longitude"] >= -79.1) & (df_full["longitude"] <= -77.8)
+            (df_full["latitude"] >= -7.7592) & (df_full["latitude"] <= -4.5519) &
+            (df_full["longitude"] >= -79.4517) & (df_full["longitude"] <= -77.7389)
         ]
         df_sample = caj_df.head(600) if not caj_df.empty else df_full.head(600)
+        # Inferencia REAL con el modelo (mismos umbrales y features que la API).
+        try:
+            _model = RiskModel()
+            for col in FEATURE_ORDER:
+                if col not in df_sample.columns:
+                    df_sample[col] = 0.0
+            _probas = _model.model.predict_proba(df_sample[FEATURE_ORDER])[:, 1]
+        except Exception as exc:
+            st.sidebar.warning(f"Modelo no disponible ({exc}). Fallback a etiqueta FIRMS.")
+            _probas = df_sample.get("target", pd.Series(0.0, index=df_sample.index)).astype(float).values
+
         cell_size = 0.009
-        for idx, row in df_sample.iterrows():
+        for i, (idx, row) in enumerate(df_sample.iterrows()):
             lon, lat = float(row["longitude"]), float(row["latitude"])
-            prob = float(row.get("target", 0)) * 0.85 + (0.1 if idx % 5 == 0 else 0.02)
-            prob = min(0.99, max(0.01, prob))
-            nivel = "Rojo" if prob >= 0.70 else "Amarillo" if prob >= 0.15 else "Verde"
+            prob = float(_probas[i])
+            nivel = classify(prob)
             features.append({
                 "type": "Feature",
                 "geometry": {
@@ -236,7 +253,7 @@ with tab1:
             ).add_to(m)
 
     # 3. Leyenda Flotante del Semáforo
-    legend_html = """
+    legend_html = f"""
      <div style="
      position: fixed; 
      bottom: 30px; right: 30px; width: 190px; height: 125px; 
@@ -246,9 +263,9 @@ with tab1:
      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
      ">
      <b>Leyenda de Riesgo</b><br/>
-     <i style="background:#e74c3c; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i> <b>Rojo:</b> Alto (≥ 70%)<br/>
-     <i style="background:#f1c40f; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i> <b>Amarillo:</b> Medio (35-69%)<br/>
-     <i style="background:#2ecc71; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i> <b>Verde:</b> Bajo (< 35%)<br/>
+     <i style="background:#e74c3c; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i> <b>Rojo:</b> Top 1% (≥ {THRESHOLDS['rojo']:.1%})<br/>
+     <i style="background:#f1c40f; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i> <b>Amarillo:</b> Top 5% (≥ {THRESHOLDS['amarillo']:.1%})<br/>
+     <i style="background:#2ecc71; width:12px; height:12px; display:inline-block; border-radius:50%; margin-right:5px;"></i> <b>Verde:</b> Resto del territorio<br/>
      </div>
     """
     m.get_root().html.add_child(folium.Element(legend_html))

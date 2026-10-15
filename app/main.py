@@ -1,14 +1,18 @@
 """
 API principal de predicción de riesgo de incendios forestales.
 Expone:
+  GET  /                    -> portal web ciudadano (redirige a /web/)
   GET  /health              -> estado del servicio y modelo
   GET  /risk/today          -> GeoJSON con el riesgo de hoy por grilla (Verde/Amarillo/Rojo)
-  GET  /risk/{grid_id}      -> detalle de una grilla específica
-  POST /predict             -> inferencia del modelo LightGBM
+  GET  /firms/hotspots      -> focos de calor reales de NASA FIRMS (proxy sin CORS)
+  POST /predict             -> inferencia individual del modelo (probabilidad, percentil, nivel)
   POST /propagate           -> motor de propagación espacial por viento
   POST /alert/whatsapp      -> dispara alerta de WhatsApp para grilla Roja
   POST /alert/daily         -> dispara manualmente el resumen diario a todos los grupos
   GET  /alert/status        -> muestra el estado del scheduler y próxima ejecución
+  GET  /report/pdf          -> informe ejecutivo en PDF
+  GET  /model/importance    -> importancia de características del modelo (SHAP)
+  GET  /social/matrix       -> matriz de entorno social y mitigación de restricciones
 """
 from pathlib import Path
 from typing import Optional
@@ -20,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.model import RiskModel
+from app.model import RiskModel, classify, score_percentile
 from app.propagation import propagate_risk
 from app.whatsapp_alerts import send_red_alert
 from app.scheduler import init_scheduler, run_daily_alerts
@@ -81,11 +85,22 @@ class GridFeatures(BaseModel):
     humedad_relativa: float = 35.0
     viento_velocidad: float = 18.0
     viento_direccion: float = 45.0  # grados, 0 = Norte
+    # Contexto temporal/espacial OPCIONAL: si no se envía, el modelo usa sus
+    # valores por defecto (app.model.DEFAULT_VALUES).
+    dias_sin_lluvia: Optional[float] = None
+    lluvia_acum_7d: Optional[float] = None
+    lluvia_acum_15d: Optional[float] = None
+    temp_lag1: Optional[float] = None
+    humedad_lag1: Optional[float] = None
+    ndvi_anomaly: Optional[float] = None
+    temp_vecindad_media: Optional[float] = None
+    humedad_vecindad_media: Optional[float] = None
 
 
 class PredictionResponse(BaseModel):
     grid_id: str
     probabilidad: float
+    percentil: Optional[float] = None  # ubicación del score en la distribución del modelo
     nivel: str  # "Verde" | "Amarillo" | "Rojo"
 
 
@@ -115,12 +130,21 @@ def health():
 @app.post("/predict", response_model=PredictionResponse)
 def predict(features: GridFeatures):
     try:
-        proba = model.predict_proba(features.dict())
+        # Pydantic v2: model_dump() (dict() está deprecado en v2).
+        # Se descartan los campos opcionales no enviados para que el modelo use
+        # sus DEFAULT_VALUES en las features temporales.
+        payload = {k: v for k, v in features.model_dump().items() if v is not None}
+        proba = model.predict_proba(payload)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.15 else "Verde"
-    return PredictionResponse(grid_id=features.grid_id, probabilidad=round(proba, 4), nivel=nivel)
+    nivel = classify(proba)
+    return PredictionResponse(
+        grid_id=features.grid_id,
+        probabilidad=round(proba, 4),
+        percentil=score_percentile(proba),
+        nivel=nivel,
+    )
 
 
 @app.get("/risk/today")
@@ -141,35 +165,48 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
     else:
         df_full = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
 
-    # Filtrar espacialmente para cubrir el área 2D de la región de Cajamarca (-7.8 a -6.5 Lat, -79.2 a -77.8 Lon)
+    # Filtrar espacialmente para cubrir el área 2D de la región de Cajamarca (-7.7592 a -4.5519 Lat, -79.4517 a -77.7389 Lon)
     cajamarca_area = df_full[
-        (df_full["latitude"] >= -7.8) & (df_full["latitude"] <= -6.5) &
-        (df_full["longitude"] >= -79.1) & (df_full["longitude"] <= -77.8)
+        (df_full["latitude"] >= -7.7592) & (df_full["latitude"] <= -4.5519) &
+        (df_full["longitude"] >= -79.4517) & (df_full["longitude"] <= -77.7389)
     ]
 
     if not cajamarca_area.empty:
-        df = cajamarca_area.head(limit)
+        if len(cajamarca_area) > limit:
+            # Seleccionar focos prioritarios y distribuir el resto uniformemente en todo el departamento
+            high_risk = cajamarca_area[cajamarca_area["target"] == 1]
+            n_high = min(len(high_risk), int(limit * 0.40))
+            high_sample = high_risk.head(n_high)
+
+            remaining_limit = limit - len(high_sample)
+            other_rows = cajamarca_area.drop(high_sample.index, errors="ignore")
+            step = max(1, len(other_rows) // remaining_limit)
+            spatial_sample = other_rows.iloc[::step].head(remaining_limit)
+
+            df = pd.concat([high_sample, spatial_sample]).reset_index(drop=True)
+        else:
+            df = cajamarca_area
     else:
         df = df_full.head(limit)
 
-    # Inferencia en lote
-    feature_cols = [
-        "pendiente_pct", "ndvi", "dist_carretera_m", "dist_poblado_m",
-        "temp_2m", "humedad_relativa", "viento_velocidad", "viento_direccion"
-    ]
+    # Inferencia en lote con el pipeline avanzado
+    from app.model import FEATURE_ORDER
+    for col in FEATURE_ORDER:
+        if col not in df.columns:
+            df[col] = 0.0
 
     try:
-        probas = model.model.predict_proba(df[feature_cols])[:, 1]
+        probas = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
     except Exception:
         probas = [0.1] * len(df)
 
 
     features = []
-    cell_size = 0.009
+    cell_size = 0.015
 
     for i, (idx, row) in enumerate(df.iterrows()):
         proba = float(probas[i])
-        nivel = "Rojo" if proba >= 0.70 else "Amarillo" if proba >= 0.15 else "Verde"
+        nivel = classify(proba)
 
         
         lon, lat = float(row["longitude"]), float(row["latitude"])
@@ -298,27 +335,60 @@ def get_executive_pdf_report():
 
 @app.get("/model/importance")
 def get_model_feature_importance():
-    """Retorna la importancia de características de LightGBM para interpretabilidad del modelo."""
-    feature_names = [
-        "pendiente_pct", "ndvi", "dist_carretera_m", "dist_poblado_m",
-        "temp_2m", "humedad_relativa", "viento_velocidad", "viento_direccion"
-    ]
+    """Retorna la importancia de características del ensemble para interpretabilidad del modelo."""
+    import json
+
+    from app.model import FEATURE_ORDER
+
+    # El modelo puede ser un VotingClassifier(LGB, XGB, RF) o estar envuelto en un
+    # CalibratedClassifierCV. Ninguno de los dos expone `feature_importances_` a nivel
+    # raíz, así que localizamos el LightGBM interno en cualquiera de las dos estructuras.
+    importances = None
     try:
-        importances = model.model.feature_importances_
-        norm_importances = (importances / importances.sum()).tolist()
+        _obj = model.model
+        _ensemble = _obj.calibrated_classifiers_[0].estimator if hasattr(_obj, "calibrated_classifiers_") else _obj
+        _first = _ensemble.estimators_[0]
+        _lgb = _first[1] if isinstance(_first, tuple) else _first  # sklearn<1.5 usa tuplas
+        _imp = list(_lgb.feature_importances_)
+        if len(_imp) == len(FEATURE_ORDER):
+            importances = _imp
+    except Exception:
+        importances = None
+
+    if importances is not None:
+        total = sum(importances) or 1.0
         result = [
-            {"feature": name, "importance": round(val, 4), "percentage": round(val * 100, 2)}
-            for name, val in zip(feature_names, norm_importances)
+            {"feature": name, "importance": round(val / total, 4), "percentage": round(val / total * 100, 2)}
+            for name, val in zip(FEATURE_ORDER, importances)
         ]
-        result.sort(key=lambda x: x["importance"], reverse=True)
-        return {
-            "model": "LightGBM Classifier",
-            "n_features": len(feature_names),
-            "feature_importance": result,
-            "justification_vs_nn": "Se eligió LightGBM sobre redes neuronales profundas (CNN/LSTM) debido a su mayor interpretabilidad (valores SHAP), menor costo computacional (inferencia < 2ms), y rendimiento superior en datos tabulares espacio-temporales discretos."
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        source = "lightgbm.feature_importances_"
+    else:
+        # Fallback robusto: importancias SHAP registradas en los metadatos MLOps
+        meta_path = Path(__file__).parent.parent / "models" / "model_metadata.json"
+        try:
+            with open(meta_path, "r", encoding="utf-8") as fh:
+                meta = json.load(fh)
+            shap_imp = meta.get("shap_feature_importance", {})
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"No se pudo obtener la importancia de características: {exc}",
+            )
+        total = sum(shap_imp.values()) or 1.0
+        result = [
+            {"feature": k, "importance": round(v / total, 4), "percentage": round(v / total * 100, 2)}
+            for k, v in shap_imp.items()
+        ]
+        source = "model_metadata.shap_feature_importance"
+
+    result.sort(key=lambda x: x["importance"], reverse=True)
+    return {
+        "model": "Ensemble (LightGBM + XGBoost + RandomForest)",
+        "n_features": len(FEATURE_ORDER),
+        "importance_source": source,
+        "feature_importance": result,
+        "justification_vs_nn": "Se eligió el ensemble de árboles (LightGBM/XGBoost/RandomForest) sobre redes neuronales profundas (CNN/LSTM) debido a su mayor interpretabilidad (valores SHAP), menor costo computacional (inferencia < 2ms) y rendimiento superior en datos tabulares espacio-temporales discretos."
+    }
 
 
 @app.get("/social/matrix")
@@ -387,7 +457,7 @@ FIRMS_MAP_KEY = os.getenv("FIRMS_MAP_KEY", "")  # Configura FIRMS_MAP_KEY en .en
 # Bounding boxes predefinidas (minLon, minLat, maxLon, maxLat)
 BBOXES = {
     "peru":       "-81.5,-18.5,-68.5,0",
-    "cajamarca":  "-79.5,-7.8,-77.5,-4.5",
+    "cajamarca":  "-79.4517,-7.7592,-77.7389,-4.5519",
     "norte":      "-80.5,-6.0,-75.0,0",
     "sur":        "-81.5,-18.5,-68.5,-6.0",
     "amazonia":   "-77.0,-14.0,-68.5,-1.0",
