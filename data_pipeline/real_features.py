@@ -12,7 +12,6 @@ Los resultados se cachean en data/cache/ para no volver a descargarlos.
 """
 from __future__ import annotations
 
-import json
 import math
 import time
 from pathlib import Path
@@ -259,7 +258,6 @@ def fetch_ndvi_mosaic(bbox, start, end, res=0.005, max_scenes=10, cloud_lt=40):
     import rasterio
     from rasterio.transform import from_origin
     from rasterio.warp import reproject, Resampling
-    from pyproj import Transformer
 
     r = requests.post(_STAC, json={
         "collections": ["sentinel-2-l2a"],

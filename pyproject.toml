@@ -1,0 +1,34 @@
+[project]
+name = "alertaforestal-peru"
+version = "2.3.0"
+description = "Sistema Nacional de Alerta Temprana de Incendios Forestales (Cajamarca, Perú)"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["data", "models", "web", ".git", ".venv", "notebooks"]
+
+[tool.ruff.lint]
+# Reglas enfocadas en CORRECCIÓN (errores de sintaxis, imports/atributos
+# indefinidos, código muerto, bugs comunes). Evitamos reglas puramente
+# estilísticas para no ahogar la señal frente a los scripts legado.
+select = ["E9", "F"]
+ignore = [
+    "E402",  # import no al inicio: necesario tras sys.path.insert(ROOT)
+    "F541",  # f-string sin placeholders: ruido cosmético en prints de consola
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F841"]
+"scripts/*" = ["F401"]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+filterwarnings = ["ignore::UserWarning"]

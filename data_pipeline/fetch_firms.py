@@ -11,6 +11,7 @@ import argparse
 import os
 import sys
 import time
+from datetime import date, timedelta
 from io import StringIO
 from pathlib import Path
 
@@ -27,39 +28,66 @@ FIRMS_AREA_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
 DEFAULT_SENSOR = "VIIRS_SNPP_NRT"
 
 
-def fetch_firms_area(bbox_str: str, days: int, sensor: str = DEFAULT_SENSOR) -> pd.DataFrame:
+def _fetch_chunk(api_key: str, bbox_str: str, sensor: str, days: int,
+                 start_date: str = None) -> pd.DataFrame | None:
+    """Descarga un bloque de hasta 5 días (límite de NASA FIRMS)."""
+    url = f"{FIRMS_AREA_URL}/{api_key}/{sensor}/{bbox_str}/{days}"
+    if start_date:
+        url += f"/{start_date}"
+
+    response = requests.get(url, timeout=60)
+    if response.status_code == 200 and "Invalid" not in response.text[:60]:
+        df_chunk = pd.read_csv(StringIO(response.text))
+        if not df_chunk.empty and "latitude" in df_chunk.columns:
+            return df_chunk
+    print(f"⚠️ Aviso en chunk de FIRMS ({start_date or 'últimos'}): {response.text[:200]}")
+    return None
+
+
+def fetch_firms_area(bbox_str: str, days: int, sensor: str = DEFAULT_SENSOR,
+                     start_date: str = None) -> pd.DataFrame:
     """
-    Descarga focos de calor de los últimos `days` días para un bounding box (west,south,east,north).
-    Realiza solicitudes en bloques de máximo 5 días (límite de NASA FIRMS).
+    Descarga focos de calor reales de NASA FIRMS para un bounding box
+    (west,south,east,north) y una ventana de `days` días.
+
+    Si `start_date` (YYYY-MM-DD) es None, descarga los últimos `days` días (NRT).
+    Si se indica, descarga la ventana histórica [start_date, start_date+days),
+    necesaria para construir datasets MULTI-FECHA (panel temporal).
     """
     api_key = os.getenv("FIRMS_MAP_KEY")
     if not api_key:
         raise RuntimeError("Falta FIRMS_MAP_KEY en tu archivo .env")
 
     dfs = []
-    # NASA FIRMS API de área acepta días entre 1 y 5 por llamada
-    chunk_days = 5
-    remaining = days
-    
-    while remaining > 0:
-        req_days = min(remaining, chunk_days)
-        url = f"{FIRMS_AREA_URL}/{api_key}/{sensor}/{bbox_str}/{req_days}"
-        response = requests.get(url, timeout=60)
-        
-        if response.status_code == 200 and "Invalid" not in response.text:
-            df_chunk = pd.read_csv(StringIO(response.text))
-            if not df_chunk.empty and "latitude" in df_chunk.columns:
-                dfs.append(df_chunk)
-        else:
-            print(f"⚠️ Aviso en chunk de FIRMS: {response.text[:200]}")
-            
-        remaining -= chunk_days
-        if remaining > 0:
-            time.sleep(0.5)
+    chunk_days = 5  # NASA FIRMS acepta 1-5 días por llamada
+
+    if start_date:
+        cursor = date.fromisoformat(start_date)
+        remaining = days
+        while remaining > 0:
+            req_days = min(remaining, chunk_days)
+            chunk = _fetch_chunk(api_key, bbox_str, sensor, req_days, cursor.isoformat())
+            if chunk is not None:
+                dfs.append(chunk)
+            cursor += timedelta(days=req_days)
+            remaining -= req_days
+            if remaining > 0:
+                time.sleep(0.5)
+    else:
+        remaining = days
+        while remaining > 0:
+            req_days = min(remaining, chunk_days)
+            chunk = _fetch_chunk(api_key, bbox_str, sensor, req_days)
+            if chunk is not None:
+                dfs.append(chunk)
+            remaining -= chunk_days
+            if remaining > 0:
+                time.sleep(0.5)
 
     if dfs:
-        full_df = pd.concat(dfs, ignore_index=True).drop_duplicates(subset=["latitude", "longitude", "acq_date", "acq_time"])
-        return full_df
+        return pd.concat(dfs, ignore_index=True).drop_duplicates(
+            subset=["latitude", "longitude", "acq_date", "acq_time"]
+        )
     return pd.DataFrame()
 
 
@@ -68,6 +96,8 @@ def main():
     parser.add_argument("--bbox", nargs=4, type=float, default=[-79.4517, -7.7592, -77.7389, -4.5519],
                         help="West South East North (ej: -79.4517 -7.7592 -77.7389 -4.5519 para Cajamarca)")
     parser.add_argument("--days", type=int, default=10, help="Días hacia atrás (máx 366)")
+    parser.add_argument("--start-date", default=None,
+                        help="Fecha de inicio (YYYY-MM-DD) para una ventana histórica (multi-fecha)")
     parser.add_argument("--sensor", default=DEFAULT_SENSOR)
     parser.add_argument("--out", default="data/firms_raw.csv")
     args = parser.parse_args()
@@ -76,7 +106,7 @@ def main():
     bbox_str = f"{west},{south},{east},{north}"
 
     print(f"📡 Descargando focos de calor de NASA FIRMS para bbox [{bbox_str}]...")
-    df = fetch_firms_area(bbox_str, args.days, args.sensor)
+    df = fetch_firms_area(bbox_str, args.days, args.sensor, start_date=args.start_date)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -13,21 +13,51 @@ Expone:
   GET  /report/pdf          -> informe ejecutivo en PDF
   GET  /model/importance    -> importancia de características del modelo (SHAP)
   GET  /social/matrix       -> matriz de entorno social y mitigación de restricciones
+  POST /report/citizen      -> registra un reporte ciudadano de foco/humo
+  GET  /report/recent       -> últimos reportes ciudadanos registrados
 """
+import json
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.model import RiskModel, classify, score_percentile
+from app.model import FEATURE_ORDER, THRESHOLDS, RiskModel, classify, get_thresholds, score_percentile
 from app.propagation import propagate_risk
+from app.security import (
+    get_allowed_origins,
+    rate_limit,
+    require_admin_key,
+    validate_peru_coords,
+)
 from app.whatsapp_alerts import send_red_alert
 from app.scheduler import init_scheduler, run_daily_alerts
+
+logger = logging.getLogger(__name__)
+
+# Scheduler de alertas automáticas (07:00 Lima). Se arranca/para con el lifespan
+# de FastAPI (evita los obsoletos decoradores @app.on_event).
+_scheduler = init_scheduler()
+
+
+@asynccontextmanager
+async def _lifespan(application: FastAPI):
+    _scheduler.start()
+    logger.info("⏰ Scheduler iniciado — alertas diarias programadas para las 07:00 (Lima)")
+    try:
+        yield
+    finally:
+        _scheduler.shutdown(wait=False)
+        logger.info("🛑 Scheduler detenido.")
+
 
 app = FastAPI(
     title="AlertaForestal Perú — API Pública",
@@ -37,13 +67,16 @@ app = FastAPI(
         "Portal ciudadano en /web/ · Swagger UI en /docs"
     ),
     version="2.0.0",
+    lifespan=_lifespan,
 )
 
-# CORS abierto para que el portal web pueda consumir la API
+# CORS restringido a orígenes conocidos (configurable con ALLOWED_ORIGINS en .env).
+_ALLOWED_ORIGINS = get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -60,9 +93,6 @@ _WEB_DIR = Path(__file__).parent.parent / "web"
 if _WEB_DIR.exists():
     app.mount("/web", StaticFiles(directory=str(_WEB_DIR), html=True), name="portal-web")
 
-# Inicializar el scheduler de alertas automáticas (07:00 Lima todos los días)
-_scheduler = init_scheduler(app)
-
 from fastapi.responses import RedirectResponse
 
 @app.get("/", include_in_schema=False)
@@ -72,6 +102,69 @@ def root():
 
 model = RiskModel()
 DATASET_PATH = Path(__file__).parent.parent / "data" / "dataset.parquet"
+MODEL_PATH = Path(__file__).parent.parent / "models" / "lightgbm_wildfire.pkl"
+
+# Caché en memoria del dataset puntuado. El score depende solo del modelo y del
+# dataset (estáticos entre reentrenamientos); se invalida por fecha de modificación.
+_SCORED_CACHE: dict = {"key": None, "df": None}
+
+
+def _dataset_signature() -> tuple:
+    csv_path = DATASET_PATH.with_suffix(".csv")
+
+    def _mt(p: Path) -> int:
+        try:
+            return p.stat().st_mtime_ns
+        except OSError:
+            return 0
+
+    return (str(csv_path), _mt(csv_path), str(DATASET_PATH), _mt(DATASET_PATH), str(MODEL_PATH), _mt(MODEL_PATH))
+
+
+def _invalidate_scored_cache() -> None:
+    _SCORED_CACHE["key"] = None
+    _SCORED_CACHE["df"] = None
+
+
+def _load_scored_dataset() -> pd.DataFrame:
+    """Carga el dataset completo y añade la columna `_score` (probabilidad del modelo). Cacheado."""
+    key = _dataset_signature()
+    if _SCORED_CACHE["key"] == key and _SCORED_CACHE["df"] is not None:
+        return _SCORED_CACHE["df"]
+
+    csv_path = DATASET_PATH.with_suffix(".csv")
+    if not csv_path.exists() and not DATASET_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset no encontrado. Ejecuta data_pipeline/grid_builder.py primero.",
+        )
+
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+    else:
+        df = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
+
+    for col in FEATURE_ORDER:
+        if col not in df.columns:
+            df[col] = 0.0
+
+    try:
+        df["_score"] = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
+    except Exception:
+        df["_score"] = 0.1
+
+    _SCORED_CACHE["key"] = key
+    _SCORED_CACHE["df"] = df
+    return df
+
+
+def _load_scored_cajamarca() -> pd.DataFrame:
+    """Subconjunto del dataset dentro del bbox de Cajamarca, ya puntuado."""
+    df = _load_scored_dataset()
+    return df[
+        (df["latitude"] >= -7.7592) & (df["latitude"] <= -4.5519) &
+        (df["longitude"] >= -79.4517) & (df["longitude"] <= -77.7389)
+    ]
 
 
 class GridFeatures(BaseModel):
@@ -119,11 +212,24 @@ def health():
     except Exception:
         model_loaded = False
 
+    # Frescura de datos: versión y fecha de entrenamiento del modelo (del metadata).
+    meta_path = Path(__file__).parent.parent / "models" / "model_metadata.json"
+    model_version, training_date = None, None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        model_version = meta.get("model_version")
+        training_date = meta.get("training_date")
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "service": "Wildfire Risk API",
         "model_loaded": model_loaded,
         "dataset_available": DATASET_PATH.exists(),
+        "model_version": model_version,
+        "training_date": training_date,
+        "thresholds": get_thresholds(),
     }
 
 
@@ -153,56 +259,35 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
     Retorna las predicciones de riesgo de hoy por grilla en formato GeoJSON FeatureCollection,
     cubriendo el área espacial 2D de la provincia y departamento de Cajamarca.
     """
-    csv_path = DATASET_PATH.with_suffix(".csv")
-    if not csv_path.exists() and not DATASET_PATH.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Dataset no encontrado. Ejecuta data_pipeline/grid_builder.py primero."
-        )
+    scored = _load_scored_cajamarca()
+    if scored.empty:
+        scored = _load_scored_dataset()
 
-    if csv_path.exists():
-        df_full = pd.read_csv(csv_path)
+    total = len(scored)
+    s = scored["_score"].to_numpy()
+
+    # Estadísticas REALES de todo el territorio analizado (sin muestreo), para que
+    # el portal pueda mostrar proporciones honestas (p. ej. "% del territorio en Rojo").
+    stats = {
+        "total_analizado": int(total),
+        "rojo": int((s >= THRESHOLDS["rojo"]).sum()),
+        "amarillo": int(((s >= THRESHOLDS["amarillo"]) & (s < THRESHOLDS["rojo"])).sum()),
+        "verde": int((s < THRESHOLDS["amarillo"]).sum()),
+        "mostrados": int(min(total, limit)),
+    }
+
+    # Selección para el mapa: MUESTREO ALEATORIO UNIFORME (semilla fija).
+    # No se usa la etiqueta `target` en inferencia y no se sobrerrepresentan las
+    # clases de alerta: la distribución de niveles del mapa refleja la del modelo.
+    if total > limit:
+        df = scored.sample(n=limit, random_state=42).reset_index(drop=True)
     else:
-        df_full = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
+        df = scored.reset_index(drop=True)
 
-    # Filtrar espacialmente para cubrir el área 2D de la región de Cajamarca (-7.7592 a -4.5519 Lat, -79.4517 a -77.7389 Lon)
-    cajamarca_area = df_full[
-        (df_full["latitude"] >= -7.7592) & (df_full["latitude"] <= -4.5519) &
-        (df_full["longitude"] >= -79.4517) & (df_full["longitude"] <= -77.7389)
-    ]
-
-    if not cajamarca_area.empty:
-        if len(cajamarca_area) > limit:
-            # Seleccionar focos prioritarios y distribuir el resto uniformemente en todo el departamento
-            high_risk = cajamarca_area[cajamarca_area["target"] == 1]
-            n_high = min(len(high_risk), int(limit * 0.40))
-            high_sample = high_risk.head(n_high)
-
-            remaining_limit = limit - len(high_sample)
-            other_rows = cajamarca_area.drop(high_sample.index, errors="ignore")
-            step = max(1, len(other_rows) // remaining_limit)
-            spatial_sample = other_rows.iloc[::step].head(remaining_limit)
-
-            df = pd.concat([high_sample, spatial_sample]).reset_index(drop=True)
-        else:
-            df = cajamarca_area
-    else:
-        df = df_full.head(limit)
-
-    # Inferencia en lote con el pipeline avanzado
-    from app.model import FEATURE_ORDER
-    for col in FEATURE_ORDER:
-        if col not in df.columns:
-            df[col] = 0.0
-
-    try:
-        probas = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
-    except Exception:
-        probas = [0.1] * len(df)
-
+    probas = df["_score"].to_numpy()
 
     features = []
-    cell_size = 0.015
+    cell_size = 0.009  # ~1 km en latitud (coincide con la grilla real del dataset)
 
     for i, (idx, row) in enumerate(df.iterrows()):
         proba = float(probas[i])
@@ -227,6 +312,7 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
             "properties": {
                 "grid_id": str(row["grid_id"]),
                 "probabilidad": round(proba, 4),
+                "percentil": score_percentile(proba),
                 "nivel": nivel,
                 "temp_2m": float(row.get("temp_2m", 25.0)),
                 "humedad_relativa": float(row.get("humedad_relativa", 40.0)),
@@ -241,6 +327,7 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
     return {
         "type": "FeatureCollection",
         "count": len(features),
+        "stats": stats,
         "features": features,
     }
 
@@ -251,9 +338,9 @@ def propagate(grid_id: str, viento_direccion: float = 45.0, viento_velocidad: fl
     return propagate_risk(grid_id, viento_direccion, viento_velocidad)
 
 
-@app.post("/alert/whatsapp")
+@app.post("/alert/whatsapp", dependencies=[Depends(require_admin_key)])
 def trigger_alert(alert_req: WhatsAppAlertRequest):
-    """Dispara alerta de WhatsApp a los bomberos/brigadas."""
+    """Dispara alerta de WhatsApp a los bomberos/brigadas (requiere X-API-Key si ADMIN_API_KEY está definida)."""
     try:
         res = send_red_alert(
             grid_id=alert_req.grid_id,
@@ -266,11 +353,12 @@ def trigger_alert(alert_req: WhatsAppAlertRequest):
         raise HTTPException(status_code=500, detail=f"Error enviando alerta WhatsApp: {exc}")
 
 
-@app.post("/alert/daily", tags=["Alertas"])
+@app.post("/alert/daily", tags=["Alertas"], dependencies=[Depends(require_admin_key)])
 async def trigger_daily_alerts():
     """
     Dispara manualmente el resumen diario de riesgo a todos los grupos de WhatsApp.
     Útil para pruebas o cuando se quiere enviar un boletín fuera del horario programado.
+    Requiere X-API-Key si ADMIN_API_KEY está definida.
     """
     try:
         await run_daily_alerts()
@@ -537,3 +625,72 @@ def get_firms_hotspots(
         "days":    days,
         "features": features,
     }
+
+
+# ─────────────────────────────────────────────
+# Reportes ciudadanos (crowdsourcing)
+# ─────────────────────────────────────────────
+REPORTS_PATH = Path(__file__).parent.parent / "data" / "citizen_reports.jsonl"
+
+INCIDENT_LABELS = {
+    "fuego_activo":   "Fuego activo",
+    "columna_humo":   "Columna de humo",
+    "quema_agricola": "Quema agrícola/pastizal",
+    "cenizas":        "Área quemada reciente",
+}
+
+
+class CitizenReport(BaseModel):
+    lat: float
+    lon: float
+    incident_type: str = "fuego_activo"
+    description: Optional[str] = None
+    reporter_zone: Optional[str] = None
+
+
+@app.post("/report/citizen", tags=["Reportes"], dependencies=[Depends(rate_limit(5, 600))])
+def report_citizen(report: CitizenReport):
+    """
+    Registra un reporte ciudadano de foco/humo.
+
+    Persiste en `data/citizen_reports.jsonl` (almacenamiento local). Limitado a 5
+    reportes por IP cada 10 minutos y valida que las coordenadas estén en Perú.
+    Nota: es una demo académica; los reportes son complementarios y NO reemplazan a
+    las líneas oficiales de emergencia (Bomberos 116 / INDECI 115 / SERFOR 0800-11-070).
+    """
+    validate_peru_coords(report.lat, report.lon)
+    if report.incident_type not in INCIDENT_LABELS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"incident_type inválido. Opciones: {', '.join(INCIDENT_LABELS)}.",
+        )
+    REPORTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "id": uuid4().hex[:12],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "lat": round(float(report.lat), 5),
+        "lon": round(float(report.lon), 5),
+        "incident_type": report.incident_type,
+        "incident_label": INCIDENT_LABELS.get(report.incident_type, report.incident_type),
+        "description": (report.description or "")[:500],
+        "reporter_zone": report.reporter_zone,
+        "status": "pending",
+    }
+    with REPORTS_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return {"status": "received", "id": record["id"], "timestamp": record["timestamp"]}
+
+
+@app.get("/report/recent", tags=["Reportes"])
+def report_recent(limit: int = Query(default=5, ge=1, le=50)):
+    """Devuelve los últimos reportes ciudadanos registrados (más recientes primero)."""
+    if not REPORTS_PATH.exists():
+        return {"count": 0, "reports": []}
+    lines = [ln for ln in REPORTS_PATH.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    reports = []
+    for ln in reversed(lines[-limit:]):
+        try:
+            reports.append(json.loads(ln))
+        except Exception:
+            continue
+    return {"count": len(reports), "reports": reports}

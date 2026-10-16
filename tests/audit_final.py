@@ -165,15 +165,19 @@ print(f'  >>> {sum(cat)}/{len(cat)} ({sum(cat)/len(cat)*100:.1f}%)')
 print('\n[3] COMPATIBILIDAD')
 cat = []
 
-# CORS: el header solo se emite cuando la peticion trae Origin (comportamiento real)
+# CORS restringido: se refleja un origen permitido y se bloquea uno ajeno.
+ALLOWED_ORIGIN = 'http://127.0.0.1:5050'
+FOREIGN_ORIGIN = 'http://evil.example'
 try:
-    x = requests.get(f'{BASE}/health', headers={'Origin': 'http://example.com'}, timeout=8)
-    cors = x.headers.get('access-control-allow-origin', '')
+    x_allowed = requests.get(f'{BASE}/health', headers={'Origin': ALLOWED_ORIGIN}, timeout=8)
+    cors = x_allowed.headers.get('access-control-allow-origin', '')
+    x_foreign = requests.get(f'{BASE}/health', headers={'Origin': FOREIGN_ORIGIN}, timeout=8)
+    foreign_cors = x_foreign.headers.get('access-control-allow-origin', '')
+    ok = (cors == ALLOWED_ORIGIN) and (foreign_cors == '')
 except Exception:
-    cors = ''
-ok = len(cors) > 0
+    ok, cors = False, ''
 cat.append(ok)
-print(f'  {"OK  " if ok else "FAIL"}  CORS Access-Control-Allow-Origin="{cors}"')
+print(f'  {"OK  " if ok else "FAIL"}  CORS restringido: permitido="{cors}" | ajeno bloqueado')
 
 for ep in ['/health', '/model/importance', '/social/matrix']:
     x = g(ep)
@@ -373,7 +377,7 @@ if env_ex.exists():
     cat.append(ok)
     print(f'  {"OK  " if ok else "FAIL"}  .env.example sin credenciales reales: {"limpio" if ok else "CREDENCIALES EXPUESTAS"}')
 
-main_c = (APP / 'main.py').read_text()
+main_c = (APP / 'main.py').read_text(encoding='utf-8')
 real_in_code = 'a86632ae' in main_c
 ok = not real_in_code
 cat.append(ok)
@@ -400,19 +404,19 @@ for f in ['main.py', 'model.py', 'propagation.py', 'scheduler.py', 'pdf_generato
     cat.append(ok)
 print(f'  {"OK  " if app_files_ok==6 else "PARCIAL"}  Módulos app/: {app_files_ok}/6 presentes')
 
-main_c = (APP / 'main.py').read_text()
+main_c = (APP / 'main.py').read_text(encoding='utf-8')
 ok = 'os.getenv' in main_c
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  main.py usa os.getenv() para configuracion')
 
 for fname in ['main.py', 'model.py', 'propagation.py']:
-    c = (APP / fname).read_text()
+    c = (APP / fname).read_text(encoding='utf-8')
     ok = '"""' in c or "'''" in c
     cat.append(ok)
     print(f'  {"OK  " if ok else "FAIL"}  app/{fname} tiene docstrings')
 
 req = ROOT / 'requirements.txt'
-lines = [l for l in req.read_text().splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
+lines = [l for l in req.read_text(encoding='utf-8').splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
 ok = len(lines) >= 10
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  requirements.txt: {len(lines)} dependencias')
@@ -447,7 +451,7 @@ cat = []
 
 df_path = ROOT / 'Dockerfile'
 if df_path.exists():
-    dc = df_path.read_text()
+    dc = df_path.read_text(encoding='utf-8')
     for instr in ['FROM', 'WORKDIR', 'COPY', 'CMD']:
         ok = instr in dc
         cat.append(ok)
@@ -467,7 +471,7 @@ ok = x is not None and x.status_code == 200 and 'text/html' in x.headers.get('co
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  FastAPI sirve HTML en / (sin servidor externo)')
 
-req_c = req.read_text().lower() if req.exists() else ''
+req_c = req.read_text(encoding='utf-8').lower() if req.exists() else ''
 for pkg, desc in [('fastapi','API REST'), ('lightgbm','ML'), ('geopandas','Geoespacial'),
                    ('locust','Carga'), ('apscheduler','Alertas automáticas'), ('streamlit','Dashboard')]:
     ok = pkg in req_c
@@ -475,7 +479,7 @@ for pkg, desc in [('fastapi','API REST'), ('lightgbm','ML'), ('geopandas','Geoes
     print(f'  {"OK  " if ok else "FAIL"}  requirements.txt incluye {pkg} ({desc})')
 
 for f in ['main.py', 'model.py', 'propagation.py']:
-    c = (APP / f).read_text()
+    c = (APP / f).read_text(encoding='utf-8')
     usa_pathlib = 'from pathlib' in c or 'Path(' in c
     tiene_acceso_archivos = any(t in c for t in ('open(', 'read_text', 'read_csv', 'joblib.load', 'pickle.load'))
     sin_rutas_os = ('C:\\' not in c) and ('/home/' not in c) and ('/Users/' not in c)

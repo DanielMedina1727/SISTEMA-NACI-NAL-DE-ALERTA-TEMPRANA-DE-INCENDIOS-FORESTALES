@@ -49,8 +49,11 @@ DEFAULTS = {
     "pendiente_pct": 8.0, "ndvi": 0.40, "dist_carretera_m": 3000.0, "dist_poblado_m": 5000.0,
     "temp_2m": 20.0, "humedad_relativa": 55.0, "viento_velocidad": 10.0, "viento_direccion": 180.0,
     "dias_sin_lluvia": 10.0, "lluvia_acum_7d": 5.0, "lluvia_acum_15d": 15.0,
-    "temp_lag1": 20.0, "humedad_lag1": 55.0,
+    "temp_lag1": 20.0, "humedad_lag1": 55.0, "elevacion_m": 2500.0,
 }
+
+# Número de vecinos geográficos (~8 celdas de 1 km²) para las features de vecindario.
+NEIGHBORHOOD_K = 8
 
 
 def build_grid(min_lat: float, min_lon: float, max_lat: float, max_lon: float,
@@ -142,6 +145,62 @@ def _generate_synthetic_features(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     grid["lluvia_acum_15d"] = np.round(np.clip(95.0 - dias_sin_lluvia * 3.8 + np.random.normal(0, 10, n), 0.0, 320.0), 1)
     grid["temp_lag1"] = np.round(grid["temp_2m"] + np.random.normal(0, 1.2, n), 1)
     grid["humedad_lag1"] = np.round(np.clip(grid["humedad_relativa"] + np.random.normal(0, 3.0, n), 10.0, 98.0), 1)
+    grid["elevacion_m"] = np.round(elevation_sim, 1)
+    return grid
+
+
+def _geo_km(grid: gpd.GeoDataFrame) -> np.ndarray:
+    """Coordenadas aproximadas en km (equirectangular centrada en el bbox) para el KNN."""
+    lats = grid["latitude"].to_numpy(float)
+    lons = grid["longitude"].to_numpy(float)
+    lat0 = np.deg2rad(float(lats.mean()))
+    x = lons * 111.32 * np.cos(lat0)
+    y = lats * 110.57
+    return np.column_stack([x, y])
+
+
+def add_neighborhood_features(grid: gpd.GeoDataFrame, k: int = NEIGHBORHOOD_K) -> gpd.GeoDataFrame:
+    """
+    Features de vecindario calculadas con VECINOS GEOGRÁFICOS (KNN, ~8 celdas de 1 km²),
+    NO con el bloque de validación.
+
+    Antes se usaba `groupby("spatial_block_id").transform("mean")`, donde
+    `spatial_block_id` es exactamente el grupo de `GroupKFold` del entrenamiento. Eso
+    convertía la media del vecindario en una "huella" continua del grupo de CV (fuga
+    entre la feature y la variable de agrupación). El KNN geográfico elimina ese sesgo.
+    """
+    from scipy.spatial import cKDTree
+
+    coords = _geo_km(grid)
+    n = len(grid)
+    kk = max(1, min(k + 1, n))          # +1 para excluir la propia celda del promedio
+    tree = cKDTree(coords)
+    _, idx = tree.query(coords, k=kk)
+    if idx.ndim == 1:
+        idx = idx[:, None]
+    neigh = idx[:, 1:] if idx.shape[1] > 1 else idx  # sin la propia celda
+
+    def _neighbor_mean(col: str) -> np.ndarray:
+        vals = grid[col].to_numpy(float)[neigh]
+        with np.errstate(invalid="ignore"):
+            return np.nanmean(vals, axis=1)
+
+    grid["temp_vecindad_media"] = np.round(_neighbor_mean("temp_2m"), 1)
+    grid["humedad_vecindad_media"] = np.round(_neighbor_mean("humedad_relativa"), 1)
+    grid["ndvi_anomaly"] = np.round(grid["ndvi"].to_numpy(float) - _neighbor_mean("ndvi"), 3)
+    return grid
+
+
+def add_wind_encoding(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Codifica la dirección del viento (variable CIRCULAR) como sin/cos.
+
+    Usar los grados crudos (0-360) es incorrecto: 359° y 1° son casi iguales pero
+    numéricamente opuestos. La codificación sin/cos resuelve esa discontinuidad.
+    """
+    ang = np.deg2rad(grid["viento_direccion"].to_numpy(float))
+    grid["viento_dir_sin"] = np.round(np.sin(ang), 4)
+    grid["viento_dir_cos"] = np.round(np.cos(ang), 4)
     return grid
 
 
@@ -169,11 +228,14 @@ def compute_geospatial_features(grid: gpd.GeoDataFrame, bbox: tuple, ref_date: s
         grid = _generate_synthetic_features(grid)
 
     # ── (b) Features derivadas ───────────────────────────────────────────────
-    ndvi_zona_mean = grid.groupby("spatial_block_id")["ndvi"].transform("mean")
-    grid["ndvi_anomaly"] = np.round(grid["ndvi"] - ndvi_zona_mean, 3)
-    grid["temp_vecindad_media"] = np.round(grid.groupby("spatial_block_id")["temp_2m"].transform("mean"), 1)
-    grid["humedad_vecindad_media"] = np.round(grid.groupby("spatial_block_id")["humedad_relativa"].transform("mean"), 1)
+    # Vecindario por VECINOS GEOGRÁFICOS (KNN), no por bloque de validación (ver
+    # add_neighborhood_features). Codificación circular del viento (sin/cos).
+    grid = add_neighborhood_features(grid)
+    grid = add_wind_encoding(grid)
 
+    # La estacionalidad (mes_sin/mes_cos) sí se conserva como columna informativa,
+    # pero NO entra al modelo: con una sola fecha de referencia es constante (std=0)
+    # y provocaría un desajuste train/serve. Ver app/model.py:FEATURE_ORDER.
     mes = pd.Timestamp(ref_date).month
     grid["mes_sin"] = np.round(np.sin(2 * np.pi * mes / 12.0), 4)
     grid["mes_cos"] = np.round(np.cos(2 * np.pi * mes / 12.0), 4)
@@ -203,8 +265,12 @@ def main():
                         default=[-7.7592, -79.4517, -4.5519, -77.7389],
                         help="Coordenadas extremas de Cajamarca [minLat, minLon, maxLat, maxLon]")
     parser.add_argument("--ref-date", default="2026-09-06", help="Fecha de referencia (fin de la ventana de focos)")
-    parser.add_argument("--start", default="2026-08-15", help="Inicio de la ventana meteorológica/NDVI")
-    parser.add_argument("--end", default="2026-09-06", help="Fin de la ventana meteorológica/NDVI")
+    parser.add_argument("--ref-dates", default=None,
+                        help="Varias fechas separadas por coma (YYYY-MM-DD) para construir un PANEL MULTI-FECHA, "
+                             "p. ej. --ref-dates 2026-08-23,2026-08-30,2026-09-06. Requiere un firms_raw.csv con "
+                             "varias fechas (ver fetch_firms.py --start-date).")
+    parser.add_argument("--start", default="2026-08-15", help="[Deprecado] La ventana se deriva de --ref-date(s)")
+    parser.add_argument("--end", default="2026-09-06", help="[Deprecado] La ventana se deriva de --ref-date(s)")
     parser.add_argument("--synthetic", action="store_true", help="Usar features sintéticas (sin red, solo pruebas)")
     parser.add_argument("--out", default="data/dataset.parquet")
     args = parser.parse_args()
@@ -220,15 +286,43 @@ def main():
         firms_df = pd.DataFrame()
 
     print("🧩 Construyendo grilla espacial de 1km²...")
-    grid = build_grid(min_lat, min_lon, max_lat, max_lon)
-    print(f"  -> {len(grid)} celdas de 1km² generadas")
 
-    print("🔥 Asignando focos de calor satelitales (FIRMS)...")
-    grid = assign_fires_to_grid(firms_df, grid)
-    print(f"  -> {grid['target'].sum()} celdas con Target=1 (incendio detectado)")
+    ref_dates = (
+        [d.strip() for d in args.ref_dates.split(",") if d.strip()]
+        if args.ref_dates else [args.ref_date]
+    )
 
-    grid = compute_geospatial_features(grid, bbox, args.ref_date, args.start, args.end,
-                                       use_real=not args.synthetic)
+    frames = []
+    for ref_date in ref_dates:
+        ref_ts = pd.Timestamp(ref_date)
+
+        # Una etiqueta por fecha: focos reales de los 10 días previos a ref_date.
+        if not firms_df.empty and "acq_date" in firms_df.columns:
+            win_start = (ref_ts - pd.Timedelta(days=9)).strftime("%Y-%m-%d")
+            firms_win = firms_df[
+                (firms_df["acq_date"] >= win_start) & (firms_df["acq_date"] <= ref_date)
+            ]
+        else:
+            firms_win = firms_df
+
+        grid_d = build_grid(min_lat, min_lon, max_lat, max_lon)
+        print(f"  [{ref_date}] {len(grid_d)} celdas de 1km² generadas")
+
+        grid_d = assign_fires_to_grid(firms_win, grid_d)
+        start_d = (ref_ts - pd.Timedelta(days=22)).strftime("%Y-%m-%d")
+        grid_d = compute_geospatial_features(
+            grid_d, bbox, ref_date, start_d, ref_date, use_real=not args.synthetic
+        )
+        grid_d["ref_date"] = ref_date
+        print(f"  [{ref_date}] Target=1: {int(grid_d['target'].sum())} celdas")
+        frames.append(grid_d)
+
+    if len(frames) == 1:
+        grid = frames[0]
+    else:
+        merged = pd.concat(frames, ignore_index=True)
+        grid = gpd.GeoDataFrame(merged, geometry="geometry", crs=frames[0].crs)
+        print(f"🧱 Panel MULTI-FECHA: {len(ref_dates)} fechas | {len(grid):,} filas totales")
 
     # Ordenar dataset: primero celdas con target=1, luego por distancia al centro de Cajamarca (-7.16, -78.50)
     c_lat, c_lon = -7.16, -78.50

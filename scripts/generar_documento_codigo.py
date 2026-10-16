@@ -8,9 +8,12 @@ files_to_include = [
     # 1. Configuración & Entorno
     ('CONFIGURACIÓN DEL PROYECTO', [
         'requirements.txt',
+        'requirements-dev.txt',
+        'pyproject.toml',
         '.env.example',
         'Dockerfile',
         'docker-compose.yml',
+        '.github/workflows/ci.yml',
         '.gitignore',
     ]),
     # 2. Documentación
@@ -27,6 +30,7 @@ files_to_include = [
     ('PIPELINE DE DATOS Y MACHINE LEARNING (data_pipeline/)', [
         'data_pipeline/grid_builder.py',
         'data_pipeline/real_features.py',
+        'data_pipeline/refresh_dataset.py',
         'data_pipeline/train_model.py',
         'data_pipeline/fetch_firms.py',
         'data_pipeline/fetch_era5.py',
@@ -39,6 +43,7 @@ files_to_include = [
     ('BACKEND API FASTAPI Y PROGRAMADOR (app/)', [
         'app/main.py',
         'app/model.py',
+        'app/security.py',
         'app/scheduler.py',
         'app/propagation.py',
         'app/pdf_generator.py',
@@ -72,6 +77,11 @@ files_to_include = [
     ]),
     # 10. Pruebas y Auditoría de Calidad
     ('PRUEBAS Y AUDITORÍA (tests/)', [
+        'tests/conftest.py',
+        'tests/test_model.py',
+        'tests/test_api.py',
+        'tests/test_security.py',
+        'tests/test_pipeline.py',
         'tests/test_lightgbm_precision.py',
         'tests/audit_quick.py',
         'tests/audit_final.py',

@@ -1,72 +1,82 @@
 ==========================================================================================
 SISTEMA NACIONAL DE ALERTA TEMPRANA DE INCENDIOS FORESTALES
 COMPILACIÓN COMPLETA DEL CÓDIGO FUENTE DEL SISTEMA
-Fecha de generación: 2026-10-15 11:23:50
+Fecha de generación: 2026-10-16 16:48:18
 ==========================================================================================
 
 ÍNDICE DE CONTENIDOS:
 
   [CONFIGURACIÓN DEL PROYECTO]
-    01. requirements.txt (544 bytes)
-    02. .env.example (2,582 bytes)
-    03. Dockerfile (341 bytes)
-    04. docker-compose.yml (972 bytes)
-    05. .gitignore (46 bytes)
+    01. requirements.txt (1,635 bytes)
+    02. requirements-dev.txt (129 bytes)
+    03. pyproject.toml (1,002 bytes)
+    04. .env.example (2,767 bytes)
+    05. Dockerfile (341 bytes)
+    06. docker-compose.yml (504 bytes)
+    07. .github/workflows/ci.yml (578 bytes)
+    08. .gitignore (85 bytes)
 
   [DOCUMENTACIÓN DEL PROYECTO]
-    06. README.md (18,795 bytes)
-    07. docs/Memoria_Tecnica_Capstone.md (7,852 bytes)
+    09. README.md (21,486 bytes)
+    10. docs/Memoria_Tecnica_Capstone.md (7,852 bytes)
 
   [LANZADORES / UTILIDADES DE ARRANQUE (.bat)]
-    08. INICIAR_SERVIDOR_7AM.bat (683 bytes)
-    09. ENVIAR_ALERTAS_AHORA.bat (339 bytes)
+    11. INICIAR_SERVIDOR_7AM.bat (683 bytes)
+    12. ENVIAR_ALERTAS_AHORA.bat (339 bytes)
 
   [PIPELINE DE DATOS Y MACHINE LEARNING (data_pipeline/)]
-    10. data_pipeline/grid_builder.py (12,393 bytes)
-    11. data_pipeline/real_features.py (20,793 bytes)
-    12. data_pipeline/train_model.py (18,319 bytes)
-    13. data_pipeline/fetch_firms.py (3,179 bytes)
-    14. data_pipeline/fetch_era5.py (2,317 bytes)
+    13. data_pipeline/grid_builder.py (16,363 bytes)
+    14. data_pipeline/real_features.py (20,746 bytes)
+    15. data_pipeline/refresh_dataset.py (3,054 bytes)
+    16. data_pipeline/train_model.py (20,039 bytes)
+    17. data_pipeline/fetch_firms.py (4,471 bytes)
+    18. data_pipeline/fetch_era5.py (2,317 bytes)
 
   [MODELO ENTRENADO Y METADATOS (models/)]
-    15. models/model_metadata.json (4,403 bytes)
+    19. models/model_metadata.json (5,302 bytes)
 
   [BACKEND API FASTAPI Y PROGRAMADOR (app/)]
-    16. app/main.py (21,886 bytes)
-    17. app/model.py (4,425 bytes)
-    18. app/scheduler.py (13,852 bytes)
-    19. app/propagation.py (2,303 bytes)
-    20. app/pdf_generator.py (7,918 bytes)
-    21. app/whatsapp_alerts.py (7,663 bytes)
+    20. app/main.py (27,875 bytes)
+    21. app/model.py (6,082 bytes)
+    22. app/security.py (4,458 bytes)
+    23. app/scheduler.py (13,519 bytes)
+    24. app/propagation.py (2,303 bytes)
+    25. app/pdf_generator.py (7,918 bytes)
+    26. app/whatsapp_alerts.py (8,544 bytes)
 
   [DASHBOARD OPERATIVO STREAMLIT (dashboard/)]
-    22. dashboard/app.py (16,610 bytes)
+    27. dashboard/app.py (17,656 bytes)
 
   [PORTAL WEB CIUDADANO (web/)]
-    23. web/index.html (33,955 bytes)
-    24. web/app.js (47,297 bytes)
-    25. web/styles.css (33,277 bytes)
+    28. web/index.html (35,402 bytes)
+    29. web/app.js (51,907 bytes)
+    30. web/styles.css (33,277 bytes)
 
   [ORQUESTACIÓN AIRFLOW (airflow/)]
-    26. airflow/dags/pipeline_dag.py (1,634 bytes)
+    31. airflow/dags/pipeline_dag.py (3,517 bytes)
 
   [NOTEBOOKS Y ANÁLISIS (notebooks/)]
-    27. notebooks/model_evaluation.py (4,740 bytes)
+    32. notebooks/model_evaluation.py (4,740 bytes)
 
   [SCRIPTS DE UTILIDAD Y DIAGNÓSTICO (scripts/)]
-    28. scripts/enviar_alertas_ahora.py (847 bytes)
-    29. scripts/generar_documento_codigo.py (4,243 bytes)
-    30. scripts/health_check.py (1,486 bytes)
-    31. scripts/test_alertas_diarias.py (6,621 bytes)
-    32. scripts/listar_grupos_alerta.py (1,281 bytes)
+    33. scripts/enviar_alertas_ahora.py (847 bytes)
+    34. scripts/generar_documento_codigo.py (4,565 bytes)
+    35. scripts/health_check.py (1,486 bytes)
+    36. scripts/test_alertas_diarias.py (6,621 bytes)
+    37. scripts/listar_grupos_alerta.py (1,281 bytes)
 
   [PRUEBAS Y AUDITORÍA (tests/)]
-    33. tests/test_lightgbm_precision.py (20,038 bytes)
-    34. tests/audit_quick.py (17,022 bytes)
-    35. tests/audit_final.py (22,696 bytes)
-    36. tests/iso25010_audit.py (44,427 bytes)
-    37. tests/check_structure.py (1,899 bytes)
-    38. tests/locustfile.py (1,200 bytes)
+    38. tests/conftest.py (1,230 bytes)
+    39. tests/test_model.py (2,891 bytes)
+    40. tests/test_api.py (3,512 bytes)
+    41. tests/test_security.py (1,616 bytes)
+    42. tests/test_pipeline.py (2,239 bytes)
+    43. tests/test_lightgbm_precision.py (20,038 bytes)
+    44. tests/audit_quick.py (17,419 bytes)
+    45. tests/audit_final.py (23,122 bytes)
+    46. tests/iso25010_audit.py (44,708 bytes)
+    47. tests/check_structure.py (1,979 bytes)
+    48. tests/locustfile.py (1,200 bytes)
 
 ==========================================================================================
 
@@ -78,38 +88,98 @@ Fecha de generación: 2026-10-15 11:23:50
 ==========================================================================================
 ARCHIVO [01]: requirements.txt
 ==========================================================================================
+# ── API y servidor ────────────────────────────────────────────────────────────
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.6
+pydantic>=2.9.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+
+# ── Machine Learning ──────────────────────────────────────────────────────────
 lightgbm>=4.5.0
+xgboost>=2.0.0
 scikit-learn>=1.5.2
-imbalanced-learn>=0.12.4
+optuna>=3.6.0
+shap>=0.45.0
+joblib>=1.4.2
+
+# ── Datos geoespaciales y pipeline ────────────────────────────────────────────
 pandas>=2.2.2
+numpy>=1.26.0
+pyarrow>=15.0.0
 geopandas>=1.0.1
 shapely>=2.0.5
 rasterio>=1.3.11
-requests>=2.32.3
-python-dotenv>=1.0.1
-psycopg2-binary>=2.9.9
-sqlalchemy>=2.0.34
-folium>=0.17.0
-streamlit>=1.38.0
-plotly>=5.24.0
-# WhatsApp Cloud API usa requests (ya incluido como dependencia)
-locust>=2.31.5
-minio>=7.2.8
 scipy>=1.14.1
-joblib>=1.4.2
-pyarrow>=15.0.0
+
+# ── Dashboard operacional (Streamlit) ─────────────────────────────────────────
+streamlit>=1.38.0
 streamlit-folium>=0.20.0
-python-multipart>=0.0.12
+folium>=0.17.0
+plotly>=5.24.0
+
+# ── Alertas automáticas ───────────────────────────────────────────────────────
 apscheduler>=3.10.0
-optuna>=3.6.0
-shap>=0.45.0
-xgboost>=2.0.0
+
+# ── Reportes ejecutivos en PDF (app/pdf_generator.py, /report/pdf) ────────────
+reportlab>=4.2.0
+
+# ── Pruebas de carga (tests/locustfile.py) ────────────────────────────────────
+locust>=2.31.5
 
 
 ==========================================================================================
-ARCHIVO [02]: .env.example
+ARCHIVO [02]: requirements-dev.txt
+==========================================================================================
+# Dependencias de desarrollo y CI (incluye las de requirements.txt)
+-r requirements.txt
+
+pytest>=8.3.0
+httpx>=0.27.0
+ruff>=0.6.0
+
+
+==========================================================================================
+ARCHIVO [03]: pyproject.toml
+==========================================================================================
+[project]
+name = "alertaforestal-peru"
+version = "2.3.0"
+description = "Sistema Nacional de Alerta Temprana de Incendios Forestales (Cajamarca, Perú)"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["data", "models", "web", ".git", ".venv", "notebooks"]
+
+[tool.ruff.lint]
+# Reglas enfocadas en CORRECCIÓN (errores de sintaxis, imports/atributos
+# indefinidos, código muerto, bugs comunes). Evitamos reglas puramente
+# estilísticas para no ahogar la señal frente a los scripts legado.
+select = ["E9", "F"]
+ignore = [
+    "E402",  # import no al inicio: necesario tras sys.path.insert(ROOT)
+    "F541",  # f-string sin placeholders: ruido cosmético en prints de consola
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F841"]
+"scripts/*" = ["F401"]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+filterwarnings = ["ignore::UserWarning"]
+
+
+==========================================================================================
+ARCHIVO [04]: .env.example
 ==========================================================================================
 # ============================================================================
 #  AlertaForestal Peru - Plantilla de variables de entorno
@@ -123,6 +193,17 @@ ARCHIVO [02]: .env.example
 # API Key gratuita en: https://firms.modaps.eosdis.nasa.gov/api/
 # Habilita el endpoint /firms/hotspots y data_pipeline/fetch_firms.py (focos reales).
 FIRMS_MAP_KEY=your_firms_map_key_here
+
+# --- Seguridad de la API (recomendado) ---------------------------------------
+# API key exigida en la cabecera `X-API-Key` para los endpoints de alerta
+# (POST /alert/whatsapp y POST /alert/daily). Si se deja VACÍA, esos endpoints
+# quedan sin protección (modo demo) y la API registra una advertencia.
+ADMIN_API_KEY=
+
+# Orígenes permitidos para CORS (lista separada por comas). Por defecto solo se
+# permiten orígenes locales (portal en :5050 y dashboard en :8501).
+# Usar `*` solo en desarrollo.
+# ALLOWED_ORIGINS=http://127.0.0.1:5050,http://localhost:5050,http://127.0.0.1:8501
 
 # --- Copernicus CDS / ERA5 (opcional, LEGACY) --------------------------------
 # Solo lo usa data_pipeline/fetch_era5.py.
@@ -156,19 +237,9 @@ WA_GROUP_CAJAMARCA=120363XXXXXXXXXXXXXXXX@g.us
 # URL usada por el scheduler para llamadas internas.
 INTERNAL_API_URL=http://127.0.0.1:8000
 
-# --- PostGIS / PostgreSQL (opcional - solo con docker compose) ---------------
-POSTGRES_USER=wildfire
-POSTGRES_PASSWORD=change_this_password
-POSTGRES_DB=wildfire_risk
-
-# --- MinIO / S3 (opcional - solo con docker compose) -------------------------
-# Cambia estas credenciales en produccion (MinIO usa un default conocido).
-MINIO_ACCESS_KEY=your_minio_access_key
-MINIO_SECRET_KEY=your_minio_secret_key
-
 
 ==========================================================================================
-ARCHIVO [03]: Dockerfile
+ARCHIVO [05]: Dockerfile
 ==========================================================================================
 FROM python:3.11-slim
 
@@ -188,54 +259,67 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 
 ==========================================================================================
-ARCHIVO [04]: docker-compose.yml
+ARCHIVO [06]: docker-compose.yml
 ==========================================================================================
-version: "3.9"
-
 services:
-  postgis:
-    image: postgis/postgis:16-3.4
-    container_name: wildfire_postgis
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-wildfire}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia_esto}
-      POSTGRES_DB: ${POSTGRES_DB:-wildfire_risk}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgis_data:/var/lib/postgresql/data
-
-  minio:
-    image: minio/minio:latest
-    container_name: wildfire_minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
   api:
     build: .
     container_name: wildfire_api
-    depends_on:
-      - postgis
+    restart: unless-stopped
     env_file:
       - .env
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-volumes:
-  postgis_data:
-  minio_data:
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).status == 200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 
 ==========================================================================================
-ARCHIVO [05]: .gitignore
+ARCHIVO [07]: .github/workflows/ci.yml
+==========================================================================================
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  calidad:
+    name: Lint y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Pruebas (pytest)
+        run: pytest -q
+
+
+==========================================================================================
+ARCHIVO [08]: .gitignore
 ==========================================================================================
 .env
 venv/
@@ -243,6 +327,8 @@ __pycache__/
 *.pyc
 *.pkl
 .DS_Store
+data/cache/
+data/citizen_reports.jsonl
 
 
 
@@ -251,11 +337,11 @@ __pycache__/
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [06]: README.md
+ARCHIVO [09]: README.md
 ==========================================================================================
 # 🔥 AlertaForestal Perú — Sistema Nacional de Alerta Temprana de Incendios Forestales
 
-Portal ciudadano y API de predicción en tiempo real que clasifica zonas geográficas (grillas de ~1 km²) en 3 niveles de riesgo (**Verde / Amarillo / Rojo**) con 24 horas de anticipación, integrando datos satelitales de NASA FIRMS (VIIRS), variables atmosféricas de ERA5 (vía Open-Meteo), topografía de Copernicus DEM GLO-30, vegetación de Sentinel-2 (NDVI) e infraestructura de OpenStreetMap.
+Portal ciudadano y API que calcula un **índice diario de susceptibilidad** y clasifica zonas geográficas (grillas de ~1 km²) en 3 niveles de riesgo (**Verde / Amarillo / Rojo**) para la fecha de referencia, integrando focos satelitales de NASA FIRMS (VIIRS, usados como etiqueta), variables atmosféricas de ERA5 (vía Open-Meteo), topografía de Copernicus DEM GLO-30, vegetación de Sentinel-2 (NDVI) e infraestructura de OpenStreetMap.
 
 ---
 
@@ -274,16 +360,16 @@ Portal ciudadano y API de predicción en tiempo real que clasifica zonas geográ
 
 ## 🌲 Descripción del Proyecto
 
-**AlertaForestal Perú** es una plataforma ciudadana y comunitaria de monitoreo, prevención y alerta temprana de incendios forestales en tiempo real. El sistema:
+**AlertaForestal Perú** es una plataforma ciudadana y comunitaria de monitoreo, prevención y alerta temprana de incendios forestales. El sistema:
 
-- Procesa diariamente imágenes satelitales, datos meteorológicos y elevación del terreno para calcular probabilidades de riesgo por celda de ~1 km².
-- Expone un **portal web ciudadano** de acceso abierto con mapa interactivo en tiempo real.
-- Consume focos VIIRS reales desde **NASA FIRMS** a través de un proxy FastAPI (sin problemas de CORS).
+- Calcula un **índice diario de susceptibilidad** (ranking relativo) por celda de ~1 km² a partir de datos satelitales, meteorológicos y de terreno reales.
+- Expone un **portal web ciudadano** de acceso abierto con mapa interactivo.
+- Consume focos VIIRS reales desde **NASA FIRMS** a través de un proxy FastAPI (la API key vive solo en el backend).
 - Integra un motor de propagación del fuego simulado basado en pendiente y viento.
-- Genera reportes ejecutivos automáticos en PDF y alertas en tiempo real por WhatsApp.
-- Envía un **resumen diario automático** a todos los grupos comunitarios de WhatsApp a las 07:00 (Lima, UTC-5).
+- Genera reportes ejecutivos en PDF y **alertas** por WhatsApp (endpoints protegidos por API key).
+- Envía un **resumen diario automático** a los grupos comunitarios de WhatsApp a las 07:00 (Lima, UTC-5).
 
-> **Estado de los datos en el portal:** El mapa distingue visualmente entre datos reales (API activa) y datos de referencia histórica (API offline). El popup de cada foco muestra `✅ Foco Satelital REAL` cuando los datos provienen de NASA FIRMS en tiempo real.
+> **Honestidad del dato:** El sistema **no es un pronóstico a 24/48 h**. Es un **índice de susceptibilidad** del día de referencia (ranking relativo por percentil) entrenado con pocos positivos reales (45 focos FIRMS). El mapa distingue datos reales (API activa) de datos de referencia (API offline).
 
 ---
 
@@ -293,14 +379,14 @@ El portal está disponible en **`http://localhost:5050`** al iniciar la API.
 
 | Sección | Tag | Descripción |
 |---|---|---|
-| **Hero / Inicio** | `#hero` | Indicador de riesgo en tiempo real, métricas del día y accesos directos |
-| **Mapa en Vivo** | `#mapa` | Grillas de riesgo IA + focos VIIRS reales de NASA FIRMS con filtros de región y horizonte temporal |
+| **Hero / Inicio** | `#hero` | Indicador de riesgo del día, métricas del día y accesos directos |
+| **Mapa en Vivo** | `#mapa` | Grillas de riesgo IA + focos VIIRS reales de NASA FIRMS con filtros de región y ventana de focos (24–72 h) |
 | **Alertas WhatsApp** | `#whatsapp` | Suscripción por zona/provincia con QR, flujo de información y protocolo de difusión responsable |
 | **Reportar Foco** | `#reporte` | Formulario ciudadano con selección GPS, clic en mapa mini-interactivo y carga de fotos |
 | **Centro de Recursos** | `#recursos` | Guías de prevención, widget meteorológico FWI en vivo y directorio de emergencias |
 | **Transparencia** | `#transparencia` | Fuentes de datos, métricas del modelo LightGBM y declaración de interés público |
 
-### Métricas en tiempo real (Hero)
+### Métricas del día (Hero)
 
 | Métrica | Descripción |
 |---|---|
@@ -308,12 +394,12 @@ El portal está disponible en **`http://localhost:5050`** al iniciar la API.
 | 🔴 **Zonas Alto Riesgo** | Grillas en el Top-1% de probabilidad del modelo (presupuesto de alerta) |
 | 🟡 **Vigilancia** | Grillas en el Top-5% de probabilidad |
 | 📊 **Zonas Monitoreadas** | Total de grillas analizadas |
-| ⏱ **Anticipación IA** | 24 horas de anticipación con LightGBM |
+| 📅 **Riesgo del día** | Clasificación diaria (modelo ensemble) para grillas de ~1 km² |
 
 ### Capas del Mapa Interactivo
 
 - 🌡️ **Mapa de Calor** — Heatmap de probabilidad de incendio
-- 🟥 **Zonas IA** — Grillas coloreadas por nivel de riesgo (Rojo / Naranja / Verde)
+- 🟥 **Zonas IA** — Grillas coloreadas por nivel de riesgo (Rojo / Amarillo / Verde)
 - 🛰️ **Focos Reales VIIRS** — Puntos satelitales de NASA FIRMS con confianza, FRP, satélite y hora
 
 ### Simbología
@@ -321,16 +407,16 @@ El portal está disponible en **`http://localhost:5050`** al iniciar la API.
 | Color | Criterio (presupuesto de alerta) | Significado |
 |---|---|---|
 | 🔴 Rojo | Top 1% de celdas por score del modelo | Riesgo muy alto — acción inmediata |
-| 🟠 Naranja | Top 5% de celdas por score | Bajo observación — vigilancia activa |
+| 🟡 Amarillo | Top 5% de celdas por score | Bajo observación — vigilancia activa |
 | 🟢 Verde | Resto del territorio | Riesgo bajo |
 | 📍 Punto | — | Foco VIIRS real detectado vía NASA FIRMS |
 
 ### Estados del mapa
 
-- **Banner naranja** `⚠️ API offline`: La API no está activa; se muestran predicciones simuladas y coordenadas de referencia histórica.
-- **Banner verde** `✅ Modelo LightGBM activo` *(se auto-oculta en 4s)*: API activa con datos reales del modelo.
+- **Banner de aviso** `⚠️ API offline`: La API no está activa; se muestran predicciones simuladas y coordenadas de referencia.
+- **Banner verde** `✅ Modelo de IA activo` *(se auto-oculta en 4s)*: API activa con datos reales del modelo (ensemble).
 - **Popup verde** `✅ Foco Satelital REAL`: Foco detectado por NASA FIRMS hoy.
-- **Popup amarillo** `📋 Foco de Referencia Histórica`: Solo aparece cuando la API no está disponible.
+- **Popup amarillo** `📋 Foco de Referencia`: Solo aparece cuando la API no está disponible.
 
 ### Red Comunitaria WhatsApp
 
@@ -354,7 +440,7 @@ El resumen diario se envía automáticamente a las **07:00 hora Lima (UTC-5)** c
 El flujo de trabajo se compone de 5 módulos principales:
 
 1. **Ingesta y Orquestación de Datos (ETL)**
-   - **NASA FIRMS**: Focos de calor VIIRS/MODIS satelitales en tiempo real (etiqueta del modelo).
+   - **NASA FIRMS**: Focos de calor VIIRS/MODIS satelitales casi en tiempo real (NRT) — usados como **etiqueta** del modelo.
    - **ERA5 vía Open-Meteo**: Variables meteorológicas (temperatura, humedad, viento, lluvia).
    - **Copernicus DEM GLO-30**: Elevación, pendiente y aspecto del terreno.
    - **Sentinel-2 L2A (STAC AWS)**: Índice de vegetación NDVI.
@@ -362,18 +448,20 @@ El flujo de trabajo se compone de 5 módulos principales:
    - **Apache Airflow**: DAGs para ejecución periódica y automatizada.
 
 2. **Almacenamiento**
-   - **Parquet / CSV** (en `data/`): dataset de entrenamiento (~68 000 grillas × 28 columnas) y caché de features en `data/cache/`. El sistema funciona 100 % con estos archivos.
-   - **PostGIS / MinIO** *(infraestructura opcional vía `docker-compose.yml`)*: disponibles para despliegues que requieran almacenamiento espacial/S3, pero **no son necesarios** para ejecutar la API, el portal ni el entrenamiento.
+   - **Parquet / CSV** (en `data/`): dataset de entrenamiento (~68 000 grillas × ~30 columnas) y caché de features en `data/cache/`. El sistema funciona 100 % con estos archivos; **no requiere base de datos**.
 
 3. **Machine Learning y Simulación**
-   - **Ensemble (LightGBM + XGBoost + RandomForest)**: Clasificador de riesgo (Verde / Amarillo / Rojo) con **18 variables** derivadas de las 5 fuentes reales. Sin calibración de probabilidades. Hiperparámetros optimizados con **Optuna** (objetivo: ROC-AUC espacial) e interpretabilidad con **SHAP**.
-   - **Evaluación honesta (sin fuga de datos):** validación espacial 5-fold *out-of-fold* por bloques de 50 km. ROC-AUC `0.61 ± 0.07` (línea base `0.49` = azar), Recall @ Top-10% `~12%`, Recall @ Top-20% `~26%`; inferencia `< 2 ms` por celda.
-   - **Semáforo por presupuesto de alerta:** Rojo = Top-1% de celdas por score, Amarillo = Top-5%. Umbrales *data-driven* guardados en `models/model_metadata.json`. (Ver `docs/Memoria_Tecnica_Capstone.md`.)
+   - **Ensemble (LightGBM + XGBoost + RandomForest)**: índice de susceptibilidad (Verde / Amarillo / Rojo) con **18 variables** reales. Sin calibración de probabilidades. Hiperparámetros optimizados con **Optuna** (objetivo: ROC-AUC espacial) e interpretabilidad con **SHAP**.
+   - **Sin fuga de vecindario:** las medias de vecindario se calculan con **KNN geográfico** (no con el bloque de validación) y la dirección del viento se codifica como **sin/cos** (variable circular). `mes_sin`/`mes_cos` se descartaron por ser constantes con una única fecha de referencia (desajuste train/serve).
+   - **Evaluación honesta (out-of-fold, 5-fold espacial por bloques de 50 km):** ROC-AUC **0.65 ± 0.07**, **PR-AUC 0.0017** (azar ≈ prevalencia 0.00066), Recall @ Top-1 % **1.0 %**, Top-5 % **5.1 %**, Top-10 % **19.4 %**, Top-20 % **45.1 %**; inferencia < 2 ms por celda. Con solo 45 positivos, un ROC-AUC alto no implica buena precisión en el top; por eso se reporta el PR-AUC.
+   - **Semáforo por presupuesto de alerta:** Rojo = Top-1 % de celdas por score, Amarillo = Top-5 %. Umbrales *data-driven* en `models/model_metadata.json`; también se guardan `oof_thresholds` (escala out-of-fold) como referencia honesta.
+   - **Soporte multi-fecha:** `grid_builder.py` acepta `--ref-dates` y `fetch_firms.py` acepta `--start-date` para construir un **panel temporal** y reducir el desajuste train/serve. (Ver `docs/Memoria_Tecnica_Capstone.md`.)
    - **Motor de Propagación**: Simulación de dirección y velocidad del fuego según viento y topografía (`SciPy`).
 
 4. **API Backend (FastAPI)**
-   - Proxy para NASA FIRMS sin restricciones CORS.
-   - Endpoints de predicción, propagación, reportes PDF y alertas WhatsApp.
+   - Proxy para NASA FIRMS (la API key vive solo en el backend) y **CORS con lista blanca**.
+   - Endpoints de predicción, propagación, reportes PDF y alertas WhatsApp (**protegidos con `X-API-Key`** si `ADMIN_API_KEY` está definida).
+   - Rate-limit y validación geográfica en el endpoint de reportes ciudadanos.
    - Scheduler automático de alertas diarias a todos los grupos comunitarios.
 
 5. **Portal Web y Visualización**
@@ -387,14 +475,13 @@ El flujo de trabajo se compone de 5 módulos principales:
 | Capa | Herramienta / Librería | Función Principal |
 |---|---|---|
 | **Orquestación ETL** | Apache Airflow | Automatización y programación de pipelines |
-| **Bases de Datos** *(opcional)* | PostGIS / PostgreSQL | Almacenamiento espacial (no requerido para operar) |
-| **Almacenamiento Ráster** *(opcional)* | MinIO (S3 Compatible) | GeoTIFFs y archivos pesados (no requerido para operar) |
 | **Machine Learning** | LightGBM, XGBoost, Scikit-Learn, Optuna, SHAP | Ensamble de clasificación, búsqueda de hiperparámetros e interpretabilidad |
-| **Procesamiento Espacial** | GeoPandas, Shapely, Rasterio | Vectores y datos ráster |
+| **Procesamiento Espacial** | GeoPandas, Shapely, Rasterio, SciPy (cKDTree) | Vectores, ráster y vecindario geográfico |
 | **Backend API** | FastAPI, Uvicorn | API REST de alto rendimiento |
+| **Seguridad API** | FastAPI `Depends` + limitador en memoria | API key (`X-API-Key`), CORS con lista blanca, rate-limit y validación geográfica |
 | **Portal Web** | HTML5, CSS3, JavaScript, Leaflet | Portal ciudadano de acceso abierto |
 | **Dashboard Interno** | Streamlit, Folium, Plotly | Dashboard técnico interactivo |
-| **Datos Satelitales** | NASA FIRMS (VIIRS/MODIS) | Focos de calor en tiempo real |
+| **Datos Satelitales** | NASA FIRMS (VIIRS/MODIS) | Focos de calor NRT (etiqueta del modelo) |
 | **Alertas & Reportes** | Green API (WhatsApp), ReportLab | Notificaciones automáticas y PDF ejecutivo |
 | **Pruebas de Carga** | Locust | Evaluación de rendimiento y concurrencia |
 | **Despliegue** | Docker & Docker Compose | Contenedorización de la infraestructura |
@@ -404,12 +491,11 @@ El flujo de trabajo se compone de 5 módulos principales:
 ## 💻 Herramientas y Programas Necesarios
 
 1. **Python 3.11+**: Lenguaje base para pipelines, API, modelo y dashboard.
-2. **Docker Desktop** *(opcional)*: Solo para los contenedores de PostGIS/MinIO. El sistema corre sin Docker.
+2. **Docker Desktop** *(opcional)*: Solo para el contenedor de la API (`docker compose up -d`). El sistema corre sin Docker.
 3. **VS Code** o **Cursor**: Editor de código recomendado.
-4. **DBeaver** o **pgAdmin**: Clientes para inspeccionar tablas espaciales en PostGIS.
-5. **QGIS**: SIG para inspeccionar GeoTIFFs y grillas de 1 km².
-6. **Postman** o **Insomnia**: Para pruebas manuales de endpoints FastAPI.
-7. **Git / GitHub Desktop**: Control de versiones y sincronización.
+4. **QGIS** *(opcional)*: SIG para inspeccionar GeoTIFFs y grillas de 1 km².
+5. **Postman** o **Insomnia**: Para pruebas manuales de endpoints FastAPI.
+6. **Git / GitHub Desktop**: Control de versiones y sincronización.
 
 ---
 
@@ -420,6 +506,7 @@ SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/
 ├── app/                         # Backend FastAPI
 │   ├── main.py                  # Endpoints: /risk/today, /predict, /firms/hotspots, /report/pdf…
 │   ├── model.py                 # Modelo + umbrales operativos (classify) — fuente única de verdad
+│   ├── security.py              # API key, CORS (lista blanca), rate-limit y validación de coordenadas
 │   ├── pdf_generator.py         # Generador de reportes ejecutivos en PDF
 │   ├── propagation.py           # Motor de simulación de propagación de fuego
 │   ├── scheduler.py             # Scheduler de alertas diarias automáticas (07:00 Lima)
@@ -432,7 +519,8 @@ SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/
 │   ├── fetch_firms.py           # Descarga de focos térmicos (NASA FIRMS)
 │   ├── fetch_era5.py            # Meteorología legacy (ERA5 vía Copernicus CDS)
 │   ├── real_features.py         # Features reales SIN credenciales: DEM (Copernicus GLO-30), NDVI (Sentinel-2/AWS), OSM (Overpass), con caché
-│   ├── grid_builder.py          # Grillas de ~1 km², integración de features y etiqueta honesta (NASA FIRMS)
+│   ├── grid_builder.py          # Grillas de ~1 km² (vecindario KNN), etiqueta honesta y panel multi-fecha
+│   ├── refresh_dataset.py       # Recalcula features derivadas del dataset sin re-descargar (KNN + viento)
 │   └── train_model.py           # Entrenamiento: Optuna + validación espacial OOF + umbrales data-driven
 ├── airflow/dags/                # DAGs para orquestación en Apache Airflow
 ├── dashboard/app.py             # Dashboard técnico en Streamlit + Folium
@@ -440,12 +528,15 @@ SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/
 ├── models/                      # lightgbm_wildfire.pkl + model_metadata.json (métricas y umbrales)
 ├── notebooks/model_evaluation.py# Comparación de modelos con validación espacial OOF
 ├── scripts/                     # Utilidades (generar_documento_codigo.py, health_check.py, envío de alertas…)
-├── tests/                       # test_lightgbm_precision.py + auditorías ISO 25010 (audit_*.py)
+├── tests/                       # pytest (test_*.py) + auditorías ISO 25010 (audit_*.py) + test_lightgbm_precision.py
 ├── docs/                        # Memoria técnica del proyecto
 ├── CODIGO_COMPLETO_SISTEMA.txt  # Volcado de todo el código fuente del sistema
-├── docker-compose.yml           # Infraestructura (PostGIS, MinIO, API)
+├── docker-compose.yml           # Contenedor de la API (con healthcheck y restart)
 ├── Dockerfile                   # Imagen Docker para la API
 ├── requirements.txt             # Dependencias de Python
+├── requirements-dev.txt         # Dependencias de desarrollo/CI (pytest, ruff, httpx)
+├── pyproject.toml               # Configuración de ruff / black / pytest
+├── .github/workflows/ci.yml     # CI: lint (ruff) + pruebas (pytest)
 ├── .env.example                 # Plantilla de variables de entorno
 └── README.md
 ```
@@ -470,7 +561,8 @@ Edita `.env` y completa las credenciales. **Todas son opcionales:** la API arran
 > - **GREEN_API_INSTANCE_ID**, **GREEN_API_TOKEN** *(alertas WhatsApp)*: WhatsApp vía [Green API](https://green-api.com/) (plan gratuito, sin Meta). Vincula tu número escaneando un QR.
 > - **WHATSAPP_GROUP_IDS**: IDs de grupo/número separados por coma (formato `120363XXXXXXXX@g.us`), destino del resumen diario de las 07:00.
 > - **CDS_API_KEY** *(legacy, opcional)*: solo lo usa `data_pipeline/fetch_era5.py`. La ingesta de features reales (`real_features.py`) usa **Open-Meteo** y **AWS** y **no requiere credenciales**.
-> - **POSTGRES_\*** / **MINIO_\*** *(opcional)*: solo si levantas PostGIS/MinIO con Docker.
+> - **ADMIN_API_KEY** *(recomendado)*: si se define, los endpoints `POST /alert/whatsapp` y `POST /alert/daily` exigen la cabecera `X-API-Key`. Si se deja vacía, quedan sin protección (modo demo).
+> - **ALLOWED_ORIGINS** *(opcional)*: lista blanca de CORS separada por comas. Por defecto solo se permiten orígenes locales (`:5050`, `:8501`).
 
 ### 3. Crear Entorno Virtual e Instalar Dependencias
 ```bash
@@ -482,13 +574,15 @@ venv\Scripts\activate
 # Linux/macOS:
 source venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r requirements.txt        # runtime
+# pip install -r requirements-dev.txt  # + herramientas de desarrollo/CI (pytest, ruff)
 ```
 
-### 4. (Opcional) Levantar Infraestructura con Docker
+### 4. (Opcional) Levantar la API con Docker
 ```bash
 docker compose up -d
 ```
+Levanta **solo el contenedor de la API** (con `healthcheck` y `restart`). El sistema no requiere PostGIS ni MinIO.
 
 ### 5. Iniciar la API y el Portal Ciudadano
 ```bash
@@ -512,16 +606,18 @@ Accede en: `http://localhost:8501`
 | Método | Endpoint | Descripción |
 |---|---|---|
 | `GET` | `/` | Portal web ciudadano (index.html) |
-| `GET` | `/health` | Estado del servicio y modelo LightGBM |
-| `GET` | `/risk/today` | GeoJSON con predicciones de riesgo por grilla (hoy) — área de Cajamarca (parámetro `limit`, por defecto 1200, máx. 5000) |
-| `GET` | `/firms/hotspots` | Focos de calor reales de NASA FIRMS (proxy sin CORS) |
+| `GET` | `/health` | Estado del servicio y frescura de datos: `model_version`, `training_date` y `thresholds` (Rojo/Amarillo) |
+| `GET` | `/risk/today` | GeoJSON con el índice de riesgo por grilla — área de Cajamarca (`limit`, por defecto 1200). Muestreo aleatorio uniforme (sin usar la etiqueta) e incluye `stats` con los conteos reales del territorio |
+| `GET` | `/firms/hotspots` | Focos de calor reales de NASA FIRMS (proxy; la API key no se expone al frontend) |
 | `POST` | `/predict` | Inferencia individual del modelo (devuelve `probabilidad`, `percentil` y `nivel`) |
 | `POST` | `/propagate` | Simulación de propagación de fuego por viento |
-| `POST` | `/alert/whatsapp` | Envía alerta de WhatsApp para grilla en nivel Rojo |
-| `POST` | `/alert/daily` | Dispara manualmente el resumen diario a todos los grupos WhatsApp |
+| `POST` | `/alert/whatsapp` | Envía alerta de WhatsApp para grilla en nivel Rojo *(requiere `X-API-Key` si `ADMIN_API_KEY` está definida)* |
+| `POST` | `/alert/daily` | Dispara manualmente el resumen diario a todos los grupos WhatsApp *(requiere `X-API-Key` si `ADMIN_API_KEY` está definida)* |
 | `GET` | `/alert/status` | Estado del scheduler y próxima ejecución programada |
+| `POST` | `/report/citizen` | Registra un reporte ciudadano de foco/humo (valida coordenadas en Perú y limita a 5 por IP cada 10 min) |
+| `GET` | `/report/recent` | Últimos reportes ciudadanos registrados |
 | `GET` | `/report/pdf` | Descarga el informe ejecutivo en PDF |
-| `GET` | `/model/importance` | Importancia de características del modelo LightGBM |
+| `GET` | `/model/importance` | Importancia de características del modelo (SHAP) |
 | `GET` | `/social/matrix` | Matriz de entorno social y mitigación de restricciones |
 
 ### Parámetros de `/firms/hotspots`
@@ -576,11 +672,11 @@ Los niveles **Verde / Amarillo / Rojo** se calculan con **presupuesto de alerta*
 
 | Nivel | Regla | Valor actual (aprox.) |
 |---|---|---|
-| 🔴 Rojo | Top-1% de celdas por score del modelo (p99) | `0.130` |
-| 🟡 Amarillo | Top-5% de celdas por score (p95) | `0.094` |
-| 🟢 Verde | Resto del territorio | `< 0.094` |
+| 🔴 Rojo | Top-1 % de celdas por score del modelo (p99) | `0.132` |
+| 🟡 Amarillo | Top-5 % de celdas por score (p95) | `0.098` |
+| 🟢 Verde | Resto del territorio | `< 0.098` |
 
-Los umbrales se recalculan en cada entrenamiento y se guardan en `models/model_metadata.json` (`serving_thresholds`). `app/model.py` expone `classify()` como **fuente única de verdad**, usada por `/predict`, `/risk/today`, el scheduler de WhatsApp y el dashboard.
+Los umbrales se recalculan en cada entrenamiento y se guardan en `models/model_metadata.json` (`serving_thresholds`). `app/model.py` expone `classify()` como **fuente única de verdad**, usada por `/predict`, `/risk/today`, el scheduler de WhatsApp y el dashboard. Son un **criterio de ranking relativo** (presupuesto de alerta), no una probabilidad absoluta calibrada.
 
 ---
 
@@ -601,6 +697,19 @@ python tests/iso25010_audit.py            # auditoría completa ISO/IEC 25010
 
 **Último resultado:** `audit_quick` **85/85** · `audit_final` **106/106** · `iso25010` **133/133** · `test_lightgbm_precision` **APROBADO**.
 
+### Pruebas automatizadas (pytest) y lint
+
+No requieren la API en ejecución (usan `TestClient` en memoria):
+
+```bash
+pip install -r requirements-dev.txt
+
+ruff check .          # lint (errores reales: imports/atributos indefinidos, código muerto)
+pytest -q             # 32 pruebas: modelo, API, seguridad y pipeline
+```
+
+La CI (`.github/workflows/ci.yml`) ejecuta `ruff` y `pytest` en cada `push`/`pull request`.
+
 ### Pruebas de Carga
 
 ```bash
@@ -618,7 +727,7 @@ Desarrollado por estudiantes de **Ingeniería de Sistemas Computacionales** de P
 
 
 ==========================================================================================
-ARCHIVO [07]: docs/Memoria_Tecnica_Capstone.md
+ARCHIVO [10]: docs/Memoria_Tecnica_Capstone.md
 ==========================================================================================
 # Memoria Técnica - Proyecto Final Capstone
 
@@ -746,7 +855,7 @@ Esto es exactamente cómo operan los sistemas de alerta reales: un **presupuesto
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [08]: INICIAR_SERVIDOR_7AM.bat
+ARCHIVO [11]: INICIAR_SERVIDOR_7AM.bat
 ==========================================================================================
 @echo off
 chcp 65001 > nul
@@ -766,7 +875,7 @@ pause
 
 
 ==========================================================================================
-ARCHIVO [09]: ENVIAR_ALERTAS_AHORA.bat
+ARCHIVO [12]: ENVIAR_ALERTAS_AHORA.bat
 ==========================================================================================
 @echo off
 chcp 65001 > nul
@@ -786,7 +895,7 @@ pause
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [10]: data_pipeline/grid_builder.py
+ARCHIVO [13]: data_pipeline/grid_builder.py
 ==========================================================================================
 """
 Convierte puntos de calor (lat/lon) de NASA FIRMS en un dataset estructurado
@@ -839,8 +948,11 @@ DEFAULTS = {
     "pendiente_pct": 8.0, "ndvi": 0.40, "dist_carretera_m": 3000.0, "dist_poblado_m": 5000.0,
     "temp_2m": 20.0, "humedad_relativa": 55.0, "viento_velocidad": 10.0, "viento_direccion": 180.0,
     "dias_sin_lluvia": 10.0, "lluvia_acum_7d": 5.0, "lluvia_acum_15d": 15.0,
-    "temp_lag1": 20.0, "humedad_lag1": 55.0,
+    "temp_lag1": 20.0, "humedad_lag1": 55.0, "elevacion_m": 2500.0,
 }
+
+# Número de vecinos geográficos (~8 celdas de 1 km²) para las features de vecindario.
+NEIGHBORHOOD_K = 8
 
 
 def build_grid(min_lat: float, min_lon: float, max_lat: float, max_lon: float,
@@ -932,6 +1044,62 @@ def _generate_synthetic_features(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     grid["lluvia_acum_15d"] = np.round(np.clip(95.0 - dias_sin_lluvia * 3.8 + np.random.normal(0, 10, n), 0.0, 320.0), 1)
     grid["temp_lag1"] = np.round(grid["temp_2m"] + np.random.normal(0, 1.2, n), 1)
     grid["humedad_lag1"] = np.round(np.clip(grid["humedad_relativa"] + np.random.normal(0, 3.0, n), 10.0, 98.0), 1)
+    grid["elevacion_m"] = np.round(elevation_sim, 1)
+    return grid
+
+
+def _geo_km(grid: gpd.GeoDataFrame) -> np.ndarray:
+    """Coordenadas aproximadas en km (equirectangular centrada en el bbox) para el KNN."""
+    lats = grid["latitude"].to_numpy(float)
+    lons = grid["longitude"].to_numpy(float)
+    lat0 = np.deg2rad(float(lats.mean()))
+    x = lons * 111.32 * np.cos(lat0)
+    y = lats * 110.57
+    return np.column_stack([x, y])
+
+
+def add_neighborhood_features(grid: gpd.GeoDataFrame, k: int = NEIGHBORHOOD_K) -> gpd.GeoDataFrame:
+    """
+    Features de vecindario calculadas con VECINOS GEOGRÁFICOS (KNN, ~8 celdas de 1 km²),
+    NO con el bloque de validación.
+
+    Antes se usaba `groupby("spatial_block_id").transform("mean")`, donde
+    `spatial_block_id` es exactamente el grupo de `GroupKFold` del entrenamiento. Eso
+    convertía la media del vecindario en una "huella" continua del grupo de CV (fuga
+    entre la feature y la variable de agrupación). El KNN geográfico elimina ese sesgo.
+    """
+    from scipy.spatial import cKDTree
+
+    coords = _geo_km(grid)
+    n = len(grid)
+    kk = max(1, min(k + 1, n))          # +1 para excluir la propia celda del promedio
+    tree = cKDTree(coords)
+    _, idx = tree.query(coords, k=kk)
+    if idx.ndim == 1:
+        idx = idx[:, None]
+    neigh = idx[:, 1:] if idx.shape[1] > 1 else idx  # sin la propia celda
+
+    def _neighbor_mean(col: str) -> np.ndarray:
+        vals = grid[col].to_numpy(float)[neigh]
+        with np.errstate(invalid="ignore"):
+            return np.nanmean(vals, axis=1)
+
+    grid["temp_vecindad_media"] = np.round(_neighbor_mean("temp_2m"), 1)
+    grid["humedad_vecindad_media"] = np.round(_neighbor_mean("humedad_relativa"), 1)
+    grid["ndvi_anomaly"] = np.round(grid["ndvi"].to_numpy(float) - _neighbor_mean("ndvi"), 3)
+    return grid
+
+
+def add_wind_encoding(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Codifica la dirección del viento (variable CIRCULAR) como sin/cos.
+
+    Usar los grados crudos (0-360) es incorrecto: 359° y 1° son casi iguales pero
+    numéricamente opuestos. La codificación sin/cos resuelve esa discontinuidad.
+    """
+    ang = np.deg2rad(grid["viento_direccion"].to_numpy(float))
+    grid["viento_dir_sin"] = np.round(np.sin(ang), 4)
+    grid["viento_dir_cos"] = np.round(np.cos(ang), 4)
     return grid
 
 
@@ -959,11 +1127,14 @@ def compute_geospatial_features(grid: gpd.GeoDataFrame, bbox: tuple, ref_date: s
         grid = _generate_synthetic_features(grid)
 
     # ── (b) Features derivadas ───────────────────────────────────────────────
-    ndvi_zona_mean = grid.groupby("spatial_block_id")["ndvi"].transform("mean")
-    grid["ndvi_anomaly"] = np.round(grid["ndvi"] - ndvi_zona_mean, 3)
-    grid["temp_vecindad_media"] = np.round(grid.groupby("spatial_block_id")["temp_2m"].transform("mean"), 1)
-    grid["humedad_vecindad_media"] = np.round(grid.groupby("spatial_block_id")["humedad_relativa"].transform("mean"), 1)
+    # Vecindario por VECINOS GEOGRÁFICOS (KNN), no por bloque de validación (ver
+    # add_neighborhood_features). Codificación circular del viento (sin/cos).
+    grid = add_neighborhood_features(grid)
+    grid = add_wind_encoding(grid)
 
+    # La estacionalidad (mes_sin/mes_cos) sí se conserva como columna informativa,
+    # pero NO entra al modelo: con una sola fecha de referencia es constante (std=0)
+    # y provocaría un desajuste train/serve. Ver app/model.py:FEATURE_ORDER.
     mes = pd.Timestamp(ref_date).month
     grid["mes_sin"] = np.round(np.sin(2 * np.pi * mes / 12.0), 4)
     grid["mes_cos"] = np.round(np.cos(2 * np.pi * mes / 12.0), 4)
@@ -993,8 +1164,12 @@ def main():
                         default=[-7.7592, -79.4517, -4.5519, -77.7389],
                         help="Coordenadas extremas de Cajamarca [minLat, minLon, maxLat, maxLon]")
     parser.add_argument("--ref-date", default="2026-09-06", help="Fecha de referencia (fin de la ventana de focos)")
-    parser.add_argument("--start", default="2026-08-15", help="Inicio de la ventana meteorológica/NDVI")
-    parser.add_argument("--end", default="2026-09-06", help="Fin de la ventana meteorológica/NDVI")
+    parser.add_argument("--ref-dates", default=None,
+                        help="Varias fechas separadas por coma (YYYY-MM-DD) para construir un PANEL MULTI-FECHA, "
+                             "p. ej. --ref-dates 2026-08-23,2026-08-30,2026-09-06. Requiere un firms_raw.csv con "
+                             "varias fechas (ver fetch_firms.py --start-date).")
+    parser.add_argument("--start", default="2026-08-15", help="[Deprecado] La ventana se deriva de --ref-date(s)")
+    parser.add_argument("--end", default="2026-09-06", help="[Deprecado] La ventana se deriva de --ref-date(s)")
     parser.add_argument("--synthetic", action="store_true", help="Usar features sintéticas (sin red, solo pruebas)")
     parser.add_argument("--out", default="data/dataset.parquet")
     args = parser.parse_args()
@@ -1010,15 +1185,43 @@ def main():
         firms_df = pd.DataFrame()
 
     print("🧩 Construyendo grilla espacial de 1km²...")
-    grid = build_grid(min_lat, min_lon, max_lat, max_lon)
-    print(f"  -> {len(grid)} celdas de 1km² generadas")
 
-    print("🔥 Asignando focos de calor satelitales (FIRMS)...")
-    grid = assign_fires_to_grid(firms_df, grid)
-    print(f"  -> {grid['target'].sum()} celdas con Target=1 (incendio detectado)")
+    ref_dates = (
+        [d.strip() for d in args.ref_dates.split(",") if d.strip()]
+        if args.ref_dates else [args.ref_date]
+    )
 
-    grid = compute_geospatial_features(grid, bbox, args.ref_date, args.start, args.end,
-                                       use_real=not args.synthetic)
+    frames = []
+    for ref_date in ref_dates:
+        ref_ts = pd.Timestamp(ref_date)
+
+        # Una etiqueta por fecha: focos reales de los 10 días previos a ref_date.
+        if not firms_df.empty and "acq_date" in firms_df.columns:
+            win_start = (ref_ts - pd.Timedelta(days=9)).strftime("%Y-%m-%d")
+            firms_win = firms_df[
+                (firms_df["acq_date"] >= win_start) & (firms_df["acq_date"] <= ref_date)
+            ]
+        else:
+            firms_win = firms_df
+
+        grid_d = build_grid(min_lat, min_lon, max_lat, max_lon)
+        print(f"  [{ref_date}] {len(grid_d)} celdas de 1km² generadas")
+
+        grid_d = assign_fires_to_grid(firms_win, grid_d)
+        start_d = (ref_ts - pd.Timedelta(days=22)).strftime("%Y-%m-%d")
+        grid_d = compute_geospatial_features(
+            grid_d, bbox, ref_date, start_d, ref_date, use_real=not args.synthetic
+        )
+        grid_d["ref_date"] = ref_date
+        print(f"  [{ref_date}] Target=1: {int(grid_d['target'].sum())} celdas")
+        frames.append(grid_d)
+
+    if len(frames) == 1:
+        grid = frames[0]
+    else:
+        merged = pd.concat(frames, ignore_index=True)
+        grid = gpd.GeoDataFrame(merged, geometry="geometry", crs=frames[0].crs)
+        print(f"🧱 Panel MULTI-FECHA: {len(ref_dates)} fechas | {len(grid):,} filas totales")
 
     # Ordenar dataset: primero celdas con target=1, luego por distancia al centro de Cajamarca (-7.16, -78.50)
     c_lat, c_lon = -7.16, -78.50
@@ -1046,7 +1249,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [11]: data_pipeline/real_features.py
+ARCHIVO [14]: data_pipeline/real_features.py
 ==========================================================================================
 # -*- coding: utf-8 -*-
 """
@@ -1062,7 +1265,6 @@ Los resultados se cachean en data/cache/ para no volver a descargarlos.
 """
 from __future__ import annotations
 
-import json
 import math
 import time
 from pathlib import Path
@@ -1309,7 +1511,6 @@ def fetch_ndvi_mosaic(bbox, start, end, res=0.005, max_scenes=10, cloud_lt=40):
     import rasterio
     from rasterio.transform import from_origin
     from rasterio.warp import reproject, Resampling
-    from pyproj import Transformer
 
     r = requests.post(_STAC, json={
         "collections": ["sentinel-2-l2a"],
@@ -1530,7 +1731,101 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [12]: data_pipeline/train_model.py
+ARCHIVO [15]: data_pipeline/refresh_dataset.py
+==========================================================================================
+# -*- coding: utf-8 -*-
+"""
+Recalcula las features derivadas/vecindario del dataset EXISTENTE sin volver a
+descargar datos reales (DEM / Sentinel-2 / ERA5 / OSM).
+
+Se usa para propagar dos correcciones metodológicas a un dataset ya generado:
+
+  1. Vecindario por VECINOS GEOGRÁFICOS (KNN) en vez de `groupby(spatial_block_id)`
+     -> elimina la fuga entre la feature de vecindario y el grupo de GroupKFold.
+  2. Codificación CIRCULAR del viento (viento_dir_sin / viento_dir_cos).
+
+Uso:
+    python data_pipeline/refresh_dataset.py
+    python data_pipeline/refresh_dataset.py --input data/dataset.parquet --k 8
+"""
+import argparse
+import sys
+from pathlib import Path
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+import pandas as pd
+
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
+
+from data_pipeline.grid_builder import (  # noqa: E402
+    NEIGHBORHOOD_K,
+    add_neighborhood_features,
+    add_wind_encoding,
+)
+
+
+def refresh(input_path: str, k: int = NEIGHBORHOOD_K) -> pd.DataFrame:
+    in_path = Path(input_path)
+    csv_path = in_path.with_suffix(".csv")
+
+    if in_path.exists():
+        try:
+            df = pd.read_parquet(in_path)
+        except Exception:
+            df = pd.read_csv(csv_path)
+    elif csv_path.exists():
+        df = pd.read_csv(csv_path)
+    else:
+        raise FileNotFoundError(
+            f"No se encontró {in_path} ni {csv_path}. "
+            "Ejecuta data_pipeline/grid_builder.py primero."
+        )
+
+    print(f"📥 Dataset cargado: {len(df):,} filas desde {in_path if in_path.exists() else csv_path}")
+
+    for col in ("latitude", "longitude", "temp_2m", "humedad_relativa", "ndvi", "viento_direccion"):
+        if col not in df.columns:
+            raise KeyError(f"Falta la columna '{col}', necesaria para recalcular el vecindario.")
+
+    if "elevacion_m" not in df.columns:
+        df["elevacion_m"] = 2500.0
+
+    # 1) Vecindario geográfico (KNN)
+    df = add_neighborhood_features(df, k=k)
+    # 2) Viento sin/cos (circular)
+    df = add_wind_encoding(df)
+
+    if in_path.exists():
+        df.to_parquet(in_path, index=False)
+        print(f"💾 Parquet actualizado: {in_path}")
+
+    # El CSV público se guarda sin la geometría (igual que hace grid_builder.py)
+    out_csv = df.drop(columns=["geometry"], errors="ignore")
+    out_csv.to_csv(csv_path, index=False)
+    print(f"💾 CSV actualizado: {csv_path}")
+    print("   - temp_vecindad_media / humedad_vecindad_media / ndvi_anomaly → KNN geográfico")
+    print("   - viento_dir_sin / viento_dir_cos → codificación circular")
+    return df
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Recalcula features derivadas del dataset sin red")
+    parser.add_argument("--input", default="data/dataset.parquet")
+    parser.add_argument("--k", type=int, default=NEIGHBORHOOD_K,
+                        help="Nº de vecinos geográficos para las medias de vecindario")
+    args = parser.parse_args()
+    refresh(args.input, k=args.k)
+
+
+if __name__ == "__main__":
+    main()
+
+
+==========================================================================================
+ARCHIVO [16]: data_pipeline/train_model.py
 ==========================================================================================
 """
 Pipeline Avanzado de Machine Learning para Alerta Temprana de Incendios Forestales
@@ -1564,26 +1859,22 @@ import shap
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.metrics import (
-    classification_report,
+    average_precision_score,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import GroupKFold, train_test_split
+from sklearn.model_selection import GroupKFold
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-FEATURE_COLUMNS = [
-    # Variables base
-    "pendiente_pct", "ndvi", "dist_carretera_m", "dist_poblado_m",
-    "temp_2m", "humedad_relativa", "viento_velocidad", "viento_direccion",
-    # Variables temporales & estacionales
-    "dias_sin_lluvia", "lluvia_acum_7d", "lluvia_acum_15d",
-    "temp_lag1", "humedad_lag1", "ndvi_anomaly", "mes_sin", "mes_cos",
-    # Variables espaciales (vecindario)
-    "temp_vecindad_media", "humedad_vecindad_media",
-]
+# Fuente única de verdad de las features: app/model.py (evita listas divergentes
+# entre el entrenamiento y el servicio).
+ROOT = Path(__file__).parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from app.model import FEATURE_ORDER as FEATURE_COLUMNS  # noqa: E402
 
 
 def load_and_prepare_data(data_path: str):
@@ -1621,7 +1912,6 @@ def optimize_lightgbm_optuna(X: pd.DataFrame, y: pd.Series, groups: pd.Series, n
     print(f"\n🔍 [Optuna] Iniciando búsqueda bayesiana de hiperparámetros ({n_trials} trials con Spatial CV)...")
 
     gkf = GroupKFold(n_splits=5)
-    scale_pos = max(1.0, (len(y) - y.sum()) / max(1, y.sum()))
 
     def objective(trial):
         params = {
@@ -1733,6 +2023,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     alert_budget = 0.01  # 1% de celdas de mayor riesgo (presupuesto de alerta)
     budgets = [0.01, 0.05, 0.10, 0.20]
     fold_aucs, base_fold_aucs = [], []
+    fold_ap, base_fold_ap = [], []
     rec_opt = {b: [] for b in budgets}
     rec_base = {b: [] for b in budgets}
 
@@ -1771,6 +2062,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
         if len(np.unique(yte)) > 1:
             fold_aucs.append(roc_auc_score(yte, oof_opt[te]))
             base_fold_aucs.append(roc_auc_score(yte, oof_base[te]))
+            fold_ap.append(average_precision_score(yte, oof_opt[te]))
+            base_fold_ap.append(average_precision_score(yte, oof_base[te]))
         for b in budgets:
             rec_opt[b].append(recall_at_budget(yte, oof_opt[te], b))
             rec_base[b].append(recall_at_budget(yte, oof_base[te], b))
@@ -1778,6 +2071,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
 
     base_auc = float(np.mean(base_fold_aucs)) if base_fold_aucs else float("nan")
     final_auc = float(np.mean(fold_aucs)) if fold_aucs else float("nan")
+    base_ap = float(np.mean(base_fold_ap)) if base_fold_ap else float("nan")
+    final_ap = float(np.mean(fold_ap)) if fold_ap else float("nan")
     base_pred = (oof_base >= 0.5).astype(int)
     base_f1 = f1_score(y, base_pred, zero_division=0)
     base_rec = recall_score(y, base_pred, zero_division=0)
@@ -1793,6 +2088,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     print(f"{'ROC-AUC (media por fold)':<26} | {base_auc:<20.4f} | {final_auc:<20.4f}")
     if fold_aucs:
         print(f"{'   ± desv. est. entre folds':<26} | {'-':<20} | {np.std(fold_aucs):<20.4f}")
+    print(f"{'PR-AUC (Average Precision)':<26} | {base_ap:<20.4f} | {final_ap:<20.4f}")
+    print(f"{'   (azar ≈ prevalencia)':<26} | {y.mean():<20.5f} | {y.mean():<20.5f}")
     for b in budgets:
         print(f"{'Recall @ Top-' + f'{int(b * 100)}% celdas':<26} | {np.mean(rec_base[b]):<20.2%} | {np.mean(rec_opt[b]):<20.2%}")
     print(f"{'F1 (alarma, presup. 1%)':<26} | {base_f1:<20.4f} | {final_f1:<20.4f}")
@@ -1801,7 +2098,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
 
     # ── Modelo FINAL para producción: entrenado en TODOS los datos ──────────────
     print("\n🏁 [Modelo final] Entrenando ensemble con todos los datos...")
-    calibrated_model = _build_ensemble(best_params).fit(X, y)
+    final_model = _build_ensemble(best_params).fit(X, y)
 
     # Umbral de operación del modelo final (cuantil de validación interna espacial,
     # sin tocar el test). Deja en alerta el `alert_budget` de celdas de mayor riesgo.
@@ -1818,15 +2115,29 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     # La API predice sobre su propia distribución de scores; los umbrales del
     # semáforo deben ser cuantiles de ESA distribución, no valores fijos (0.70/0.15)
     # ni el umbral OOF (que vive en otra escala). Rojo = top 1%, Amarillo = top 5%.
-    _scores = calibrated_model.predict_proba(X[FEATURE_COLUMNS])[:, 1]
+    _scores = final_model.predict_proba(X[FEATURE_COLUMNS])[:, 1]
     serving_thresholds = {
         "rojo": round(float(np.quantile(_scores, 0.99)), 6),
         "amarillo": round(float(np.quantile(_scores, 0.95)), 6),
         "budget_rojo": 0.01,
         "budget_amarillo": 0.05,
-        "descripcion": "Top 1% de celdas por score = Rojo; top 5% = Amarillo (presupuesto de alerta).",
+        "descripcion": (
+            "Cuantiles de la distribución de scores SERVIDA (in-sample): Rojo = top 1% "
+            "del ranking, Amarillo = top 5%. Es un criterio de RANKING relativo "
+            "(presupuesto de alerta), NO una probabilidad absoluta calibrada."
+        ),
     }
     score_quantiles = [round(float(np.quantile(_scores, i / 100.0)), 6) for i in range(101)]
+
+    # Umbrales OUT-OF-FOLD (escala OOF): referencia honesta de desempeño real.
+    # No se usan para servir (viven en otra escala), pero documentan la capacidad
+    # real del modelo sin el optimismo del p99/p95 in-sample.
+    oof_thresholds = {
+        "rojo": round(float(np.nanquantile(oof_opt, 0.99)), 6),
+        "amarillo": round(float(np.nanquantile(oof_opt, 0.95)), 6),
+        "nota": ("Cuantiles de los scores OUT-OF-FOLD. Sirven para comparar con la "
+                 "escala OOF; el semáforo servido usa serving_thresholds."),
+    }
     print(f"\n🚦 [Umbrales operativos] Rojo (p99) = {serving_thresholds['rojo']:.4f} | "
           f"Amarillo (p95) = {serving_thresholds['amarillo']:.4f}")
 
@@ -1860,12 +2171,13 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     # 9. MLOps: Registro y Metadatos
     out_model = Path(output_model_path)
     out_model.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(calibrated_model, out_model)
+    joblib.dump(final_model, out_model)
 
     metadata = {
-        "model_version": "v2.2.0-spatial-ensemble-real",
+        "model_version": "v2.3.0-spatial-ensemble-real",
         "training_date": datetime.now().isoformat(),
         "algorithm": "Ensemble (LightGBM + XGBoost + RandomForest)",
+        "task": "Índice de SUSCEPTIBILIDAD diario (ranking relativo), no pronóstico de ignición",
         "features": FEATURE_COLUMNS,
         "feature_sources": {
             "terreno": "Copernicus DEM GLO-30 (pendiente, aspecto, elevación)",
@@ -1874,17 +2186,25 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
             "infraestructura": "OpenStreetMap (distancia a vías y poblados)",
             "etiqueta": "NASA FIRMS (focos de calor reales)",
         },
+        "feature_engineering": (
+            "Vecindario por KNN geográfico (no por bloque de CV) y dirección de viento "
+            "codificada como sin/cos (variable circular). Se descartaron mes_sin/mes_cos "
+            "por ser constantes con una única fecha de referencia (train/serve skew)."
+        ),
         "probability_calibration": "descartada: Platt scaling resultaba inestable y degradaba el AUC con <50 positivos",
         "validation_strategy": "Spatial GroupKFold 5-fold out-of-fold (bloques de 50 km sin fuga espacial)",
+        "random_baseline_precision": round(float(y.mean()), 5),
         "operating_threshold": optimal_thresh,
         "alert_budget": alert_budget,
         "serving_thresholds": serving_thresholds,
+        "oof_thresholds": oof_thresholds,
         "score_quantiles": score_quantiles,
         "metrics": {
             "baseline": {
                 "f1_score": round(float(base_f1), 4),
                 "recall": round(float(base_rec), 4),
                 "roc_auc": round(float(base_auc), 4),
+                "average_precision": round(float(base_ap), 4),
             },
             "optimized_ensemble": {
                 "f1_score": round(float(final_f1), 4),
@@ -1892,6 +2212,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
                 "recall": round(float(final_rec), 4),
                 "roc_auc": round(float(final_auc), 4),
                 "roc_auc_fold_std": round(float(np.std(fold_aucs)), 4) if fold_aucs else None,
+                "average_precision": round(float(final_ap), 4),
+                "average_precision_fold_std": round(float(np.std(fold_ap)), 4) if fold_ap else None,
                 "recall_at_top_1pct": round(float(np.mean(rec_opt[0.01])), 4),
                 "recall_at_top_5pct": round(float(np.mean(rec_opt[0.05])), 4),
                 "recall_at_top_10pct": round(float(np.mean(rec_opt[0.10])), 4),
@@ -1906,7 +2228,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✅ Modelo Ensemble Calibrado guardado en: {out_model}")
+    print(f"\n✅ Modelo Ensemble guardado en: {out_model}")
     print(f"📄 Metadatos y registro MLOps guardados en: {meta_path}")
 
 
@@ -1925,7 +2247,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [13]: data_pipeline/fetch_firms.py
+ARCHIVO [17]: data_pipeline/fetch_firms.py
 ==========================================================================================
 """
 Descarga focos de calor históricos de NASA FIRMS (Fire Information for Resource
@@ -1940,6 +2262,7 @@ import argparse
 import os
 import sys
 import time
+from datetime import date, timedelta
 from io import StringIO
 from pathlib import Path
 
@@ -1956,39 +2279,66 @@ FIRMS_AREA_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv"
 DEFAULT_SENSOR = "VIIRS_SNPP_NRT"
 
 
-def fetch_firms_area(bbox_str: str, days: int, sensor: str = DEFAULT_SENSOR) -> pd.DataFrame:
+def _fetch_chunk(api_key: str, bbox_str: str, sensor: str, days: int,
+                 start_date: str = None) -> pd.DataFrame | None:
+    """Descarga un bloque de hasta 5 días (límite de NASA FIRMS)."""
+    url = f"{FIRMS_AREA_URL}/{api_key}/{sensor}/{bbox_str}/{days}"
+    if start_date:
+        url += f"/{start_date}"
+
+    response = requests.get(url, timeout=60)
+    if response.status_code == 200 and "Invalid" not in response.text[:60]:
+        df_chunk = pd.read_csv(StringIO(response.text))
+        if not df_chunk.empty and "latitude" in df_chunk.columns:
+            return df_chunk
+    print(f"⚠️ Aviso en chunk de FIRMS ({start_date or 'últimos'}): {response.text[:200]}")
+    return None
+
+
+def fetch_firms_area(bbox_str: str, days: int, sensor: str = DEFAULT_SENSOR,
+                     start_date: str = None) -> pd.DataFrame:
     """
-    Descarga focos de calor de los últimos `days` días para un bounding box (west,south,east,north).
-    Realiza solicitudes en bloques de máximo 5 días (límite de NASA FIRMS).
+    Descarga focos de calor reales de NASA FIRMS para un bounding box
+    (west,south,east,north) y una ventana de `days` días.
+
+    Si `start_date` (YYYY-MM-DD) es None, descarga los últimos `days` días (NRT).
+    Si se indica, descarga la ventana histórica [start_date, start_date+days),
+    necesaria para construir datasets MULTI-FECHA (panel temporal).
     """
     api_key = os.getenv("FIRMS_MAP_KEY")
     if not api_key:
         raise RuntimeError("Falta FIRMS_MAP_KEY en tu archivo .env")
 
     dfs = []
-    # NASA FIRMS API de área acepta días entre 1 y 5 por llamada
-    chunk_days = 5
-    remaining = days
-    
-    while remaining > 0:
-        req_days = min(remaining, chunk_days)
-        url = f"{FIRMS_AREA_URL}/{api_key}/{sensor}/{bbox_str}/{req_days}"
-        response = requests.get(url, timeout=60)
-        
-        if response.status_code == 200 and "Invalid" not in response.text:
-            df_chunk = pd.read_csv(StringIO(response.text))
-            if not df_chunk.empty and "latitude" in df_chunk.columns:
-                dfs.append(df_chunk)
-        else:
-            print(f"⚠️ Aviso en chunk de FIRMS: {response.text[:200]}")
-            
-        remaining -= chunk_days
-        if remaining > 0:
-            time.sleep(0.5)
+    chunk_days = 5  # NASA FIRMS acepta 1-5 días por llamada
+
+    if start_date:
+        cursor = date.fromisoformat(start_date)
+        remaining = days
+        while remaining > 0:
+            req_days = min(remaining, chunk_days)
+            chunk = _fetch_chunk(api_key, bbox_str, sensor, req_days, cursor.isoformat())
+            if chunk is not None:
+                dfs.append(chunk)
+            cursor += timedelta(days=req_days)
+            remaining -= req_days
+            if remaining > 0:
+                time.sleep(0.5)
+    else:
+        remaining = days
+        while remaining > 0:
+            req_days = min(remaining, chunk_days)
+            chunk = _fetch_chunk(api_key, bbox_str, sensor, req_days)
+            if chunk is not None:
+                dfs.append(chunk)
+            remaining -= chunk_days
+            if remaining > 0:
+                time.sleep(0.5)
 
     if dfs:
-        full_df = pd.concat(dfs, ignore_index=True).drop_duplicates(subset=["latitude", "longitude", "acq_date", "acq_time"])
-        return full_df
+        return pd.concat(dfs, ignore_index=True).drop_duplicates(
+            subset=["latitude", "longitude", "acq_date", "acq_time"]
+        )
     return pd.DataFrame()
 
 
@@ -1997,6 +2347,8 @@ def main():
     parser.add_argument("--bbox", nargs=4, type=float, default=[-79.4517, -7.7592, -77.7389, -4.5519],
                         help="West South East North (ej: -79.4517 -7.7592 -77.7389 -4.5519 para Cajamarca)")
     parser.add_argument("--days", type=int, default=10, help="Días hacia atrás (máx 366)")
+    parser.add_argument("--start-date", default=None,
+                        help="Fecha de inicio (YYYY-MM-DD) para una ventana histórica (multi-fecha)")
     parser.add_argument("--sensor", default=DEFAULT_SENSOR)
     parser.add_argument("--out", default="data/firms_raw.csv")
     args = parser.parse_args()
@@ -2005,7 +2357,7 @@ def main():
     bbox_str = f"{west},{south},{east},{north}"
 
     print(f"📡 Descargando focos de calor de NASA FIRMS para bbox [{bbox_str}]...")
-    df = fetch_firms_area(bbox_str, args.days, args.sensor)
+    df = fetch_firms_area(bbox_str, args.days, args.sensor, start_date=args.start_date)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2019,7 +2371,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [14]: data_pipeline/fetch_era5.py
+ARCHIVO [18]: data_pipeline/fetch_era5.py
 ==========================================================================================
 """
 Descarga variables atmosféricas de ERA5 (Copernicus Climate Data Store):
@@ -2103,12 +2455,13 @@ if __name__ == "__main__":
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [15]: models/model_metadata.json
+ARCHIVO [19]: models/model_metadata.json
 ==========================================================================================
 {
-  "model_version": "v2.2.0-spatial-ensemble-real",
-  "training_date": "2026-10-15T09:36:50.640566",
+  "model_version": "v2.3.0-spatial-ensemble-real",
+  "training_date": "2026-10-16T16:21:12.018348",
   "algorithm": "Ensemble (LightGBM + XGBoost + RandomForest)",
+  "task": "Índice de SUSCEPTIBILIDAD diario (ranking relativo), no pronóstico de ignición",
   "features": [
     "pendiente_pct",
     "ndvi",
@@ -2117,15 +2470,15 @@ ARCHIVO [15]: models/model_metadata.json
     "temp_2m",
     "humedad_relativa",
     "viento_velocidad",
-    "viento_direccion",
+    "viento_dir_sin",
+    "viento_dir_cos",
+    "elevacion_m",
     "dias_sin_lluvia",
     "lluvia_acum_7d",
     "lluvia_acum_15d",
     "temp_lag1",
     "humedad_lag1",
     "ndvi_anomaly",
-    "mes_sin",
-    "mes_cos",
     "temp_vecindad_media",
     "humedad_vecindad_media"
   ],
@@ -2136,169 +2489,179 @@ ARCHIVO [15]: models/model_metadata.json
     "infraestructura": "OpenStreetMap (distancia a vías y poblados)",
     "etiqueta": "NASA FIRMS (focos de calor reales)"
   },
+  "feature_engineering": "Vecindario por KNN geográfico (no por bloque de CV) y dirección de viento codificada como sin/cos (variable circular). Se descartaron mes_sin/mes_cos por ser constantes con una única fecha de referencia (train/serve skew).",
   "probability_calibration": "descartada: Platt scaling resultaba inestable y degradaba el AUC con <50 positivos",
   "validation_strategy": "Spatial GroupKFold 5-fold out-of-fold (bloques de 50 km sin fuga espacial)",
-  "operating_threshold": 0.0024394050932789557,
+  "random_baseline_precision": 0.00066,
+  "operating_threshold": 0.0015637005854080795,
   "alert_budget": 0.01,
   "serving_thresholds": {
-    "rojo": 0.129753,
-    "amarillo": 0.093952,
+    "rojo": 0.131554,
+    "amarillo": 0.098446,
     "budget_rojo": 0.01,
     "budget_amarillo": 0.05,
-    "descripcion": "Top 1% de celdas por score = Rojo; top 5% = Amarillo (presupuesto de alerta)."
+    "descripcion": "Cuantiles de la distribución de scores SERVIDA (in-sample): Rojo = top 1% del ranking, Amarillo = top 5%. Es un criterio de RANKING relativo (presupuesto de alerta), NO una probabilidad absoluta calibrada."
+  },
+  "oof_thresholds": {
+    "rojo": 0.117129,
+    "amarillo": 0.070637,
+    "nota": "Cuantiles de los scores OUT-OF-FOLD. Sirven para comparar con la escala OOF; el semáforo servido usa serving_thresholds."
   },
   "score_quantiles": [
-    3.5e-05,
-    4.2e-05,
-    4.3e-05,
-    4.5e-05,
-    4.7e-05,
-    4.8e-05,
-    4.8e-05,
-    4.9e-05,
-    5e-05,
-    5e-05,
-    5.3e-05,
-    5.5e-05,
-    5.7e-05,
-    5.8e-05,
-    6e-05,
-    6.3e-05,
-    6.5e-05,
-    7e-05,
-    7.7e-05,
-    8.5e-05,
-    9.7e-05,
-    0.000112,
-    0.000128,
-    0.00015,
+    6.6e-05,
+    7.8e-05,
+    8.3e-05,
+    9.1e-05,
+    9.5e-05,
+    9.9e-05,
+    0.000103,
+    0.000107,
+    0.00011,
+    0.000113,
+    0.000115,
+    0.000117,
+    0.000121,
+    0.000127,
+    0.000133,
+    0.000141,
+    0.000152,
+    0.000167,
     0.00018,
-    0.000217,
-    0.000264,
-    0.000388,
-    0.000498,
-    0.00076,
-    0.001024,
-    0.001197,
-    0.001269,
-    0.001337,
-    0.001427,
-    0.001587,
-    0.001911,
-    0.002254,
-    0.002476,
-    0.002669,
-    0.002887,
-    0.003111,
-    0.003324,
-    0.003642,
-    0.003996,
-    0.004334,
-    0.004587,
-    0.004843,
-    0.005174,
-    0.005536,
-    0.00583,
-    0.006229,
-    0.00663,
-    0.006907,
-    0.007275,
-    0.007817,
-    0.008119,
-    0.008633,
-    0.009195,
-    0.009875,
-    0.010528,
-    0.011195,
-    0.01188,
-    0.01253,
-    0.013131,
-    0.01381,
-    0.014544,
-    0.015337,
-    0.016273,
-    0.01721,
-    0.018277,
-    0.019357,
-    0.020248,
-    0.021472,
-    0.022794,
-    0.024049,
-    0.02524,
-    0.026745,
-    0.028335,
-    0.029997,
-    0.031748,
-    0.033484,
-    0.035771,
-    0.038509,
-    0.041804,
-    0.044899,
-    0.048624,
-    0.051651,
-    0.056185,
-    0.060918,
-    0.065338,
-    0.070564,
-    0.077503,
-    0.083575,
-    0.089258,
-    0.093952,
-    0.099706,
-    0.106892,
-    0.115884,
-    0.129753,
-    0.887881
+    0.000199,
+    0.000231,
+    0.000277,
+    0.000344,
+    0.000418,
+    0.000486,
+    0.000563,
+    0.000673,
+    0.000763,
+    0.000879,
+    0.001069,
+    0.001226,
+    0.001334,
+    0.001478,
+    0.001586,
+    0.001712,
+    0.001843,
+    0.001974,
+    0.002189,
+    0.002429,
+    0.00259,
+    0.00283,
+    0.003084,
+    0.003302,
+    0.003576,
+    0.003802,
+    0.004128,
+    0.004625,
+    0.00499,
+    0.0055,
+    0.006164,
+    0.006716,
+    0.007273,
+    0.007821,
+    0.008681,
+    0.009503,
+    0.010511,
+    0.011248,
+    0.01197,
+    0.012581,
+    0.013176,
+    0.013683,
+    0.014251,
+    0.014975,
+    0.01566,
+    0.016389,
+    0.01706,
+    0.017878,
+    0.018644,
+    0.019384,
+    0.020135,
+    0.020996,
+    0.021745,
+    0.022679,
+    0.023746,
+    0.024926,
+    0.026324,
+    0.027662,
+    0.029117,
+    0.030729,
+    0.032559,
+    0.034216,
+    0.036074,
+    0.038416,
+    0.040939,
+    0.043564,
+    0.04695,
+    0.050683,
+    0.054582,
+    0.059211,
+    0.064049,
+    0.069624,
+    0.074974,
+    0.080521,
+    0.086057,
+    0.091813,
+    0.098446,
+    0.104109,
+    0.110014,
+    0.117485,
+    0.131554,
+    0.708377
   ],
   "metrics": {
     "baseline": {
-      "f1_score": 0.0013,
-      "recall": 0.1778,
-      "roc_auc": 0.4853
+      "f1_score": 0.0005,
+      "recall": 0.0889,
+      "roc_auc": 0.4132,
+      "average_precision": 0.0006
     },
     "optimized_ensemble": {
-      "f1_score": 0.0019,
+      "f1_score": 0.0018,
       "precision": 0.0009,
-      "recall": 0.7778,
-      "roc_auc": 0.6123,
-      "roc_auc_fold_std": 0.0668,
-      "recall_at_top_1pct": 0.0,
-      "recall_at_top_5pct": 0.0105,
-      "recall_at_top_10pct": 0.1173,
-      "recall_at_top_20pct": 0.2623
+      "recall": 0.8444,
+      "roc_auc": 0.6489,
+      "roc_auc_fold_std": 0.0685,
+      "average_precision": 0.0017,
+      "average_precision_fold_std": 0.0015,
+      "recall_at_top_1pct": 0.0105,
+      "recall_at_top_5pct": 0.0505,
+      "recall_at_top_10pct": 0.1944,
+      "recall_at_top_20pct": 0.4511
     }
   },
   "optuna_best_params": {
-    "n_estimators": 446.0,
-    "learning_rate": 0.04987258828165539,
-    "num_leaves": 11.0,
+    "n_estimators": 173.0,
+    "learning_rate": 0.0236804768662546,
+    "num_leaves": 22.0,
     "max_depth": 6.0,
-    "min_child_samples": 63.0,
-    "colsample_bytree": 0.6594717952929923,
-    "subsample": 0.6797981518627529,
-    "reg_alpha": 0.8253332318096996,
-    "reg_lambda": 0.06661620668846778,
-    "scale_pos_weight": 7.306773972282111
+    "min_child_samples": 57.0,
+    "colsample_bytree": 0.9881745864780718,
+    "subsample": 0.6966216978410825,
+    "reg_alpha": 0.1341533575665402,
+    "reg_lambda": 3.184721783388676,
+    "scale_pos_weight": 5.758249510984518
   },
   "shap_feature_importance": {
-    "dist_carretera_m": 0.71815,
-    "dist_poblado_m": 0.63366,
-    "pendiente_pct": 0.55941,
-    "ndvi_anomaly": 0.418,
-    "humedad_relativa": 0.34247,
-    "temp_2m": 0.33915,
-    "lluvia_acum_7d": 0.30588,
-    "humedad_vecindad_media": 0.23233,
-    "temp_vecindad_media": 0.21011,
-    "viento_direccion": 0.18605,
-    "lluvia_acum_15d": 0.15857,
-    "viento_velocidad": 0.13558,
-    "temp_lag1": 0.09424,
-    "humedad_lag1": 0.07261,
-    "dias_sin_lluvia": 0.02336,
+    "dist_carretera_m": 0.51196,
+    "dist_poblado_m": 0.30149,
+    "pendiente_pct": 0.24729,
+    "lluvia_acum_7d": 0.21382,
+    "temp_2m": 0.20366,
+    "viento_dir_cos": 0.18567,
+    "elevacion_m": 0.18147,
+    "lluvia_acum_15d": 0.17059,
+    "humedad_vecindad_media": 0.15567,
+    "humedad_relativa": 0.15178,
+    "humedad_lag1": 0.10952,
+    "viento_velocidad": 0.09523,
+    "temp_vecindad_media": 0.0647,
+    "viento_dir_sin": 0.05492,
+    "temp_lag1": 0.01102,
+    "dias_sin_lluvia": 0.00967,
     "ndvi": 0.0,
-    "mes_sin": 0.0,
-    "mes_cos": 0.0
+    "ndvi_anomaly": 0.0
   }
 }
 
@@ -2309,7 +2672,7 @@ ARCHIVO [15]: models/model_metadata.json
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [16]: app/main.py
+ARCHIVO [20]: app/main.py
 ==========================================================================================
 """
 API principal de predicción de riesgo de incendios forestales.
@@ -2326,21 +2689,51 @@ Expone:
   GET  /report/pdf          -> informe ejecutivo en PDF
   GET  /model/importance    -> importancia de características del modelo (SHAP)
   GET  /social/matrix       -> matriz de entorno social y mitigación de restricciones
+  POST /report/citizen      -> registra un reporte ciudadano de foco/humo
+  GET  /report/recent       -> últimos reportes ciudadanos registrados
 """
+import json
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.model import RiskModel, classify, score_percentile
+from app.model import FEATURE_ORDER, THRESHOLDS, RiskModel, classify, get_thresholds, score_percentile
 from app.propagation import propagate_risk
+from app.security import (
+    get_allowed_origins,
+    rate_limit,
+    require_admin_key,
+    validate_peru_coords,
+)
 from app.whatsapp_alerts import send_red_alert
 from app.scheduler import init_scheduler, run_daily_alerts
+
+logger = logging.getLogger(__name__)
+
+# Scheduler de alertas automáticas (07:00 Lima). Se arranca/para con el lifespan
+# de FastAPI (evita los obsoletos decoradores @app.on_event).
+_scheduler = init_scheduler()
+
+
+@asynccontextmanager
+async def _lifespan(application: FastAPI):
+    _scheduler.start()
+    logger.info("⏰ Scheduler iniciado — alertas diarias programadas para las 07:00 (Lima)")
+    try:
+        yield
+    finally:
+        _scheduler.shutdown(wait=False)
+        logger.info("🛑 Scheduler detenido.")
+
 
 app = FastAPI(
     title="AlertaForestal Perú — API Pública",
@@ -2350,13 +2743,16 @@ app = FastAPI(
         "Portal ciudadano en /web/ · Swagger UI en /docs"
     ),
     version="2.0.0",
+    lifespan=_lifespan,
 )
 
-# CORS abierto para que el portal web pueda consumir la API
+# CORS restringido a orígenes conocidos (configurable con ALLOWED_ORIGINS en .env).
+_ALLOWED_ORIGINS = get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -2373,9 +2769,6 @@ _WEB_DIR = Path(__file__).parent.parent / "web"
 if _WEB_DIR.exists():
     app.mount("/web", StaticFiles(directory=str(_WEB_DIR), html=True), name="portal-web")
 
-# Inicializar el scheduler de alertas automáticas (07:00 Lima todos los días)
-_scheduler = init_scheduler(app)
-
 from fastapi.responses import RedirectResponse
 
 @app.get("/", include_in_schema=False)
@@ -2385,6 +2778,69 @@ def root():
 
 model = RiskModel()
 DATASET_PATH = Path(__file__).parent.parent / "data" / "dataset.parquet"
+MODEL_PATH = Path(__file__).parent.parent / "models" / "lightgbm_wildfire.pkl"
+
+# Caché en memoria del dataset puntuado. El score depende solo del modelo y del
+# dataset (estáticos entre reentrenamientos); se invalida por fecha de modificación.
+_SCORED_CACHE: dict = {"key": None, "df": None}
+
+
+def _dataset_signature() -> tuple:
+    csv_path = DATASET_PATH.with_suffix(".csv")
+
+    def _mt(p: Path) -> int:
+        try:
+            return p.stat().st_mtime_ns
+        except OSError:
+            return 0
+
+    return (str(csv_path), _mt(csv_path), str(DATASET_PATH), _mt(DATASET_PATH), str(MODEL_PATH), _mt(MODEL_PATH))
+
+
+def _invalidate_scored_cache() -> None:
+    _SCORED_CACHE["key"] = None
+    _SCORED_CACHE["df"] = None
+
+
+def _load_scored_dataset() -> pd.DataFrame:
+    """Carga el dataset completo y añade la columna `_score` (probabilidad del modelo). Cacheado."""
+    key = _dataset_signature()
+    if _SCORED_CACHE["key"] == key and _SCORED_CACHE["df"] is not None:
+        return _SCORED_CACHE["df"]
+
+    csv_path = DATASET_PATH.with_suffix(".csv")
+    if not csv_path.exists() and not DATASET_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Dataset no encontrado. Ejecuta data_pipeline/grid_builder.py primero.",
+        )
+
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+    else:
+        df = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
+
+    for col in FEATURE_ORDER:
+        if col not in df.columns:
+            df[col] = 0.0
+
+    try:
+        df["_score"] = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
+    except Exception:
+        df["_score"] = 0.1
+
+    _SCORED_CACHE["key"] = key
+    _SCORED_CACHE["df"] = df
+    return df
+
+
+def _load_scored_cajamarca() -> pd.DataFrame:
+    """Subconjunto del dataset dentro del bbox de Cajamarca, ya puntuado."""
+    df = _load_scored_dataset()
+    return df[
+        (df["latitude"] >= -7.7592) & (df["latitude"] <= -4.5519) &
+        (df["longitude"] >= -79.4517) & (df["longitude"] <= -77.7389)
+    ]
 
 
 class GridFeatures(BaseModel):
@@ -2432,11 +2888,24 @@ def health():
     except Exception:
         model_loaded = False
 
+    # Frescura de datos: versión y fecha de entrenamiento del modelo (del metadata).
+    meta_path = Path(__file__).parent.parent / "models" / "model_metadata.json"
+    model_version, training_date = None, None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        model_version = meta.get("model_version")
+        training_date = meta.get("training_date")
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "service": "Wildfire Risk API",
         "model_loaded": model_loaded,
         "dataset_available": DATASET_PATH.exists(),
+        "model_version": model_version,
+        "training_date": training_date,
+        "thresholds": get_thresholds(),
     }
 
 
@@ -2466,56 +2935,35 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
     Retorna las predicciones de riesgo de hoy por grilla en formato GeoJSON FeatureCollection,
     cubriendo el área espacial 2D de la provincia y departamento de Cajamarca.
     """
-    csv_path = DATASET_PATH.with_suffix(".csv")
-    if not csv_path.exists() and not DATASET_PATH.exists():
-        raise HTTPException(
-            status_code=404,
-            detail="Dataset no encontrado. Ejecuta data_pipeline/grid_builder.py primero."
-        )
+    scored = _load_scored_cajamarca()
+    if scored.empty:
+        scored = _load_scored_dataset()
 
-    if csv_path.exists():
-        df_full = pd.read_csv(csv_path)
+    total = len(scored)
+    s = scored["_score"].to_numpy()
+
+    # Estadísticas REALES de todo el territorio analizado (sin muestreo), para que
+    # el portal pueda mostrar proporciones honestas (p. ej. "% del territorio en Rojo").
+    stats = {
+        "total_analizado": int(total),
+        "rojo": int((s >= THRESHOLDS["rojo"]).sum()),
+        "amarillo": int(((s >= THRESHOLDS["amarillo"]) & (s < THRESHOLDS["rojo"])).sum()),
+        "verde": int((s < THRESHOLDS["amarillo"]).sum()),
+        "mostrados": int(min(total, limit)),
+    }
+
+    # Selección para el mapa: MUESTREO ALEATORIO UNIFORME (semilla fija).
+    # No se usa la etiqueta `target` en inferencia y no se sobrerrepresentan las
+    # clases de alerta: la distribución de niveles del mapa refleja la del modelo.
+    if total > limit:
+        df = scored.sample(n=limit, random_state=42).reset_index(drop=True)
     else:
-        df_full = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
+        df = scored.reset_index(drop=True)
 
-    # Filtrar espacialmente para cubrir el área 2D de la región de Cajamarca (-7.7592 a -4.5519 Lat, -79.4517 a -77.7389 Lon)
-    cajamarca_area = df_full[
-        (df_full["latitude"] >= -7.7592) & (df_full["latitude"] <= -4.5519) &
-        (df_full["longitude"] >= -79.4517) & (df_full["longitude"] <= -77.7389)
-    ]
-
-    if not cajamarca_area.empty:
-        if len(cajamarca_area) > limit:
-            # Seleccionar focos prioritarios y distribuir el resto uniformemente en todo el departamento
-            high_risk = cajamarca_area[cajamarca_area["target"] == 1]
-            n_high = min(len(high_risk), int(limit * 0.40))
-            high_sample = high_risk.head(n_high)
-
-            remaining_limit = limit - len(high_sample)
-            other_rows = cajamarca_area.drop(high_sample.index, errors="ignore")
-            step = max(1, len(other_rows) // remaining_limit)
-            spatial_sample = other_rows.iloc[::step].head(remaining_limit)
-
-            df = pd.concat([high_sample, spatial_sample]).reset_index(drop=True)
-        else:
-            df = cajamarca_area
-    else:
-        df = df_full.head(limit)
-
-    # Inferencia en lote con el pipeline avanzado
-    from app.model import FEATURE_ORDER
-    for col in FEATURE_ORDER:
-        if col not in df.columns:
-            df[col] = 0.0
-
-    try:
-        probas = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
-    except Exception:
-        probas = [0.1] * len(df)
-
+    probas = df["_score"].to_numpy()
 
     features = []
-    cell_size = 0.015
+    cell_size = 0.009  # ~1 km en latitud (coincide con la grilla real del dataset)
 
     for i, (idx, row) in enumerate(df.iterrows()):
         proba = float(probas[i])
@@ -2540,6 +2988,7 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
             "properties": {
                 "grid_id": str(row["grid_id"]),
                 "probabilidad": round(proba, 4),
+                "percentil": score_percentile(proba),
                 "nivel": nivel,
                 "temp_2m": float(row.get("temp_2m", 25.0)),
                 "humedad_relativa": float(row.get("humedad_relativa", 40.0)),
@@ -2554,6 +3003,7 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
     return {
         "type": "FeatureCollection",
         "count": len(features),
+        "stats": stats,
         "features": features,
     }
 
@@ -2564,9 +3014,9 @@ def propagate(grid_id: str, viento_direccion: float = 45.0, viento_velocidad: fl
     return propagate_risk(grid_id, viento_direccion, viento_velocidad)
 
 
-@app.post("/alert/whatsapp")
+@app.post("/alert/whatsapp", dependencies=[Depends(require_admin_key)])
 def trigger_alert(alert_req: WhatsAppAlertRequest):
-    """Dispara alerta de WhatsApp a los bomberos/brigadas."""
+    """Dispara alerta de WhatsApp a los bomberos/brigadas (requiere X-API-Key si ADMIN_API_KEY está definida)."""
     try:
         res = send_red_alert(
             grid_id=alert_req.grid_id,
@@ -2579,11 +3029,12 @@ def trigger_alert(alert_req: WhatsAppAlertRequest):
         raise HTTPException(status_code=500, detail=f"Error enviando alerta WhatsApp: {exc}")
 
 
-@app.post("/alert/daily", tags=["Alertas"])
+@app.post("/alert/daily", tags=["Alertas"], dependencies=[Depends(require_admin_key)])
 async def trigger_daily_alerts():
     """
     Dispara manualmente el resumen diario de riesgo a todos los grupos de WhatsApp.
     Útil para pruebas o cuando se quiere enviar un boletín fuera del horario programado.
+    Requiere X-API-Key si ADMIN_API_KEY está definida.
     """
     try:
         await run_daily_alerts()
@@ -2852,12 +3303,87 @@ def get_firms_hotspots(
     }
 
 
+# ─────────────────────────────────────────────
+# Reportes ciudadanos (crowdsourcing)
+# ─────────────────────────────────────────────
+REPORTS_PATH = Path(__file__).parent.parent / "data" / "citizen_reports.jsonl"
+
+INCIDENT_LABELS = {
+    "fuego_activo":   "Fuego activo",
+    "columna_humo":   "Columna de humo",
+    "quema_agricola": "Quema agrícola/pastizal",
+    "cenizas":        "Área quemada reciente",
+}
+
+
+class CitizenReport(BaseModel):
+    lat: float
+    lon: float
+    incident_type: str = "fuego_activo"
+    description: Optional[str] = None
+    reporter_zone: Optional[str] = None
+
+
+@app.post("/report/citizen", tags=["Reportes"], dependencies=[Depends(rate_limit(5, 600))])
+def report_citizen(report: CitizenReport):
+    """
+    Registra un reporte ciudadano de foco/humo.
+
+    Persiste en `data/citizen_reports.jsonl` (almacenamiento local). Limitado a 5
+    reportes por IP cada 10 minutos y valida que las coordenadas estén en Perú.
+    Nota: es una demo académica; los reportes son complementarios y NO reemplazan a
+    las líneas oficiales de emergencia (Bomberos 116 / INDECI 115 / SERFOR 0800-11-070).
+    """
+    validate_peru_coords(report.lat, report.lon)
+    if report.incident_type not in INCIDENT_LABELS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"incident_type inválido. Opciones: {', '.join(INCIDENT_LABELS)}.",
+        )
+    REPORTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "id": uuid4().hex[:12],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "lat": round(float(report.lat), 5),
+        "lon": round(float(report.lon), 5),
+        "incident_type": report.incident_type,
+        "incident_label": INCIDENT_LABELS.get(report.incident_type, report.incident_type),
+        "description": (report.description or "")[:500],
+        "reporter_zone": report.reporter_zone,
+        "status": "pending",
+    }
+    with REPORTS_PATH.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return {"status": "received", "id": record["id"], "timestamp": record["timestamp"]}
+
+
+@app.get("/report/recent", tags=["Reportes"])
+def report_recent(limit: int = Query(default=5, ge=1, le=50)):
+    """Devuelve los últimos reportes ciudadanos registrados (más recientes primero)."""
+    if not REPORTS_PATH.exists():
+        return {"count": 0, "reports": []}
+    lines = [ln for ln in REPORTS_PATH.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    reports = []
+    for ln in reversed(lines[-limit:]):
+        try:
+            reports.append(json.loads(ln))
+        except Exception:
+            continue
+    return {"count": len(reports), "reports": reports}
+
+
 ==========================================================================================
-ARCHIVO [17]: app/model.py
+ARCHIVO [21]: app/model.py
 ==========================================================================================
 """
-Carga el modelo LightGBM entrenado (Semana 6-8) y expone predict_proba(),
-la clasificación de riesgo (Verde/Amarillo/Rojo) y los umbrales operativos.
+Carga el modelo ensemble (LightGBM + XGBoost + RandomForest) entrenado por
+`data_pipeline/train_model.py` y expone predict_proba(), la clasificación de
+riesgo (Verde/Amarillo/Rojo), los umbrales operativos y el percentil del score.
+
+Este módulo es la FUENTE ÚNICA DE VERDAD de:
+  - FEATURE_ORDER / DEFAULT_VALUES (las variables que consume el modelo),
+  - THRESHOLDS y classify() (el semáforo),
+  - score_percentile() (ubicación del score en su distribución).
 """
 import json
 from pathlib import Path
@@ -2870,24 +3396,37 @@ MODEL_PATH = Path(__file__).parent.parent / "models" / "lightgbm_wildfire.pkl"
 _META_PATH = MODEL_PATH.parent / "model_metadata.json"
 
 FEATURE_ORDER = [
-    # Variables base
+    # Variables base (terreno, vegetación, meteorología e infraestructura)
     "pendiente_pct", "ndvi", "dist_carretera_m", "dist_poblado_m",
-    "temp_2m", "humedad_relativa", "viento_velocidad", "viento_direccion",
-    # Variables temporales & estacionales
+    "temp_2m", "humedad_relativa", "viento_velocidad",
+    # Dirección del viento como variable CIRCULAR (sin/cos) + elevación real
+    "viento_dir_sin", "viento_dir_cos", "elevacion_m",
+    # Variables temporales (sequía, lluvia acumulada, lags)
     "dias_sin_lluvia", "lluvia_acum_7d", "lluvia_acum_15d",
-    "temp_lag1", "humedad_lag1", "ndvi_anomaly", "mes_sin", "mes_cos",
-    # Variables espaciales (vecindario)
+    "temp_lag1", "humedad_lag1", "ndvi_anomaly",
+    # Variables espaciales (vecindario KNN geográfico, no bloque de CV)
     "temp_vecindad_media", "humedad_vecindad_media",
 ]
+
+# NOTA: `mes_sin`/`mes_cos` se descartaron del modelo. Con una sola fecha de
+# referencia son constantes (std = 0) y al servir con otra fecha introducirían un
+# desajuste train/serve. `viento_direccion` (grados) tampoco entra cruda: se
+# codifica como sin/cos (ver encode_wind_direction).
 
 DEFAULT_VALUES = {
     "pendiente_pct": 12.0, "ndvi": 0.45, "dist_carretera_m": 800.0, "dist_poblado_m": 1200.0,
     "temp_2m": 22.0, "humedad_relativa": 45.0, "viento_velocidad": 15.0, "viento_direccion": 45.0,
+    "viento_dir_sin": 0.7071, "viento_dir_cos": 0.7071, "elevacion_m": 2500.0,
     "dias_sin_lluvia": 12.0, "lluvia_acum_7d": 15.0, "lluvia_acum_15d": 35.0,
     "temp_lag1": 22.0, "humedad_lag1": 45.0, "ndvi_anomaly": 0.0,
-    "mes_sin": -1.0, "mes_cos": 0.0,
     "temp_vecindad_media": 22.0, "humedad_vecindad_media": 45.0,
 }
+
+
+def encode_wind_direction(degrees: float) -> tuple[float, float]:
+    """Convierte una dirección de viento (0-360°, 0 = Norte) a (sin, cos)."""
+    ang = np.deg2rad(float(degrees) % 360.0)
+    return float(np.sin(ang)), float(np.cos(ang))
 
 
 # ── Umbrales operativos Verde / Amarillo / Rojo ───────────────────────────────
@@ -2966,19 +3505,164 @@ class RiskModel:
         return self._model
 
     def predict_proba(self, features: dict) -> float:
-        row = {k: float(features.get(k, DEFAULT_VALUES.get(k, 0.0))) for k in FEATURE_ORDER}
+        payload = dict(features or {})
+
+        # Compatibilidad hacia atrás: si el llamador envía una dirección de viento
+        # en grados (API pública, /predict, tests), se deriva la codificación sin/cos.
+        if payload.get("viento_direccion") is not None:
+            s, c = encode_wind_direction(payload["viento_direccion"])
+            payload.setdefault("viento_dir_sin", s)
+            payload.setdefault("viento_dir_cos", c)
+
+        row = {}
+        for k in FEATURE_ORDER:
+            val = payload.get(k, DEFAULT_VALUES.get(k, 0.0))
+            try:
+                row[k] = float(val)
+            except (TypeError, ValueError):
+                row[k] = float(DEFAULT_VALUES.get(k, 0.0))
+
         df = pd.DataFrame([row])
         proba = self.model.predict_proba(df)[0][1]  # probabilidad de clase 1 (incendio)
         return float(proba)
 
 
-def train_placeholder_notebook_reminder():
-    pass
 
+==========================================================================================
+ARCHIVO [22]: app/security.py
+==========================================================================================
+# -*- coding: utf-8 -*-
+"""
+Utilidades de seguridad de la API de AlertaForestal Perú.
+
+Incluye:
+  - get_allowed_origins(): lista blanca de CORS configurable por entorno.
+  - require_admin_key(): protege endpoints sensibles (envío de alertas) con una
+    API key en la cabecera `X-API-Key`.
+  - rate_limit(): limitador en memoria por IP (ventana deslizante) para los
+    endpoints públicos de escritura (p. ej. reportes ciudadanos).
+  - validate_peru_coords(): rechaza coordenadas fuera del territorio peruano.
+
+Ninguna de estas utilidades requiere dependencias externas.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import threading
+import time
+from collections import defaultdict, deque
+
+from fastapi import Header, HTTPException, Request
+
+logger = logging.getLogger(__name__)
+
+# Bounding box amplio del Perú (para validar reportes ciudadanos).
+PERU_BBOX = {"min_lat": -18.6, "max_lat": 0.2, "min_lon": -81.6, "max_lon": -68.4}
+
+_DEFAULT_ORIGINS = [
+    "http://127.0.0.1:5050", "http://localhost:5050",   # portal + API local
+    "http://127.0.0.1:8000", "http://localhost:8000",   # API en Docker
+    "http://127.0.0.1:8501", "http://localhost:8501",   # dashboard Streamlit
+]
+
+
+def get_allowed_origins() -> list[str]:
+    """
+    Orígenes permitidos para CORS.
+
+    Se configuran en `ALLOWED_ORIGINS` (lista separada por comas). Por defecto se
+    limita a orígenes locales; usar `ALLOWED_ORIGINS=*` para permitir cualquiera
+    (no recomendado en producción).
+    """
+    raw = os.getenv("ALLOWED_ORIGINS", "").strip()
+    if not raw:
+        return list(_DEFAULT_ORIGINS)
+    if raw == "*":
+        return ["*"]
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+_warned_insecure = False
+
+
+def _warn_insecure_once() -> None:
+    global _warned_insecure
+    if not _warned_insecure:
+        logger.warning(
+            "ADMIN_API_KEY no configurada: los endpoints de alerta quedan SIN "
+            "protección (modo demo). Defínela en .env para exigir X-API-Key."
+        )
+        _warned_insecure = True
+
+
+def require_admin_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> None:
+    """
+    Dependencia que exige la cabecera `X-API-Key` cuando `ADMIN_API_KEY` está
+    configurada. Si no lo está, permite el acceso (modo demo) y avisa una vez.
+    """
+    expected = os.getenv("ADMIN_API_KEY", "").strip()
+    if not expected:
+        _warn_insecure_once()
+        return
+    if not x_api_key or x_api_key != expected:
+        raise HTTPException(
+            status_code=401,
+            detail="API key inválida o ausente. Envía la cabecera X-API-Key.",
+        )
+
+
+# ── Rate limiting en memoria (ventana deslizante por IP) ──────────────────────
+_RATE_LOCK = threading.Lock()
+_RATE_HITS: dict[str, deque] = defaultdict(deque)
+
+
+def rate_limit(max_calls: int, window_seconds: int):
+    """
+    Devuelve una dependencia que limita a `max_calls` peticiones por IP de cliente
+    dentro de una ventana deslizante de `window_seconds` segundos.
+
+    Nota: el estado es en memoria del proceso (suficiente para un despliegue de un
+    solo worker). Para varios workers usar Redis/limiter distribuido.
+    """
+
+    def _dependency(request: Request) -> None:
+        client = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        with _RATE_LOCK:
+            hits = _RATE_HITS[client]
+            while hits and now - hits[0] > window_seconds:
+                hits.popleft()
+            if len(hits) >= max_calls:
+                retry = int(window_seconds - (now - hits[0])) + 1
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Demasiadas solicitudes. Reintenta en {retry} s.",
+                    headers={"Retry-After": str(retry)},
+                )
+            hits.append(now)
+
+    return _dependency
+
+
+def reset_rate_limiter() -> None:
+    """Limpia el estado del rate limiter (útil en tests)."""
+    with _RATE_LOCK:
+        _RATE_HITS.clear()
+
+
+def validate_peru_coords(lat: float, lon: float) -> None:
+    """Rechaza coordenadas fuera del territorio peruano (HTTP 422)."""
+    if not (PERU_BBOX["min_lat"] <= lat <= PERU_BBOX["max_lat"]
+            and PERU_BBOX["min_lon"] <= lon <= PERU_BBOX["max_lon"]):
+        raise HTTPException(
+            status_code=422,
+            detail="Coordenadas fuera del territorio peruano.",
+        )
 
 
 ==========================================================================================
-ARCHIVO [18]: app/scheduler.py
+ARCHIVO [23]: app/scheduler.py
 ==========================================================================================
 """
 Scheduler de alertas automáticas diarias de riesgo de incendio forestal.
@@ -3008,7 +3692,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import requests
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
@@ -3335,13 +4018,12 @@ async def run_daily_alerts() -> None:
     logger.info("🏁 Envío de alertas diarias completado.")
 
 
-def init_scheduler(app) -> AsyncIOScheduler:
+def init_scheduler() -> AsyncIOScheduler:
     """
-    Inicializa y arranca el scheduler dentro de la aplicación FastAPI.
+    Crea y configura el scheduler diario (SIN arrancarlo).
 
-    Uso en main.py:
-        from app.scheduler import init_scheduler
-        init_scheduler(app)
+    El arranque y la parada se gestionan con el ciclo de vida (`lifespan`) de
+    FastAPI en main.py, en lugar de los obsoletos decoradores `@app.on_event`.
 
     Horario: todos los días a las 07:00 hora de Perú (America/Lima = UTC-5).
     """
@@ -3355,23 +4037,11 @@ def init_scheduler(app) -> AsyncIOScheduler:
         replace_existing=True,
     )
 
-    @app.on_event("startup")
-    async def start_scheduler():
-        scheduler.start()
-        logger.info(
-            "⏰ Scheduler iniciado — alertas diarias programadas para las 07:00 (Lima)"
-        )
-
-    @app.on_event("shutdown")
-    async def stop_scheduler():
-        scheduler.shutdown(wait=False)
-        logger.info("🛑 Scheduler detenido.")
-
     return scheduler
 
 
 ==========================================================================================
-ARCHIVO [19]: app/propagation.py
+ARCHIVO [24]: app/propagation.py
 ==========================================================================================
 """
 Motor de propagación por viento (el "diferencial" del proyecto, Semana 9-12).
@@ -3437,7 +4107,7 @@ def propagate_risk(grid_id: str, viento_direccion: float, viento_velocidad: floa
 
 
 ==========================================================================================
-ARCHIVO [20]: app/pdf_generator.py
+ARCHIVO [25]: app/pdf_generator.py
 ==========================================================================================
 """
 Módulo de generación de informes ejecutivos oficiales en formato PDF utilizando ReportLab.
@@ -3639,7 +4309,7 @@ def generate_executive_pdf(risk_data: dict) -> bytes:
 
 
 ==========================================================================================
-ARCHIVO [21]: app/whatsapp_alerts.py
+ARCHIVO [26]: app/whatsapp_alerts.py
 ==========================================================================================
 """
 Envía alertas de incendio forestal a grupos de WhatsApp usando Green API.
@@ -3665,6 +4335,7 @@ Variables de entorno requeridas en .env:
 
 import logging
 import os
+import time
 from typing import Optional
 
 import requests
@@ -3704,8 +4375,14 @@ def _get_config() -> tuple[str, str, list[str]]:
     return instance_id, token, group_ids
 
 
-def _send_message(instance_id: str, token: str, chat_id: str, message: str) -> dict:
-    """Envía un mensaje de texto a un chatId específico usando Green API."""
+def _send_message(instance_id: str, token: str, chat_id: str, message: str,
+                  max_retries: int = 3) -> dict:
+    """
+    Envía un mensaje de texto a un chatId específico usando Green API.
+
+    Reintenta con backoff exponencial (1s, 2s, 4s) ante errores transitorios
+    (429 Too Many Requests o 5xx), habituales en los planes gratuitos.
+    """
     url = _GREEN_API_BASE.format(
         instance_id=instance_id,
         method="sendMessage",
@@ -3715,9 +4392,20 @@ def _send_message(instance_id: str, token: str, chat_id: str, message: str) -> d
         "chatId": chat_id,
         "message": message,
     }
-    response = requests.post(url, json=payload, timeout=15)
-    response.raise_for_status()
-    return response.json()
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, timeout=15)
+            if response.status_code in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
+                raise requests.HTTPError(f"HTTP {response.status_code}", response=response)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            last_exc = exc
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+    raise last_exc if last_exc else RuntimeError("Fallo desconocido al enviar mensaje")
 
 
 def send_red_alert(
@@ -3790,11 +4478,12 @@ def send_alert_by_level(
     Envía alerta seleccionando el emoji/etiqueta según el nivel de riesgo (1-3).
 
     Args:
-        nivel_numerico: 1 = AMARILLO, 2 = NARANJA, 3 = ROJO
+        nivel_numerico: 1 = AMARILLO, 2 = AMARILLO (vigilancia reforzada), 3 = ROJO
+                        (se unifica "Naranja" en "Amarillo" para no confundir al ciudadano)
     """
     niveles = {
         1: "AMARILLO 🟡",
-        2: "NARANJA 🟠",
+        2: "AMARILLO 🟡",
         3: "ROJO 🔴",
     }
     nivel = niveles.get(nivel_numerico, "ROJO 🔴")
@@ -3869,7 +4558,7 @@ if __name__ == "__main__":
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [22]: dashboard/app.py
+ARCHIVO [27]: dashboard/app.py
 ==========================================================================================
 """
 Dashboard Operacional del Sistema de Alerta Temprana de Incendios Forestales.
@@ -3877,6 +4566,7 @@ Incluye visualización de zonas semáforo (Verde, Amarillo, Rojo), mapa de calor
 
 Correr con: streamlit run dashboard/app.py
 """
+import os
 import sys
 from pathlib import Path
 
@@ -3889,7 +4579,6 @@ if str(ROOT) not in sys.path:
 
 import folium
 from folium.plugins import HeatMap
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import requests
@@ -3903,6 +4592,12 @@ except ImportError:
 
 API_URL = "http://127.0.0.1:5050"
 COLOR_MAP = {"Verde": "#2ecc71", "Amarillo": "#f1c40f", "Rojo": "#e74c3c"}
+
+
+def _admin_headers() -> dict:
+    """Cabecera X-API-Key si ADMIN_API_KEY está configurada (endpoints de alerta)."""
+    key = os.getenv("ADMIN_API_KEY", "").strip()
+    return {"X-API-Key": key} if key else {}
 
 # Fuente única de verdad del semáforo y de las features (app/model.py)
 from app.model import RiskModel, FEATURE_ORDER, classify, THRESHOLDS
@@ -3932,7 +4627,7 @@ st.markdown("""
 
 # Título Operacional
 st.title("🔥 Centro de Control - Predicción de Riesgo de Incendios Forestales")
-st.caption("Monitoreo georreferenciado en tiempo real, zonas semáforo (Verde/Amarillo/Rojo) y mapa de calor de ignición")
+st.caption("Índice diario de susceptibilidad georreferenciado, zonas semáforo (Verde/Amarillo/Rojo) y mapa de calor de ignición")
 
 # Sidebar Operacional
 with st.sidebar:
@@ -3952,8 +4647,8 @@ with st.sidebar:
         st.warning("⚠️ Modo Simulación (API no detectada)")
 
     st.markdown("---")
-    region_sel = st.selectbox("📍 Sector Operativo", ["Cajamarca (Perú)", "Sector Norte", "Sector Sur"])
-    horizonte_sel = st.selectbox("📅 Horizonte de Predicción", ["Próximas 24 Horas", "Próximas 48 Horas"])
+    st.caption("📍 Cobertura: región Cajamarca (Perú)")
+    st.caption("📅 Índice diario de susceptibilidad (NO es un pronóstico a 24/48 h)")
     min_prob_slider = st.slider("🔍 Umbral de Sensibilidad", 0.0, 1.0, 0.0, 0.05)
     
     st.markdown("---")
@@ -3983,7 +4678,7 @@ if api_online:
             features = geojson_data.get("features", [])
         else:
             st.sidebar.warning(f"HTTP {resp.status_code} en /risk/today. Usando dataset local.")
-    except Exception as e:
+    except Exception:
         st.sidebar.warning("Cargando desde dataset local de Cajamarca.")
 
 if not features:
@@ -4233,28 +4928,54 @@ with tab3:
         st.write(f"**Enlace a Mapa:** [Abrir Google Maps](https://www.google.com/maps?q={lat_a},{lon_a})")
 
         if st.button("🔴 Notificar Inmediatamente a Bomberos y Rondas"):
-            try:
-                if api_online:
+            if not api_online:
+                st.warning(
+                    "El envío de alertas requiere la API en línea. "
+                    "Inicia el servidor (INICIAR_SERVIDOR_7AM.bat o "
+                    "`python -m uvicorn app.main:app --port 5050`)."
+                )
+            else:
+                try:
                     r_alert = requests.post(f"{API_URL}/alert/whatsapp", json={
                         "grid_id": grid_target_alert,
                         "lat": lat_a,
                         "lon": lon_a,
                         "confianza": 0.95
-                    }).json()
-                    st.success("📩 Alerta enviada con éxito por WhatsApp a las Brigadas.")
-                else:
-                    st.success(f"📩 Alerta simulada transmitida para la grilla {grid_target_alert} ({lat_a:.4f}, {lon_a:.4f}).")
-            except Exception as e:
-                st.error(f"Error transmitiendo alerta: {e}")
+                    }, headers=_admin_headers(), timeout=20)
+                    if r_alert.status_code == 200:
+                        st.success("📩 Alerta enviada por WhatsApp a las brigadas.")
+                    elif r_alert.status_code == 401:
+                        st.error("🔒 La API exige X-API-Key (define ADMIN_API_KEY en .env).")
+                    else:
+                        st.error(f"Error de la API ({r_alert.status_code}): {r_alert.text[:200]}")
+                except Exception as e:
+                    st.error(f"Error transmitiendo alerta: {e}")
 
     with col_alt2:
-        st.markdown("### Registro de Alertas Recientes")
-        df_log = pd.DataFrame([
-            {"Hora": "06:15:00", "Grilla": "-78.5000_-7.1600", "Estado": "Alerta Roja", "Canal": "WhatsApp + SMS", "Confirmado": "Sí"},
-            {"Hora": "06:14:30", "Grilla": "-78.5500_-7.2000", "Estado": "Alerta Roja", "Canal": "WhatsApp", "Confirmado": "En Verificación"},
-            {"Hora": "06:00:12", "Grilla": "-78.4910_-7.1510", "Estado": "Vigilancia", "Canal": "Sistema Local", "Confirmado": "Automático"},
-        ])
-        st.dataframe(df_log, use_container_width=True)
+        st.markdown("### Reportes Ciudadanos Recientes")
+        reports = []
+        if api_online:
+            try:
+                rr = requests.get(f"{API_URL}/report/recent?limit=8", timeout=5).json()
+                reports = rr.get("reports", [])
+            except Exception:
+                reports = []
+        if reports:
+            df_log = pd.DataFrame([
+                {
+                    "Fecha/Hora (UTC)": str(r.get("timestamp", ""))[:19].replace("T", " "),
+                    "Tipo": r.get("incident_label", r.get("incident_type", "")),
+                    "Lat": r.get("lat"),
+                    "Lon": r.get("lon"),
+                    "Zona": r.get("reporter_zone") or "-",
+                }
+                for r in reports
+            ])
+            st.dataframe(df_log, use_container_width=True)
+        elif api_online:
+            st.info("Aún no hay reportes ciudadanos registrados.")
+        else:
+            st.info("Conecta la API para ver los reportes ciudadanos.")
 
 
 
@@ -4263,7 +4984,7 @@ with tab3:
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [23]: web/index.html
+ARCHIVO [28]: web/index.html
 ==========================================================================================
 <!DOCTYPE html>
 <html lang="es">
@@ -4271,9 +4992,9 @@ ARCHIVO [23]: web/index.html
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AlertaForestal Perú — Monitoreo de Incendios en Tiempo Real</title>
+  <title>AlertaForestal Perú — Monitoreo de Incendios Forestales</title>
   <meta name="description"
-    content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Información satelital en tiempo real, reportes ciudadanos y alertas por WhatsApp." />
+    content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Índice diario de susceptibilidad, focos satelitales NRT, reportes ciudadanos y alertas por WhatsApp." />
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
 
@@ -4325,7 +5046,7 @@ ARCHIVO [23]: web/index.html
     <div class="hero-bg-particles" id="particles"></div>
     <div class="hero-content">
 
-      <!-- Badge de estado en tiempo real -->
+      <!-- Badge de nivel de riesgo del día -->
       <div class="risk-badge-container">
         <div class="risk-badge" id="riskBadge">
           <span class="badge-pulse"></span>
@@ -4340,8 +5061,8 @@ ARCHIVO [23]: web/index.html
         al alcance de todos.
       </h1>
       <p class="hero-subtitle">
-        Información satelital y comunitaria en tiempo real para proteger nuestras tierras,
-        recursos y vidas — sin barreras de acceso, sin costo, sin restricciones.
+        Información satelital y comunitaria con índice diario de susceptibilidad para proteger
+        nuestras tierras, recursos y vidas — sin barreras de acceso, sin costo, sin restricciones.
       </p>
 
       <!-- Botonera de Acción Rápida -->
@@ -4360,7 +5081,7 @@ ARCHIVO [23]: web/index.html
         </a>
       </div>
 
-      <!-- Métricas en tiempo real -->
+      <!-- Métricas del día -->
       <div class="hero-stats" id="heroStats">
         <div class="stat-item">
           <span class="stat-number" id="statFIRMS">--</span>
@@ -4383,8 +5104,8 @@ ARCHIVO [23]: web/index.html
         </div>
         <div class="stat-divider"></div>
         <div class="stat-item">
-          <span class="stat-number">24h</span>
-          <span class="stat-label">⏱ Anticipación IA</span>
+          <span class="stat-number">HOY</span>
+          <span class="stat-label">📅 Riesgo del día</span>
         </div>
       </div>
     </div>
@@ -4419,11 +5140,11 @@ ARCHIVO [23]: web/index.html
             <option value="norte">Sector Norte</option>
             <option value="sur">Sector Sur</option>
           </select>
-          <label class="filter-label">⏱ Horizonte:</label>
-          <select class="filter-select" id="timeFilter" onchange="loadMapData()">
-            <option value="6">Últimas 6 horas</option>
-            <option value="12">Últimas 12 horas</option>
-            <option value="24" selected>Últimas 24 horas</option>
+          <label class="filter-label">⏱ Ventana de focos:</label>
+          <select class="filter-select" id="timeFilter" onchange="loadFIRMSHotspots()">
+            <option value="1" selected>Últimas 24 h</option>
+            <option value="2">Últimas 48 h</option>
+            <option value="3">Últimas 72 h</option>
           </select>
         </div>
         <div class="map-layer-toggles">
@@ -4454,8 +5175,11 @@ ARCHIVO [23]: web/index.html
         <div id="map"></div>
         <div class="map-legend">
           <div class="legend-title">Simbología</div>
-          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Riesgo muy alto (top 1% del territorio)</div>
-          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Riesgo alto (top 5%)
+          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Riesgo muy alto (top 1% del territorio)
+            <span class="legend-help" title="El modelo no predice probabilidades absolutas: ordena todas las celdas por score. El 1% con mayor score se marca Rojo; el siguiente 4% se marca Amarillo." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
+          </div>
+          <div class="legend-item"><span class="legend-dot orange"></span> <b>Amarillo:</b> Riesgo alto (top 5%)
+            <span class="legend-help" title="Amarillo = el siguiente 4% de celdas con mayor score, después del top 1% Rojo. Juntos forman el 5% de celdas bajo vigilancia (presupuesto de alerta)." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
           </div>
           <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Riesgo bajo (resto del territorio)</div>
           <div class="legend-item"
@@ -4537,7 +5261,7 @@ ARCHIVO [23]: web/index.html
         <div class="whatsapp-subscribe-card">
           <div class="wa-icon-big">💬</div>
           <h3>Únete al grupo de alertas</h3>
-          <p>Selecciona tu provincia y empieza a recibir alertas en tiempo real</p>
+          <p>Selecciona tu provincia y empieza a recibir el resumen diario de alertas</p>
 
           <div class="wa-zone-selector">
             <select class="filter-select full-width" id="waZone" onchange="updateWaLink()">
@@ -4706,6 +5430,13 @@ ARCHIVO [23]: web/index.html
           <button type="submit" class="btn btn-danger btn-lg btn-full" id="submitReportBtn">
             <span class="btn-icon">⚠️</span> Enviar Reporte Ciudadano
           </button>
+
+          <p class="report-legal-note" style="margin-top:0.75rem;font-size:0.75rem;line-height:1.5;color:var(--color-text-muted)">
+            ⚖️ <strong>Demo académica (Capstone).</strong> Los reportes ciudadanos son complementarios y
+            <strong>no reemplazan</strong> a las líneas oficiales de emergencia
+            (Bomberos <strong>116</strong> · INDECI <strong>115</strong> · SERFOR <strong>0800-11-070</strong>).
+            Los reportes se almacenan localmente con fines de demostración.
+          </p>
         </form>
 
         <!-- Mapa mini para seleccionar coordenadas -->
@@ -4714,7 +5445,7 @@ ARCHIVO [23]: web/index.html
           <p class="report-map-hint">Haz clic en el mapa para fijar las coordenadas automáticamente</p>
           <div id="reportMap"></div>
           <div class="recent-reports">
-            <h4>Reportes recientes verificados</h4>
+            <h4>Reportes recientes registrados</h4>
             <div class="report-list" id="recentReportsList"></div>
           </div>
         </div>
@@ -4989,8 +5720,9 @@ ARCHIVO [23]: web/index.html
         </div>
       </div>
       <div class="footer-bottom">
-        <span>© 2025 AlertaForestal Perú — Licencia MIT — Uso libre y gratuito</span>
+        <span>© 2026 AlertaForestal Perú — Licencia MIT — Uso libre y gratuito</span>
         <span>Datos: NASA FIRMS · ERA5 (Open-Meteo) · Copernicus DEM · Sentinel-2 · OpenStreetMap</span>
+        <span id="dataFreshness">🤖 Cargando estado del modelo...</span>
       </div>
     </div>
   </footer>
@@ -5001,14 +5733,14 @@ ARCHIVO [23]: web/index.html
     <span id="toastMsg">Mensaje</span>
   </div>
 
-  <script src="app.js?v=20261009_v3"></script>
+  <script src="app.js?v=20261015_v4"></script>
 </body>
 
 </html>
 
 
 ==========================================================================================
-ARCHIVO [24]: web/app.js
+ARCHIVO [29]: web/app.js
 ==========================================================================================
 /**
  * AlertaForestal Perú — Lógica principal del portal ciudadano
@@ -5021,9 +5753,9 @@ ARCHIVO [24]: web/app.js
    ═══════════════════════════════════════════════════ */
 const API_URL = 'http://127.0.0.1:5050';
 
-// NASA FIRMS — acceso directo desde frontend o vía proxy FastAPI
-const FIRMS_KEY  = 'a86632ae3bb704ddc1818342f63bf8b0';
-const FIRMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
+// NASA FIRMS — SIEMPRE vía proxy FastAPI (/firms/hotspots).
+// La API key vive únicamente en el backend (FIRMS_MAP_KEY en .env); nunca se
+// expone en el frontend.
 
 // Bounding boxes predefinidas (minLon, minLat, maxLon, maxLat)
 const FIRMS_BBOXES = {
@@ -5084,6 +5816,16 @@ const CAJAMARCA_BBOX = {
   east:  -77.738889
 };
 
+// Sub-regiones del área de modelado (Cajamarca) para el filtro real del mapa IA.
+// 'all' no filtra. Los sectores Norte/Sur dividen Cajamarca por la latitud media.
+const AI_REGION_BBOX = {
+  cajamarca: { south: -7.7592, north: -4.5519, west: -79.4517, east: -77.7389 },
+  norte:     { south: -6.16,   north: -4.5519, west: -79.4517, east: -77.7389 },
+  sur:       { south: -7.7592, north: -6.16,   west: -79.4517, east: -77.7389 },
+  all:       null,
+};
+let currentRegion = 'cajamarca';
+
 const COLOR_MAP = {
   Rojo:     '#ef4444',
   Amarillo: '#f97316',
@@ -5108,11 +5850,13 @@ function generateDemoFeatures() {
       const reliefNoise = Math.sin(lat * 9.2 + lon * 4.1) * 0.4;
       const thermalGrad = (lat + 7.7) * 0.15; // Variación térmica latitudinal
       const basinEffect = Math.cos(lon * 11.5) * 0.35; // Cuenca del Marañón y valles occidentales
-      const rawRisk     = 0.38 + reliefNoise + thermalGrad + basinEffect + (Math.random() - 0.5) * 0.18;
-      const prob        = Math.max(0.03, Math.min(0.97, rawRisk));
-      // Umbrales ILUSTRATIVOS solo para la simulación offline. Con la API activa,
-      // el backend clasifica con umbrales data-driven (presupuesto de alerta top 1%/5%).
-      const nivel       = prob >= 0.65 ? 'Rojo' : prob >= 0.32 ? 'Amarillo' : 'Verde';
+      const spatialBias = Math.max(0, reliefNoise + thermalGrad + basinEffect);
+      // Score en el MISMO rango que el modelo real (~0.0001 – 0.145), con sesgo a
+      // valores bajos, para que el fallback offline se vea como el mapa real.
+      const rawRisk     = 0.001 + Math.pow(Math.random(), 6) * 0.14 + spatialBias * 0.015;
+      const prob        = Math.max(0.0001, Math.min(0.145, rawRisk));
+      // Umbrales data-driven reales (presupuesto de alerta top 1% / 5%).
+      const nivel       = prob >= 0.13 ? 'Rojo' : prob >= 0.094 ? 'Amarillo' : 'Verde';
 
       // Mostrar zonas rojas, amarillas y una selección de verdes para visualización equilibrada
       if (nivel === 'Verde' && Math.random() > 0.25) continue;
@@ -5272,6 +6016,7 @@ async function loadMapData() {
     features = DEMO_FEATURES;
     isDemo   = true;
   }
+  features = applyRegionFilter(features);
   currentFeatures = features;
   renderMapLayers(features);
   updateHeroStats(features);
@@ -5312,13 +6057,24 @@ function renderMapLayers(features) {
       const color   = COLOR_MAP[props.nivel] || '#22c55e';
       const coords  = f.geometry.coordinates[0].map(p => [p[1], p[0]]);
       const demoTag = isDemo
-        ? '<div style="margin-top:6px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:10px;color:#94a3b8">⚠️ Predicción simulada — <a href=\'#\' style=\'color:#f97316\' onclick=\'event.preventDefault();showToast("Inicia: uvicorn app.main:app --reload --port 8000",\"💻\")\'>iniciar API</a> para datos reales del modelo LightGBM</div>'
+        ? '<div style="margin-top:6px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:10px;color:#94a3b8">⚠️ Predicción simulada — <a href=\'#\' style=\'color:#f97316\' onclick=\'event.preventDefault();showToast("Inicia: uvicorn app.main:app --reload --port 5050",\"💻\")\'>iniciar API</a> para datos reales del modelo de IA</div>'
+        : '';
+      // El modelo ordena celdas por score; el percentil ubica esta celda en esa
+      // distribución (Top 1% = Rojo, Top 5% = Amarillo). Se muestra el ranking en
+      // lugar del % absoluto (que es bajo por diseño, ~0.1%).
+      const ranking = (props.percentil != null)
+        ? `<b>Ranking:</b> Top ${Math.max(1, Math.round(100 - props.percentil))}% del territorio<br/>`
         : '';
       const popup = `
-        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:210px;color:#1a1a2e">
+        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:220px;color:#1a1a2e">
           <b style="font-size:13px">🤖 Predicción IA — Grilla ${props.grid_id}</b><hr style="margin:6px 0"/>
           <b>Nivel:</b> <span style="color:${color};font-weight:700">${props.nivel}</span><br/>
-          <b>Probabilidad:</b> ${(props.probabilidad * 100).toFixed(1)}%<br/>
+          ${ranking}
+          <b>Score del modelo:</b> ${Number(props.probabilidad).toFixed(4)}<br/>
+          <div style="margin:4px 0;padding:3px 6px;background:#f1f5f9;border-radius:4px;font-size:10px;color:#475569">
+            El score no es una probabilidad absoluta: el modelo <b>ordena</b> las celdas por riesgo.<br/>
+            Top 1% = 🔴 Rojo · Top 5% = 🟡 Amarillo
+          </div>
           <b>Temperatura:</b> ${props.temp_2m?.toFixed(1)} °C<br/>
           <b>Humedad:</b> ${props.humedad_relativa?.toFixed(0)} %<br/>
           <b>Viento:</b> ${props.viento_velocidad?.toFixed(0)} km/h<br/>
@@ -5340,17 +6096,33 @@ function togglePolygonLayer()  { renderMapLayers(currentFeatures); }
 function toggleExtremesLayer() { renderExtremesLayer(); }
 
 function filterByRegion() {
-  const regionVal = document.getElementById('regionFilter')?.value || 'cajamarca';
-  if (regionVal === 'cajamarca' && mainMap) {
-    mainMap.flyToBounds([
-      [CAJAMARCA_BBOX.south, CAJAMARCA_BBOX.west],
-      [CAJAMARCA_BBOX.north, CAJAMARCA_BBOX.east]
-    ], { duration: 1.2, padding: [30, 30] });
-  } else if (regionVal === 'all' && mainMap) {
-    mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.2 });
+  currentRegion = document.getElementById('regionFilter')?.value || 'cajamarca';
+  if (mainMap) {
+    const bb = AI_REGION_BBOX[currentRegion];
+    if (bb) {
+      mainMap.flyToBounds([
+        [bb.south, bb.west],
+        [bb.north, bb.east]
+      ], { duration: 1.2, padding: [30, 30] });
+    } else {
+      mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.2 });
+    }
   }
   loadMapData();
   loadFIRMSHotspots();
+}
+
+/**
+ * Filtra las grillas del modelo por la sub-región seleccionada (filtro REAL,
+ * no solo movimiento de cámara). 'all' no filtra.
+ */
+function applyRegionFilter(features) {
+  const bb = AI_REGION_BBOX[currentRegion];
+  if (!bb) return features;
+  return features.filter(f => {
+    const [lon, lat] = f.geometry.coordinates[0][0];
+    return lat >= bb.south && lat <= bb.north && lon >= bb.west && lon <= bb.east;
+  });
 }
 
 /**
@@ -5467,7 +6239,7 @@ function showDemoBanner(isDemo, apiOnline = false) {
     banner.style.background = 'rgba(30,20,0,0.88)';
     banner.style.border     = '1px solid #f97316';
     banner.style.color      = '#fbbf24';
-    banner.innerHTML = '⚠️ <b>API offline</b> — Predicciones simuladas. Inicia el servidor para datos reales del modelo LightGBM';
+    banner.innerHTML = '⚠️ <b>API offline</b> — Predicciones simuladas. Inicia el servidor para datos reales del modelo de IA';
     banner.style.opacity = '1';
     banner.style.display = 'block';
   } else if (apiOnline) {
@@ -5475,7 +6247,7 @@ function showDemoBanner(isDemo, apiOnline = false) {
     banner.style.background = 'rgba(0,30,10,0.85)';
     banner.style.border     = '1px solid #22c55e';
     banner.style.color      = '#86efac';
-    banner.innerHTML = '✅ <b>Modelo LightGBM activo</b> — Predicciones de riesgo en tiempo real';
+    banner.innerHTML = '✅ <b>Modelo de IA activo</b> — Predicciones de riesgo en tiempo real';
     banner.style.opacity = '1';
     banner.style.display = 'block';
     // Auto-ocultar tras 4 segundos
@@ -5500,7 +6272,7 @@ async function loadFIRMSHotspots() {
 
   const regionVal = document.getElementById('regionFilter')?.value || 'cajamarca';
   const bboxKey   = FIRMS_BBOXES[regionVal] ? regionVal : 'cajamarca';
-  const bbox      = FIRMS_BBOXES[bboxKey];
+  const lookback  = parseInt(document.getElementById('timeFilter')?.value || '1', 10); // días (1-3)
 
   updateLegendTime('⏳ Sincronizando satélites VIIRS...');
 
@@ -5510,9 +6282,9 @@ async function loadFIRMSHotspots() {
 
   // 1) Intentar vía proxy FastAPI (datos reales de NASA FIRMS sin problemas de CORS)
   try {
-    // Primero consultar hoy (últimas 24h)
+    // Primero consultar la ventana seleccionada en el filtro (1-3 días)
     const proxyResp = await fetch(
-      `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=1`,
+      `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=${lookback}`,
       { signal: AbortSignal.timeout(5000) }
     );
     if (proxyResp.ok) {
@@ -5549,24 +6321,7 @@ async function loadFIRMSHotspots() {
     }
   } catch (_) { /* Servidor offline */ }
 
-  // 2) Fallback directo si la API backend no responde (CORS permitido en navegadores directos)
-  if (dataSourceType === 'offline') {
-    try {
-      const firmsUrl = `${FIRMS_BASE}/${FIRMS_KEY}/VIIRS_SNPP_NRT/${bbox}/2`;
-      const resp = await fetch(firmsUrl, { mode: 'cors', signal: AbortSignal.timeout(5000) });
-      if (resp.ok) {
-        const csvText = await resp.text();
-        const parsed  = parseFIRMScsv(csvText);
-        if (parsed.length > 0) {
-          features       = parsed;
-          sourceLabel    = 'NASA FIRMS directo';
-          dataSourceType = 'real_today';
-        }
-      }
-    } catch (_) { /* CORS bloqueado */ }
-  }
-
-  // 3) Fallback final consistente si el backend no está disponible en absoluto
+  // 2) Fallback final consistente si el backend no está disponible en absoluto
   if (features.length === 0) {
     features       = generateRealisticFIRMSDemo(bboxKey);
     sourceLabel    = 'Simulación de prueba (Servidor offline)';
@@ -5721,13 +6476,17 @@ function animateCounter(id, target) {
 }
 
 function updateRiskBadge(features) {
+  const total     = features.length || 0;
   const rojas     = features.filter(f => f.properties.nivel === 'Rojo').length;
   const amarillas = features.filter(f => f.properties.nivel === 'Amarillo').length;
+  const pctRojas  = total ? (rojas / total) * 100 : 0;
   const el = document.getElementById('badgeLevel');
+  // El semáforo se basa en la PROPORCIÓN de celdas en riesgo (no en conteos fijos),
+  // porque el modelo sirve ~1% Rojo y ~5% Amarillo (presupuesto de alerta).
   let level, cls;
-  if (rojas > 20)                       { level = 'ALTO 🔴';  cls = 'alto';  }
-  else if (rojas > 5 || amarillas > 30) { level = 'MEDIO 🟡'; cls = 'medio'; }
-  else                                  { level = 'BAJO 🟢';  cls = 'bajo';  }
+  if (rojas > 0 && (pctRojas >= 0.8 || rojas >= 3)) { level = 'ALTO 🔴';  cls = 'alto';  }
+  else if (rojas > 0 || amarillas >= 3)             { level = 'MEDIO 🟡'; cls = 'medio'; }
+  else                                             { level = 'BAJO 🟢';  cls = 'bajo';  }
   el.textContent = level;
   el.className   = `badge-level ${cls}`;
 }
@@ -5801,23 +6560,53 @@ function useMyLocation() {
   );
 }
 
-function renderRecentReports() {
-  const reports = [
-    { tipo: 'Columna de humo',  zona: 'Cajamarca Centro', hora: 'Hace 12 min', estado: 'verified' },
-    { tipo: 'Fuego activo',     zona: 'Jaén Norte',       hora: 'Hace 1h',     estado: 'verified' },
-    { tipo: 'Quema agrícola',   zona: 'Chota',            hora: 'Hace 3h',     estado: 'pending'  },
-  ];
-  document.getElementById('recentReportsList').innerHTML = reports.map(r => `
-    <div class="report-item">
-      <div class="report-dot ${r.estado}"></div>
-      <div style="flex:1">
-        <strong style="font-size:0.82rem">${r.tipo}</strong>
-        <span style="color:var(--color-text-muted);font-size:0.76rem;display:block">${r.zona} · ${r.hora}</span>
-      </div>
-      ${r.estado === 'verified'
-        ? '<span style="font-size:0.7rem;color:var(--color-success)">✓ Verificado</span>'
-        : '<span style="font-size:0.7rem;color:var(--color-warning)">⏳ Revisando</span>'}
-    </div>`).join('');
+async function renderRecentReports() {
+  const listEl = document.getElementById('recentReportsList');
+  if (!listEl) return;
+
+  let reports = [];
+  try {
+    const resp = await fetch(`${API_URL}/report/recent?limit=5`, { signal: AbortSignal.timeout(5000) });
+    if (resp.ok) {
+      const data = await resp.json();
+      reports = data.reports || [];
+    }
+  } catch (_) { /* API offline */ }
+
+  if (!reports.length) {
+    listEl.innerHTML = `
+      <div class="report-item" style="opacity:.7">
+        <div class="report-dot pending"></div>
+        <div style="flex:1">
+          <strong style="font-size:0.82rem">Aún no hay reportes registrados</strong>
+          <span style="color:var(--color-text-muted);font-size:0.76rem;display:block">Los reportes enviados desde este formulario aparecerán aquí.</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = reports.map(r => {
+    const zone = r.reporter_zone || `${Number(r.lat).toFixed(3)}, ${Number(r.lon).toFixed(3)}`;
+    return `
+      <div class="report-item">
+        <div class="report-dot ${r.status === 'verified' ? 'verified' : 'pending'}"></div>
+        <div style="flex:1">
+          <strong style="font-size:0.82rem">${r.incident_label || r.incident_type}</strong>
+          <span style="color:var(--color-text-muted);font-size:0.76rem;display:block">${zone} · ${timeAgo(r.timestamp)}</span>
+        </div>
+        <span style="font-size:0.7rem;color:var(--color-warning)">⏳ Revisando</span>
+      </div>`;
+  }).join('');
+}
+
+function timeAgo(iso) {
+  if (!iso) return 'Reciente';
+  const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diffMin < 1)  return 'Hace instantes';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const h = Math.floor(diffMin / 60);
+  if (h < 24) return `Hace ${h} h`;
+  return `Hace ${Math.floor(h / 24)} d`;
 }
 
 async function submitReport(e) {
@@ -5829,14 +6618,40 @@ async function submitReport(e) {
     showToast('Por favor, selecciona una ubicación en el mapa o ingresa las coordenadas.', '⚠️');
     return;
   }
+  const incidentType = document.querySelector('input[name="incidentType"]:checked')?.value || 'fuego_activo';
+  const description  = document.getElementById('reportDesc')?.value || '';
+  const zone         = document.getElementById('waZone')?.value || null;
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Enviando...';
-  await new Promise(r => setTimeout(r, 1500));
-  showToast('¡Reporte enviado! El equipo lo verificará en los próximos minutos.', '✅');
-  document.getElementById('reportForm').reset();
-  document.getElementById('photoPreview').style.display = 'none';
-  document.getElementById('locationStatus').textContent = '';
-  if (reportMarker) { reportMarker.remove(); reportMarker = null; }
+
+  let ok = false;
+  try {
+    const resp = await fetch(`${API_URL}/report/citizen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: parseFloat(lat),
+        lon: parseFloat(lon),
+        incident_type: incidentType,
+        description,
+        reporter_zone: zone,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    ok = resp.ok;
+  } catch (_) { ok = false; }
+
+  if (ok) {
+    showToast('¡Reporte registrado! El equipo lo verificará con datos satelitales.', '✅');
+    document.getElementById('reportForm').reset();
+    document.getElementById('photoPreview').style.display = 'none';
+    document.getElementById('locationStatus').textContent = '';
+    if (reportMarker) { reportMarker.remove(); reportMarker = null; }
+    renderRecentReports();  // refrescar la lista de reportes
+  } else {
+    showToast('No se pudo enviar (API offline). Modo demo: revisa que el servidor esté activo.', '⚠️');
+  }
   btn.disabled = false;
   btn.innerHTML = '<span class="btn-icon">⚠️</span> Enviar Reporte Ciudadano';
 }
@@ -5971,11 +6786,15 @@ function closeResource() {
    ═══════════════════════════════════════════════════ */
 async function loadWeatherData() {
   try {
-    const resp = await fetch(`${API_URL}/risk/today?limit=10`, { signal: AbortSignal.timeout(3000) });
+    const resp = await fetch(`${API_URL}/risk/today?limit=200`, { signal: AbortSignal.timeout(4000) });
     if (resp.ok) {
       const data = await resp.json();
-      const f = data.features?.[0]?.properties;
-      if (f) {
+      const feats = data.features || [];
+      if (feats.length) {
+        // Mostrar la celda de MAYOR riesgo (no la primera arbitraria del arreglo).
+        const best = feats.reduce((a, b) =>
+          (b.properties.probabilidad > a.properties.probabilidad ? b : a));
+        const f = best.properties;
         document.getElementById('wTemp').textContent     = `${f.temp_2m?.toFixed(1)}°C`;
         document.getElementById('wHumidity').textContent = `${f.humedad_relativa?.toFixed(0)}%`;
         document.getElementById('wWind').textContent     = `${f.viento_velocidad?.toFixed(0)} km/h`;
@@ -5990,6 +6809,28 @@ async function loadWeatherData() {
   document.getElementById('wHumidity').textContent = '32%';
   document.getElementById('wWind').textContent     = '22 km/h';
   document.getElementById('wFWI').textContent      = '74';
+}
+
+/* ═══════════════════════════════════════════════════
+   FRESCURA DE DATOS (modelo)
+   ═══════════════════════════════════════════════════ */
+async function loadDataFreshness() {
+  const el = document.getElementById('dataFreshness');
+  if (!el) return;
+  try {
+    const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    if (resp.ok) {
+      const h = await resp.json();
+      const train = h.training_date
+        ? new Date(h.training_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+      const th = h.thresholds || {};
+      el.textContent = `🤖 Modelo ${h.model_version || ''} · entrenado ${train}` +
+        (th.rojo != null ? ` · umbral Rojo ≥ ${Number(th.rojo).toFixed(3)}` : '');
+      return;
+    }
+  } catch (_) {}
+  el.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
 }
 
 /* ═══════════════════════════════════════════════════
@@ -6072,6 +6913,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initParticles();
   initScrollAnimations();
   loadWeatherData();
+  loadDataFreshness();
 
   // Stats iniciales con datos demo
   updateHeroStats(DEMO_FEATURES);
@@ -6098,7 +6940,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 ==========================================================================================
-ARCHIVO [25]: web/styles.css
+ARCHIVO [30]: web/styles.css
 ==========================================================================================
 /* ══════════════════════════════════════════════════════
    AlertaForestal Perú — Estilos Principales
@@ -6868,16 +7710,32 @@ img { max-width: 100%; }
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [26]: airflow/dags/pipeline_dag.py
+ARCHIVO [31]: airflow/dags/pipeline_dag.py
 ==========================================================================================
 """
-DAG de Airflow que orquesta la descarga diaria de datos y actualiza las
-predicciones de riesgo. Copia este archivo a tu carpeta dags/ de Airflow.
+DAG de Airflow que orquesta el pipeline diario del Sistema Nacional de Alerta
+Temprana de Incendios Forestales:
+
+  1. Descarga los focos de calor reales de NASA FIRMS (etiquetas del modelo).
+  2. Reconstruye la grilla de features reales (DEM + Sentinel-2 + ERA5 + OSM).
+  3. Reentrena el ensemble con validación espacial out-of-fold.
+  4. Puntúa la grilla del día y exporta el GeoJSON de riesgo.
+  5. Envía el resumen diario de alertas por WhatsApp (app/scheduler.py).
+
+Copia este archivo a la carpeta `dags/` de tu instalación de Airflow:
+    cp airflow/dags/pipeline_dag.py $AIRFLOW_HOME/dags/
+
+Requiere:
+  - Las variables de entorno del proyecto (.env) accesibles por el worker.
+  - FIRMS_MAP_KEY configurada para el paso de descarga.
 """
 from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+
+CAJAMARCA_BBOX = "-79.4517,-7.7592,-77.7389,-4.5519"
+DATA_DIR = "/opt/airflow/data"
 
 default_args = {
     "owner": "wildfire-team",
@@ -6887,38 +7745,79 @@ default_args = {
 
 
 def task_fetch_firms():
-    from data_pipeline.fetch_firms import fetch_firms_country
-    df = fetch_firms_country(country_code="PER", days=1)
-    df.to_csv("/opt/data/firms_daily.csv", index=False)
+    """Descarga los focos de calor reales de NASA FIRMS (últimos 3 días)."""
+    from data_pipeline.fetch_firms import fetch_firms_area
+
+    df = fetch_firms_area(CAJAMARCA_BBOX, days=3)
+    df.to_csv(f"{DATA_DIR}/firms_raw.csv", index=False)
+    print(f"Focos descargados: {len(df)}")
+    return len(df)
 
 
-def task_build_grid_and_predict():
-    # TODO: cargar el CSV del día, correr grid_builder + model.predict_proba
-    # y escribir el resultado en PostGIS (tabla risk_predictions).
-    pass
+def task_build_grid():
+    """Regenera la grilla de features reales por celda de 1 km²."""
+    import subprocess
+    import sys
+
+    subprocess.run(
+        [
+            sys.executable,
+            "data_pipeline/grid_builder.py",
+            "--bbox", *CAJAMARCA_BBOX.split(","),
+            "--out", f"{DATA_DIR}/dataset.parquet",
+        ],
+        check=True,
+    )
 
 
-def task_check_red_alerts():
-    # TODO: consultar PostGIS por grillas nivel Rojo del día y llamar a
-    # app.telegram_alerts.send_red_alert() para cada una.
-    pass
+def task_train_model():
+    """Reentrena el ensemble con validación cruzada espacial (out-of-fold)."""
+    import subprocess
+    import sys
+
+    subprocess.run([sys.executable, "data_pipeline/train_model.py"], check=True)
+
+
+def task_score_and_export():
+    """Puntúa la grilla del día y exporta el GeoJSON de riesgo."""
+    import json
+
+    from app.main import risk_today
+
+    geo = risk_today(limit=5000)
+    with open(f"{DATA_DIR}/risk_today.geojson", "w", encoding="utf-8") as fh:
+        json.dump(geo, fh, ensure_ascii=False)
+    stats = geo.get("stats", {})
+    print(f"Riesgo exportado. Stats: {stats}")
+    return stats
+
+
+def task_send_daily_alerts():
+    """Envía el resumen diario de riesgo a los grupos de WhatsApp configurados."""
+    import asyncio
+
+    from app.scheduler import run_daily_alerts
+
+    asyncio.run(run_daily_alerts())
 
 
 with DAG(
     dag_id="wildfire_daily_pipeline",
     default_args=default_args,
-    description="Descarga datos, predice riesgo y envía alertas diariamente",
-    schedule_interval="0 6 * * *",  # todos los días a las 6am
+    description="Descarga datos, reentrena, predice riesgo y envía alertas diariamente",
+    schedule="0 7 * * *",  # todos los días a las 07:00 (America/Lima)
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["wildfire", "capstone"],
 ) as dag:
 
     fetch_firms = PythonOperator(task_id="fetch_firms", python_callable=task_fetch_firms)
-    build_and_predict = PythonOperator(task_id="build_grid_and_predict", python_callable=task_build_grid_and_predict)
-    check_alerts = PythonOperator(task_id="check_red_alerts", python_callable=task_check_red_alerts)
+    build_grid = PythonOperator(task_id="build_grid", python_callable=task_build_grid)
+    train_model = PythonOperator(task_id="train_model", python_callable=task_train_model)
+    score_export = PythonOperator(task_id="score_and_export", python_callable=task_score_and_export)
+    send_alerts = PythonOperator(task_id="send_daily_alerts", python_callable=task_send_daily_alerts)
 
-    fetch_firms >> build_and_predict >> check_alerts
+    fetch_firms >> build_grid >> train_model >> score_export >> send_alerts
 
 
 
@@ -6927,7 +7826,7 @@ with DAG(
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [27]: notebooks/model_evaluation.py
+ARCHIVO [32]: notebooks/model_evaluation.py
 ==========================================================================================
 """
 Evaluación comparativa del modelo para el informe Capstone (Entregable Semana 8).
@@ -7046,7 +7945,7 @@ if __name__ == "__main__":
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [28]: scripts/enviar_alertas_ahora.py
+ARCHIVO [33]: scripts/enviar_alertas_ahora.py
 ==========================================================================================
 # -*- coding: utf-8 -*-
 """
@@ -7083,7 +7982,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [29]: scripts/generar_documento_codigo.py
+ARCHIVO [34]: scripts/generar_documento_codigo.py
 ==========================================================================================
 from pathlib import Path
 from datetime import datetime
@@ -7095,9 +7994,12 @@ files_to_include = [
     # 1. Configuración & Entorno
     ('CONFIGURACIÓN DEL PROYECTO', [
         'requirements.txt',
+        'requirements-dev.txt',
+        'pyproject.toml',
         '.env.example',
         'Dockerfile',
         'docker-compose.yml',
+        '.github/workflows/ci.yml',
         '.gitignore',
     ]),
     # 2. Documentación
@@ -7114,6 +8016,7 @@ files_to_include = [
     ('PIPELINE DE DATOS Y MACHINE LEARNING (data_pipeline/)', [
         'data_pipeline/grid_builder.py',
         'data_pipeline/real_features.py',
+        'data_pipeline/refresh_dataset.py',
         'data_pipeline/train_model.py',
         'data_pipeline/fetch_firms.py',
         'data_pipeline/fetch_era5.py',
@@ -7126,6 +8029,7 @@ files_to_include = [
     ('BACKEND API FASTAPI Y PROGRAMADOR (app/)', [
         'app/main.py',
         'app/model.py',
+        'app/security.py',
         'app/scheduler.py',
         'app/propagation.py',
         'app/pdf_generator.py',
@@ -7159,6 +8063,11 @@ files_to_include = [
     ]),
     # 10. Pruebas y Auditoría de Calidad
     ('PRUEBAS Y AUDITORÍA (tests/)', [
+        'tests/conftest.py',
+        'tests/test_model.py',
+        'tests/test_api.py',
+        'tests/test_security.py',
+        'tests/test_pipeline.py',
         'tests/test_lightgbm_precision.py',
         'tests/audit_quick.py',
         'tests/audit_final.py',
@@ -7214,7 +8123,7 @@ print(f'Done! File size: {output_file.stat().st_size:,} bytes')
 
 
 ==========================================================================================
-ARCHIVO [30]: scripts/health_check.py
+ARCHIVO [35]: scripts/health_check.py
 ==========================================================================================
 """
 Script de Health Check automatizado (Entregable Semana 12 del Capstone).
@@ -7264,7 +8173,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [31]: scripts/test_alertas_diarias.py
+ARCHIVO [36]: scripts/test_alertas_diarias.py
 ==========================================================================================
 # -*- coding: utf-8 -*-
 """
@@ -7422,7 +8331,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [32]: scripts/listar_grupos_alerta.py
+ARCHIVO [37]: scripts/listar_grupos_alerta.py
 ==========================================================================================
 import sys
 import io
@@ -7470,7 +8379,394 @@ else:
 ##########################################################################################
 
 ==========================================================================================
-ARCHIVO [33]: tests/test_lightgbm_precision.py
+ARCHIVO [38]: tests/conftest.py
+==========================================================================================
+"""
+Configuración común de pytest: hace importable la raíz del proyecto y expone
+marcadores para los tests que dependen del modelo/dataset entrenados.
+"""
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+MODEL_PATH = ROOT / "models" / "lightgbm_wildfire.pkl"
+META_PATH = ROOT / "models" / "model_metadata.json"
+DATASET_CSV = ROOT / "data" / "dataset.csv"
+DATASET_PARQUET = ROOT / "data" / "dataset.parquet"
+
+requires_model = pytest.mark.skipif(
+    not MODEL_PATH.exists(), reason="Modelo no entrenado (models/lightgbm_wildfire.pkl)"
+)
+requires_metadata = pytest.mark.skipif(
+    not META_PATH.exists(), reason="Metadatos del modelo no disponibles"
+)
+requires_dataset = pytest.mark.skipif(
+    not (DATASET_CSV.exists() or DATASET_PARQUET.exists()),
+    reason="Dataset no disponible (data/dataset.csv|parquet)",
+)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reinicia el rate limiter en memoria antes y después de cada test."""
+    try:
+        from app.security import reset_rate_limiter
+    except Exception:
+        yield
+        return
+    reset_rate_limiter()
+    yield
+    reset_rate_limiter()
+
+
+==========================================================================================
+ARCHIVO [39]: tests/test_model.py
+==========================================================================================
+"""
+Pruebas de la lógica del modelo y del semáforo (app/model.py) y de la coherencia
+con los metadatos MLOps (models/model_metadata.json).
+
+No requieren que el modelo esté cargado salvo donde se indique.
+"""
+import json
+
+import pytest
+
+from conftest import META_PATH, requires_metadata
+
+from app.model import (
+    DEFAULT_VALUES,
+    FEATURE_ORDER,
+    THRESHOLDS,
+    classify,
+    encode_wind_direction,
+    get_thresholds,
+    score_percentile,
+)
+
+
+def test_feature_order_has_no_dead_seasonality():
+    # mes_sin/mes_cos son constantes con una única fecha de referencia => fuera.
+    assert "mes_sin" not in FEATURE_ORDER
+    assert "mes_cos" not in FEATURE_ORDER
+
+
+def test_wind_direction_is_circular():
+    # El viento entra codificado como sin/cos, no en grados crudos.
+    assert "viento_dir_sin" in FEATURE_ORDER
+    assert "viento_dir_cos" in FEATURE_ORDER
+    assert "viento_direccion" not in FEATURE_ORDER
+
+
+def test_every_feature_has_a_default():
+    for feat in FEATURE_ORDER:
+        assert feat in DEFAULT_VALUES, f"Falta DEFAULT_VALUES para '{feat}'"
+
+
+def test_classify_uses_operating_thresholds():
+    assert classify(THRESHOLDS["rojo"] + 0.01) == "Rojo"
+    assert classify(THRESHOLDS["amarillo"] + 0.001) == "Amarillo"
+    assert classify(0.0) == "Verde"
+
+
+def test_threshold_order_is_consistent():
+    assert 0 < THRESHOLDS["amarillo"] < THRESHOLDS["rojo"]
+    assert get_thresholds() == THRESHOLDS
+
+
+def test_score_percentile_in_range():
+    for proba in (0.0, THRESHOLDS["amarillo"], THRESHOLDS["rojo"], 1.0):
+        pct = score_percentile(proba)
+        assert pct is None or 0.0 <= pct <= 100.0
+
+
+def test_encode_wind_direction_known_values():
+    assert encode_wind_direction(0.0) == pytest.approx((0.0, 1.0), abs=1e-6)
+    assert encode_wind_direction(90.0) == pytest.approx((1.0, 0.0), abs=1e-6)
+    assert encode_wind_direction(180.0) == pytest.approx((0.0, -1.0), abs=1e-6)
+
+
+@requires_metadata
+def test_metadata_features_match_model():
+    meta = json.loads(META_PATH.read_text(encoding="utf-8"))
+    assert meta["features"] == FEATURE_ORDER, "El modelo y app/model.py usan features distintas"
+
+
+@requires_metadata
+def test_model_beats_random_baseline():
+    """Honestidad: el modelo debe superar claramente al azar."""
+    meta = json.loads(META_PATH.read_text(encoding="utf-8"))
+    m = meta["metrics"]["optimized_ensemble"]
+    prevalence = meta["random_baseline_precision"]
+
+    assert m["roc_auc"] > 0.55, "ROC-AUC demasiado bajo (¿modelo degenerado?)"
+    assert m["average_precision"] > prevalence, "El PR-AUC no supera la prevalencia (azar)"
+
+
+@requires_metadata
+def test_metadata_documents_serving_and_oof_thresholds():
+    meta = json.loads(META_PATH.read_text(encoding="utf-8"))
+    assert "serving_thresholds" in meta
+    assert "oof_thresholds" in meta
+    assert meta["serving_thresholds"]["rojo"] > meta["serving_thresholds"]["amarillo"]
+
+
+==========================================================================================
+ARCHIVO [40]: tests/test_api.py
+==========================================================================================
+"""
+Pruebas de la API FastAPI (app/main.py): endpoints públicos, validación de
+reportes ciudadanos y protección de los endpoints de alerta.
+
+Usa el TestClient de Starlette/FastAPI (sin red, sin servidor externo).
+"""
+from conftest import requires_dataset, requires_model
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+client = TestClient(app)
+
+
+def test_health_endpoint():
+    r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert set(body["thresholds"]) == {"rojo", "amarillo"}
+
+
+@requires_model
+@requires_dataset
+def test_risk_today_returns_geojson():
+    r = client.get("/risk/today", params={"limit": 50})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["type"] == "FeatureCollection"
+    assert body["count"] <= 50
+    assert "stats" in body
+    assert body["stats"]["total_analizado"] >= body["stats"]["rojo"]
+
+    f0 = body["features"][0]
+    assert f0["geometry"]["type"] == "Polygon"
+    assert f0["properties"]["nivel"] in {"Verde", "Amarillo", "Rojo"}
+
+
+@requires_model
+def test_predict_returns_valid_level():
+    r = client.post(
+        "/predict",
+        json={"grid_id": "test", "temp_2m": 35.0, "humedad_relativa": 8.0},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert 0.0 <= body["probabilidad"] <= 1.0
+    assert body["nivel"] in {"Verde", "Amarillo", "Rojo"}
+
+
+def test_report_citizen_rejects_coords_outside_peru():
+    r = client.post("/report/citizen", json={"lat": 40.0, "lon": -3.0})
+    assert r.status_code == 422
+
+
+def test_report_citizen_rejects_unknown_incident_type():
+    r = client.post(
+        "/report/citizen",
+        json={"lat": -7.16, "lon": -78.5, "incident_type": "ovni"},
+    )
+    assert r.status_code == 422
+
+
+def test_report_citizen_accepts_and_persists(tmp_path, monkeypatch):
+    import app.main as m
+
+    monkeypatch.setattr(m, "REPORTS_PATH", tmp_path / "reports.jsonl")
+    r = client.post(
+        "/report/citizen",
+        json={
+            "lat": -7.16,
+            "lon": -78.5,
+            "incident_type": "fuego_activo",
+            "reporter_zone": "Cajamarca",
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "received" and body["id"]
+    assert (tmp_path / "reports.jsonl").exists()
+
+
+def test_alerts_require_key_when_configured(monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secreto-de-prueba")
+    r = client.post("/alert/whatsapp", json={"grid_id": "x", "lat": -7.16, "lon": -78.5})
+    assert r.status_code == 401
+
+
+def test_alerts_reject_wrong_key(monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secreto-de-prueba")
+    r = client.post(
+        "/alert/whatsapp",
+        headers={"X-API-Key": "incorrecta"},
+        json={"grid_id": "x", "lat": -7.16, "lon": -78.5},
+    )
+    assert r.status_code == 401
+
+
+def test_report_recent_returns_list():
+    r = client.get("/report/recent", params={"limit": 5})
+    assert r.status_code == 200
+    assert isinstance(r.json()["reports"], list)
+
+
+def test_model_importance_shape():
+    r = client.get("/model/importance")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["n_features"] == 18
+    assert len(body["feature_importance"]) >= 1
+
+
+def test_openapi_documents_key_endpoints():
+    r = client.get("/openapi.json")
+    assert r.status_code == 200
+    paths = r.json()["paths"]
+    for ep in ["/health", "/risk/today", "/predict", "/report/citizen"]:
+        assert ep in paths
+
+
+==========================================================================================
+ARCHIVO [41]: tests/test_security.py
+==========================================================================================
+"""
+Pruebas de las utilidades de seguridad (app/security.py): CORS, API key de
+administración, rate limiting y validación geográfica.
+"""
+import pytest
+from fastapi import HTTPException
+
+from app.security import (
+    get_allowed_origins,
+    rate_limit,
+    reset_rate_limiter,
+    validate_peru_coords,
+)
+
+
+def test_validate_peru_coords_accepts_cajamarca():
+    validate_peru_coords(-7.16, -78.50)  # no debe lanzar
+
+
+def test_validate_peru_coords_rejects_outside():
+    with pytest.raises(HTTPException) as exc:
+        validate_peru_coords(40.0, -3.0)  # Madrid
+    assert exc.value.status_code == 422
+
+
+def test_default_origins_are_local(monkeypatch):
+    monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
+    origins = get_allowed_origins()
+    assert origins and all(o.startswith("http") for o in origins)
+    assert "http://127.0.0.1:5050" in origins
+
+
+def test_origins_star(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "*")
+    assert get_allowed_origins() == ["*"]
+
+
+def test_origins_custom_list(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://a.com, https://b.com")
+    assert get_allowed_origins() == ["https://a.com", "https://b.com"]
+
+
+class _FakeRequest:
+    class client:  # noqa: N801 - atributo esperado por Starlette
+        host = "203.0.113.5"
+
+
+def test_rate_limit_blocks_after_max_calls():
+    reset_rate_limiter()
+    dependency = rate_limit(max_calls=2, window_seconds=60)
+
+    dependency(_FakeRequest())
+    dependency(_FakeRequest())
+    with pytest.raises(HTTPException) as exc:
+        dependency(_FakeRequest())
+    assert exc.value.status_code == 429
+
+
+==========================================================================================
+ARCHIVO [42]: tests/test_pipeline.py
+==========================================================================================
+"""
+Pruebas del pipeline de datos (data_pipeline/grid_builder.py): features de
+vecindario por KNN geográfico (sin fuga con el bloque de validación) y
+codificación circular del viento.
+"""
+import numpy as np
+import pandas as pd
+
+from app.model import encode_wind_direction
+from data_pipeline.grid_builder import add_neighborhood_features, add_wind_encoding
+
+
+def _mini_grid() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "latitude": [-7.00, -7.01, -7.02, -8.50],
+            "longitude": [-78.00, -78.01, -78.02, -78.50],
+            "temp_2m": [20.0, 22.0, 24.0, 30.0],
+            "humedad_relativa": [60.0, 50.0, 40.0, 20.0],
+            "ndvi": [0.5, 0.4, 0.3, 0.1],
+            "viento_direccion": [0.0, 90.0, 180.0, 270.0],
+        }
+    )
+
+
+def test_neighborhood_features_are_computed():
+    out = add_neighborhood_features(_mini_grid(), k=2)
+    assert {"temp_vecindad_media", "humedad_vecindad_media", "ndvi_anomaly"} <= set(out.columns)
+    assert not out["temp_vecindad_media"].isna().any()
+    assert not out["humedad_vecindad_media"].isna().any()
+
+
+def test_neighborhood_does_not_depend_on_spatial_block():
+    """El cálculo debe funcionar sin `spatial_block_id` (ya no se usa el bloque de CV)."""
+    grid = _mini_grid()
+    assert "spatial_block_id" not in grid.columns
+    add_neighborhood_features(grid, k=2)
+
+
+def test_neighborhood_uses_geographically_close_cells():
+    out = add_neighborhood_features(_mini_grid(), k=1)
+    # La celda 0 (-7.00,-78.00) es vecina inmediata de la 1 (-7.01,-78.01): temp 22.
+    assert out.loc[0, "temp_vecindad_media"] == 22.0
+    # La celda aislada (-8.50,-78.50) NO debe tener como vecina a la 0 (temp 20).
+    assert out.loc[3, "temp_vecindad_media"] != 20.0
+
+
+def test_wind_encoding_is_circular():
+    out = add_wind_encoding(_mini_grid())
+    assert out.loc[0, "viento_dir_sin"] == 0.0
+    assert out.loc[0, "viento_dir_cos"] == 1.0
+    assert out.loc[1, "viento_dir_sin"] == 1.0
+    assert np.isclose(out.loc[1, "viento_dir_cos"], 0.0, atol=1e-6)
+
+
+def test_encode_wind_direction_matches_pipeline_encoding():
+    sin_v, cos_v = encode_wind_direction(270.0)  # 270° => (sin, cos) = (-1, 0)
+    assert sin_v == -1.0
+    assert np.isclose(cos_v, 0.0, atol=1e-6)
+
+
+==========================================================================================
+ARCHIVO [43]: tests/test_lightgbm_precision.py
 ==========================================================================================
 """
 test_lightgbm_precision.py
@@ -7976,7 +9272,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [34]: tests/audit_quick.py
+ARCHIVO [44]: tests/audit_quick.py
 ==========================================================================================
 """
 audit_quick.py - Resumen ejecutivo de auditoría ISO 25010
@@ -8106,15 +9402,19 @@ results['2_Eficiencia_Desempeno'] = (sum(cat), len(cat))
 # ── 3. COMPATIBILIDAD ─────────────────────────────────────────────────────────
 print('\n[3] COMPATIBILIDAD')
 cat = []
-# CORS: el header solo se emite cuando la peticion trae Origin (comportamiento real)
+# CORS restringido: se refleja un origen permitido y se bloquea uno ajeno.
+ALLOWED_ORIGIN = 'http://127.0.0.1:5050'
+FOREIGN_ORIGIN = 'http://evil.example'
 try:
-    r = requests.get(f'{BASE_URL}/health', headers={'Origin': 'http://example.com'}, timeout=8)
-    cors = r.headers.get('access-control-allow-origin', '')
+    r_allowed = requests.get(f'{BASE_URL}/health', headers={'Origin': ALLOWED_ORIGIN}, timeout=8)
+    cors = r_allowed.headers.get('access-control-allow-origin', '')
+    r_foreign = requests.get(f'{BASE_URL}/health', headers={'Origin': FOREIGN_ORIGIN}, timeout=8)
+    foreign_cors = r_foreign.headers.get('access-control-allow-origin', '')
+    ok = (cors == ALLOWED_ORIGIN) and (foreign_cors == '')
 except Exception:
-    cors = ''
-ok = len(cors) > 0
+    ok, cors = False, ''
 cat.append(ok)
-print(f'  {"PASA" if ok else "FALLA"}  CORS: Access-Control-Allow-Origin="{cors}"')
+print(f'  {"PASA" if ok else "FALLA"}  CORS restringido: permitido="{cors}" | ajeno bloqueado')
 
 for ep in ['/health', '/risk/today?limit=2', '/model/importance']:
     r = g(ep)
@@ -8278,12 +9578,12 @@ for f in ['main.py','model.py','propagation.py','scheduler.py','pdf_generator.py
     ok = (APP_DIR/f).exists()
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  app/{f}')
-mc = (APP_DIR/'main.py').read_text()
+mc = (APP_DIR/'main.py').read_text(encoding='utf-8')
 ok = 'os.getenv' in mc
 cat.append(ok); print(f'  {"PASA" if ok else "FALLA"}  main.py usa os.getenv()')
 req = ROOT / 'requirements.txt'
 if req.exists():
-    lines = [l for l in req.read_text().splitlines() if l.strip() and not l.startswith('#')]
+    lines = [l for l in req.read_text(encoding='utf-8').splitlines() if l.strip() and not l.startswith('#')]
     ok = len(lines) >= 10
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  requirements.txt: {len(lines)} dependencias')
@@ -8304,7 +9604,7 @@ print('\n[8] PORTABILIDAD')
 cat = []
 df_path = ROOT / 'Dockerfile'
 if df_path.exists():
-    dc = df_path.read_text()
+    dc = df_path.read_text(encoding='utf-8')
     for instr in ['FROM','WORKDIR','COPY','CMD']:
         ok = instr in dc
         cat.append(ok)
@@ -8321,13 +9621,13 @@ r = g('/')
 ok = r is not None and r.status_code == 200 and 'text/html' in r.headers.get('content-type','')
 cat.append(ok)
 print(f'  {"PASA" if ok else "FALLA"}  FastAPI sirve portal web en /: text/html={ok}')
-req_c = req.read_text().lower() if req.exists() else ''
+req_c = req.read_text(encoding='utf-8').lower() if req.exists() else ''
 for pkg,desc in [('fastapi','API'),('lightgbm','ML'),('geopandas','geo'),('locust','carga'),('apscheduler','scheduler')]:
     ok = pkg in req_c
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  requirements incluye {pkg} ({desc})')
 for f in ['main.py','model.py']:
-    c = (APP_DIR/f).read_text()
+    c = (APP_DIR/f).read_text(encoding='utf-8')
     ok = 'from pathlib' in c or 'Path(' in c
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  app/{f} usa pathlib (cross-platform)')
@@ -8366,7 +9666,7 @@ print('='*72 + '\n')
 
 
 ==========================================================================================
-ARCHIVO [35]: tests/audit_final.py
+ARCHIVO [45]: tests/audit_final.py
 ==========================================================================================
 """
 audit_final.py — Auditoría ISO 25010 sin llamadas a APIs externas lentas
@@ -8535,15 +9835,19 @@ print(f'  >>> {sum(cat)}/{len(cat)} ({sum(cat)/len(cat)*100:.1f}%)')
 print('\n[3] COMPATIBILIDAD')
 cat = []
 
-# CORS: el header solo se emite cuando la peticion trae Origin (comportamiento real)
+# CORS restringido: se refleja un origen permitido y se bloquea uno ajeno.
+ALLOWED_ORIGIN = 'http://127.0.0.1:5050'
+FOREIGN_ORIGIN = 'http://evil.example'
 try:
-    x = requests.get(f'{BASE}/health', headers={'Origin': 'http://example.com'}, timeout=8)
-    cors = x.headers.get('access-control-allow-origin', '')
+    x_allowed = requests.get(f'{BASE}/health', headers={'Origin': ALLOWED_ORIGIN}, timeout=8)
+    cors = x_allowed.headers.get('access-control-allow-origin', '')
+    x_foreign = requests.get(f'{BASE}/health', headers={'Origin': FOREIGN_ORIGIN}, timeout=8)
+    foreign_cors = x_foreign.headers.get('access-control-allow-origin', '')
+    ok = (cors == ALLOWED_ORIGIN) and (foreign_cors == '')
 except Exception:
-    cors = ''
-ok = len(cors) > 0
+    ok, cors = False, ''
 cat.append(ok)
-print(f'  {"OK  " if ok else "FAIL"}  CORS Access-Control-Allow-Origin="{cors}"')
+print(f'  {"OK  " if ok else "FAIL"}  CORS restringido: permitido="{cors}" | ajeno bloqueado')
 
 for ep in ['/health', '/model/importance', '/social/matrix']:
     x = g(ep)
@@ -8743,7 +10047,7 @@ if env_ex.exists():
     cat.append(ok)
     print(f'  {"OK  " if ok else "FAIL"}  .env.example sin credenciales reales: {"limpio" if ok else "CREDENCIALES EXPUESTAS"}')
 
-main_c = (APP / 'main.py').read_text()
+main_c = (APP / 'main.py').read_text(encoding='utf-8')
 real_in_code = 'a86632ae' in main_c
 ok = not real_in_code
 cat.append(ok)
@@ -8770,19 +10074,19 @@ for f in ['main.py', 'model.py', 'propagation.py', 'scheduler.py', 'pdf_generato
     cat.append(ok)
 print(f'  {"OK  " if app_files_ok==6 else "PARCIAL"}  Módulos app/: {app_files_ok}/6 presentes')
 
-main_c = (APP / 'main.py').read_text()
+main_c = (APP / 'main.py').read_text(encoding='utf-8')
 ok = 'os.getenv' in main_c
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  main.py usa os.getenv() para configuracion')
 
 for fname in ['main.py', 'model.py', 'propagation.py']:
-    c = (APP / fname).read_text()
+    c = (APP / fname).read_text(encoding='utf-8')
     ok = '"""' in c or "'''" in c
     cat.append(ok)
     print(f'  {"OK  " if ok else "FAIL"}  app/{fname} tiene docstrings')
 
 req = ROOT / 'requirements.txt'
-lines = [l for l in req.read_text().splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
+lines = [l for l in req.read_text(encoding='utf-8').splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
 ok = len(lines) >= 10
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  requirements.txt: {len(lines)} dependencias')
@@ -8817,7 +10121,7 @@ cat = []
 
 df_path = ROOT / 'Dockerfile'
 if df_path.exists():
-    dc = df_path.read_text()
+    dc = df_path.read_text(encoding='utf-8')
     for instr in ['FROM', 'WORKDIR', 'COPY', 'CMD']:
         ok = instr in dc
         cat.append(ok)
@@ -8837,7 +10141,7 @@ ok = x is not None and x.status_code == 200 and 'text/html' in x.headers.get('co
 cat.append(ok)
 print(f'  {"OK  " if ok else "FAIL"}  FastAPI sirve HTML en / (sin servidor externo)')
 
-req_c = req.read_text().lower() if req.exists() else ''
+req_c = req.read_text(encoding='utf-8').lower() if req.exists() else ''
 for pkg, desc in [('fastapi','API REST'), ('lightgbm','ML'), ('geopandas','Geoespacial'),
                    ('locust','Carga'), ('apscheduler','Alertas automáticas'), ('streamlit','Dashboard')]:
     ok = pkg in req_c
@@ -8845,7 +10149,7 @@ for pkg, desc in [('fastapi','API REST'), ('lightgbm','ML'), ('geopandas','Geoes
     print(f'  {"OK  " if ok else "FAIL"}  requirements.txt incluye {pkg} ({desc})')
 
 for f in ['main.py', 'model.py', 'propagation.py']:
-    c = (APP / f).read_text()
+    c = (APP / f).read_text(encoding='utf-8')
     usa_pathlib = 'from pathlib' in c or 'Path(' in c
     tiene_acceso_archivos = any(t in c for t in ('open(', 'read_text', 'read_csv', 'joblib.load', 'pickle.load'))
     sin_rutas_os = ('C:\\' not in c) and ('/home/' not in c) and ('/Users/' not in c)
@@ -8895,7 +10199,7 @@ print(f'  Norma: ISO/IEC 25010:2011\n')
 
 
 ==========================================================================================
-ARCHIVO [36]: tests/iso25010_audit.py
+ARCHIVO [46]: tests/iso25010_audit.py
 ==========================================================================================
 """
 iso25010_audit.py
@@ -9224,19 +10528,20 @@ def test_compatibility():
     header("3. COMPATIBILIDAD (Compatibility) — ISO 25010 §4.3")
     CAT = "Compatibilidad"
 
-    # 3.1 Cabeceras CORS
-    subheader("3.1 Co-existencia — cabeceras CORS presentes")
-    # El header CORS solo se emite cuando la peticion trae Origin (comportamiento real)
+    # 3.1 CORS restringido (lista blanca de orígenes)
+    subheader("3.1 Co-existencia — CORS restringido (lista blanca)")
+    ALLOWED_ORIGIN = "http://127.0.0.1:5050"
+    FOREIGN_ORIGIN = "http://evil.example"
     try:
-        r = requests.get(f"{BASE_URL}/health", headers={"Origin": "http://example.com"}, timeout=8)
+        r_allowed = requests.get(f"{BASE_URL}/health", headers={"Origin": ALLOWED_ORIGIN}, timeout=8)
+        cors = r_allowed.headers.get("access-control-allow-origin", "")
+        r_foreign = requests.get(f"{BASE_URL}/health", headers={"Origin": FOREIGN_ORIGIN}, timeout=8)
+        foreign_cors = r_foreign.headers.get("access-control-allow-origin", "")
+        ok = (cors == ALLOWED_ORIGIN) and (foreign_cors == "")
+        result("CORS restringido (permitido reflejado, ajeno bloqueado)", ok,
+               f"permitido='{cors}' ajeno='{foreign_cors}'", CAT)
     except Exception:
-        r = None
-    if r is not None:
-        cors = r.headers.get("access-control-allow-origin", "")
-        ok = cors == "*" or len(cors) > 0
-        result("Access-Control-Allow-Origin presente", ok, f"valor='{cors}'", CAT)
-    else:
-        result("Access-Control-Allow-Origin presente", False, "Sin respuesta", CAT)
+        result("CORS restringido (permitido reflejado, ajeno bloqueado)", False, "Sin respuesta", CAT)
 
     # 3.2 Content-Type JSON
     subheader("3.2 Interoperabilidad — respuestas en JSON estándar")
@@ -9820,7 +11125,7 @@ if __name__ == "__main__":
 
 
 ==========================================================================================
-ARCHIVO [37]: tests/check_structure.py
+ARCHIVO [47]: tests/check_structure.py
 ==========================================================================================
 from pathlib import Path
 ROOT = Path('.')
@@ -9828,17 +11133,17 @@ APP = ROOT / 'app'
 dirs = [d for d in ['app','web','data_pipeline','airflow','dashboard','data','models','tests'] if (ROOT/d).exists()]
 files = [f for f in ['main.py','model.py','propagation.py','scheduler.py','pdf_generator.py','whatsapp_alerts.py'] if (APP/f).exists()]
 req = ROOT / 'requirements.txt'
-lines = [l for l in req.read_text().splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
+lines = [l for l in req.read_text(encoding='utf-8').splitlines() if l.strip() and not l.startswith('#')] if req.exists() else []
 env_c = (ROOT/'.env.example').read_text(encoding='utf-8')
 creds_exposed = any(k in env_c for k in ['a86632ae','bd46e923','minioadmin'])
-mc = (APP/'main.py').read_text()
+mc = (APP/'main.py').read_text(encoding='utf-8')
 key_in_code = 'a86632ae' in mc
 pq = ROOT/'data'/'dataset.parquet'
 cv = ROOT/'data'/'dataset.csv'
 df_path = ROOT/'Dockerfile'
-dc = df_path.read_text() if df_path.exists() else ''
+dc = df_path.read_text(encoding='utf-8') if df_path.exists() else ''
 tests = list((ROOT/'tests').glob('*.py'))
-req_c = req.read_text().lower() if req.exists() else ''
+req_c = req.read_text(encoding='utf-8').lower() if req.exists() else ''
 print(f"DIRS: {len(dirs)}/8 => {dirs}")
 print(f"APP_FILES: {len(files)}/6 => {files}")
 print(f"REQUIREMENTS: {len(lines)} deps")
@@ -9855,7 +11160,7 @@ print(f"LIGHTGBM_IN_REQ: {'lightgbm' in req_c}")
 print(f"GEOPANDAS_IN_REQ: {'geopandas' in req_c}")
 print(f"APSCHEDULER_IN_REQ: {'apscheduler' in req_c}")
 for f in ['main.py','model.py','propagation.py']:
-    c = (APP/f).read_text()
+    c = (APP/f).read_text(encoding='utf-8')
     has_doc = '"""' in c
     has_pathlib = 'Path(' in c or 'from pathlib' in c
     has_env = 'os.getenv' in c
@@ -9863,7 +11168,7 @@ for f in ['main.py','model.py','propagation.py']:
 
 
 ==========================================================================================
-ARCHIVO [38]: tests/locustfile.py
+ARCHIVO [48]: tests/locustfile.py
 ==========================================================================================
 """
 Prueba de carga concurrente para la API (Semana 15-16).

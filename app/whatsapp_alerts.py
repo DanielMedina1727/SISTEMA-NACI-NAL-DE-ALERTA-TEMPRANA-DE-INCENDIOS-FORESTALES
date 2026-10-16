@@ -22,6 +22,7 @@ Variables de entorno requeridas en .env:
 
 import logging
 import os
+import time
 from typing import Optional
 
 import requests
@@ -61,8 +62,14 @@ def _get_config() -> tuple[str, str, list[str]]:
     return instance_id, token, group_ids
 
 
-def _send_message(instance_id: str, token: str, chat_id: str, message: str) -> dict:
-    """Envía un mensaje de texto a un chatId específico usando Green API."""
+def _send_message(instance_id: str, token: str, chat_id: str, message: str,
+                  max_retries: int = 3) -> dict:
+    """
+    Envía un mensaje de texto a un chatId específico usando Green API.
+
+    Reintenta con backoff exponencial (1s, 2s, 4s) ante errores transitorios
+    (429 Too Many Requests o 5xx), habituales en los planes gratuitos.
+    """
     url = _GREEN_API_BASE.format(
         instance_id=instance_id,
         method="sendMessage",
@@ -72,9 +79,20 @@ def _send_message(instance_id: str, token: str, chat_id: str, message: str) -> d
         "chatId": chat_id,
         "message": message,
     }
-    response = requests.post(url, json=payload, timeout=15)
-    response.raise_for_status()
-    return response.json()
+
+    last_exc: Optional[Exception] = None
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, timeout=15)
+            if response.status_code in (429, 500, 502, 503, 504) and attempt < max_retries - 1:
+                raise requests.HTTPError(f"HTTP {response.status_code}", response=response)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            last_exc = exc
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+    raise last_exc if last_exc else RuntimeError("Fallo desconocido al enviar mensaje")
 
 
 def send_red_alert(
@@ -147,11 +165,12 @@ def send_alert_by_level(
     Envía alerta seleccionando el emoji/etiqueta según el nivel de riesgo (1-3).
 
     Args:
-        nivel_numerico: 1 = AMARILLO, 2 = NARANJA, 3 = ROJO
+        nivel_numerico: 1 = AMARILLO, 2 = AMARILLO (vigilancia reforzada), 3 = ROJO
+                        (se unifica "Naranja" en "Amarillo" para no confundir al ciudadano)
     """
     niveles = {
         1: "AMARILLO 🟡",
-        2: "NARANJA 🟠",
+        2: "AMARILLO 🟡",
         3: "ROJO 🔴",
     }
     nivel = niveles.get(nivel_numerico, "ROJO 🔴")

@@ -26,7 +26,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import requests
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
@@ -353,13 +352,12 @@ async def run_daily_alerts() -> None:
     logger.info("🏁 Envío de alertas diarias completado.")
 
 
-def init_scheduler(app) -> AsyncIOScheduler:
+def init_scheduler() -> AsyncIOScheduler:
     """
-    Inicializa y arranca el scheduler dentro de la aplicación FastAPI.
+    Crea y configura el scheduler diario (SIN arrancarlo).
 
-    Uso en main.py:
-        from app.scheduler import init_scheduler
-        init_scheduler(app)
+    El arranque y la parada se gestionan con el ciclo de vida (`lifespan`) de
+    FastAPI en main.py, en lugar de los obsoletos decoradores `@app.on_event`.
 
     Horario: todos los días a las 07:00 hora de Perú (America/Lima = UTC-5).
     """
@@ -372,17 +370,5 @@ def init_scheduler(app) -> AsyncIOScheduler:
         name="Alertas diarias de incendio por WhatsApp",
         replace_existing=True,
     )
-
-    @app.on_event("startup")
-    async def start_scheduler():
-        scheduler.start()
-        logger.info(
-            "⏰ Scheduler iniciado — alertas diarias programadas para las 07:00 (Lima)"
-        )
-
-    @app.on_event("shutdown")
-    async def stop_scheduler():
-        scheduler.shutdown(wait=False)
-        logger.info("🛑 Scheduler detenido.")
 
     return scheduler

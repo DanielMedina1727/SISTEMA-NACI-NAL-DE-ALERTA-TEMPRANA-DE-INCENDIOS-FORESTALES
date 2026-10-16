@@ -4,6 +4,7 @@ Incluye visualización de zonas semáforo (Verde, Amarillo, Rojo), mapa de calor
 
 Correr con: streamlit run dashboard/app.py
 """
+import os
 import sys
 from pathlib import Path
 
@@ -16,7 +17,6 @@ if str(ROOT) not in sys.path:
 
 import folium
 from folium.plugins import HeatMap
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import requests
@@ -30,6 +30,12 @@ except ImportError:
 
 API_URL = "http://127.0.0.1:5050"
 COLOR_MAP = {"Verde": "#2ecc71", "Amarillo": "#f1c40f", "Rojo": "#e74c3c"}
+
+
+def _admin_headers() -> dict:
+    """Cabecera X-API-Key si ADMIN_API_KEY está configurada (endpoints de alerta)."""
+    key = os.getenv("ADMIN_API_KEY", "").strip()
+    return {"X-API-Key": key} if key else {}
 
 # Fuente única de verdad del semáforo y de las features (app/model.py)
 from app.model import RiskModel, FEATURE_ORDER, classify, THRESHOLDS
@@ -59,7 +65,7 @@ st.markdown("""
 
 # Título Operacional
 st.title("🔥 Centro de Control - Predicción de Riesgo de Incendios Forestales")
-st.caption("Monitoreo georreferenciado en tiempo real, zonas semáforo (Verde/Amarillo/Rojo) y mapa de calor de ignición")
+st.caption("Índice diario de susceptibilidad georreferenciado, zonas semáforo (Verde/Amarillo/Rojo) y mapa de calor de ignición")
 
 # Sidebar Operacional
 with st.sidebar:
@@ -79,8 +85,8 @@ with st.sidebar:
         st.warning("⚠️ Modo Simulación (API no detectada)")
 
     st.markdown("---")
-    region_sel = st.selectbox("📍 Sector Operativo", ["Cajamarca (Perú)", "Sector Norte", "Sector Sur"])
-    horizonte_sel = st.selectbox("📅 Horizonte de Predicción", ["Próximas 24 Horas", "Próximas 48 Horas"])
+    st.caption("📍 Cobertura: región Cajamarca (Perú)")
+    st.caption("📅 Índice diario de susceptibilidad (NO es un pronóstico a 24/48 h)")
     min_prob_slider = st.slider("🔍 Umbral de Sensibilidad", 0.0, 1.0, 0.0, 0.05)
     
     st.markdown("---")
@@ -110,7 +116,7 @@ if api_online:
             features = geojson_data.get("features", [])
         else:
             st.sidebar.warning(f"HTTP {resp.status_code} en /risk/today. Usando dataset local.")
-    except Exception as e:
+    except Exception:
         st.sidebar.warning("Cargando desde dataset local de Cajamarca.")
 
 if not features:
@@ -360,25 +366,51 @@ with tab3:
         st.write(f"**Enlace a Mapa:** [Abrir Google Maps](https://www.google.com/maps?q={lat_a},{lon_a})")
 
         if st.button("🔴 Notificar Inmediatamente a Bomberos y Rondas"):
-            try:
-                if api_online:
+            if not api_online:
+                st.warning(
+                    "El envío de alertas requiere la API en línea. "
+                    "Inicia el servidor (INICIAR_SERVIDOR_7AM.bat o "
+                    "`python -m uvicorn app.main:app --port 5050`)."
+                )
+            else:
+                try:
                     r_alert = requests.post(f"{API_URL}/alert/whatsapp", json={
                         "grid_id": grid_target_alert,
                         "lat": lat_a,
                         "lon": lon_a,
                         "confianza": 0.95
-                    }).json()
-                    st.success("📩 Alerta enviada con éxito por WhatsApp a las Brigadas.")
-                else:
-                    st.success(f"📩 Alerta simulada transmitida para la grilla {grid_target_alert} ({lat_a:.4f}, {lon_a:.4f}).")
-            except Exception as e:
-                st.error(f"Error transmitiendo alerta: {e}")
+                    }, headers=_admin_headers(), timeout=20)
+                    if r_alert.status_code == 200:
+                        st.success("📩 Alerta enviada por WhatsApp a las brigadas.")
+                    elif r_alert.status_code == 401:
+                        st.error("🔒 La API exige X-API-Key (define ADMIN_API_KEY en .env).")
+                    else:
+                        st.error(f"Error de la API ({r_alert.status_code}): {r_alert.text[:200]}")
+                except Exception as e:
+                    st.error(f"Error transmitiendo alerta: {e}")
 
     with col_alt2:
-        st.markdown("### Registro de Alertas Recientes")
-        df_log = pd.DataFrame([
-            {"Hora": "06:15:00", "Grilla": "-78.5000_-7.1600", "Estado": "Alerta Roja", "Canal": "WhatsApp + SMS", "Confirmado": "Sí"},
-            {"Hora": "06:14:30", "Grilla": "-78.5500_-7.2000", "Estado": "Alerta Roja", "Canal": "WhatsApp", "Confirmado": "En Verificación"},
-            {"Hora": "06:00:12", "Grilla": "-78.4910_-7.1510", "Estado": "Vigilancia", "Canal": "Sistema Local", "Confirmado": "Automático"},
-        ])
-        st.dataframe(df_log, use_container_width=True)
+        st.markdown("### Reportes Ciudadanos Recientes")
+        reports = []
+        if api_online:
+            try:
+                rr = requests.get(f"{API_URL}/report/recent?limit=8", timeout=5).json()
+                reports = rr.get("reports", [])
+            except Exception:
+                reports = []
+        if reports:
+            df_log = pd.DataFrame([
+                {
+                    "Fecha/Hora (UTC)": str(r.get("timestamp", ""))[:19].replace("T", " "),
+                    "Tipo": r.get("incident_label", r.get("incident_type", "")),
+                    "Lat": r.get("lat"),
+                    "Lon": r.get("lon"),
+                    "Zona": r.get("reporter_zone") or "-",
+                }
+                for r in reports
+            ])
+            st.dataframe(df_log, use_container_width=True)
+        elif api_online:
+            st.info("Aún no hay reportes ciudadanos registrados.")
+        else:
+            st.info("Conecta la API para ver los reportes ciudadanos.")

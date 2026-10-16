@@ -5,3 +5,4 @@ __pycache__/
 *.pkl
 .DS_Store
 data/cache/
+data/citizen_reports.jsonl

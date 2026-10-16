@@ -325,19 +325,20 @@ def test_compatibility():
     header("3. COMPATIBILIDAD (Compatibility) — ISO 25010 §4.3")
     CAT = "Compatibilidad"
 
-    # 3.1 Cabeceras CORS
-    subheader("3.1 Co-existencia — cabeceras CORS presentes")
-    # El header CORS solo se emite cuando la peticion trae Origin (comportamiento real)
+    # 3.1 CORS restringido (lista blanca de orígenes)
+    subheader("3.1 Co-existencia — CORS restringido (lista blanca)")
+    ALLOWED_ORIGIN = "http://127.0.0.1:5050"
+    FOREIGN_ORIGIN = "http://evil.example"
     try:
-        r = requests.get(f"{BASE_URL}/health", headers={"Origin": "http://example.com"}, timeout=8)
+        r_allowed = requests.get(f"{BASE_URL}/health", headers={"Origin": ALLOWED_ORIGIN}, timeout=8)
+        cors = r_allowed.headers.get("access-control-allow-origin", "")
+        r_foreign = requests.get(f"{BASE_URL}/health", headers={"Origin": FOREIGN_ORIGIN}, timeout=8)
+        foreign_cors = r_foreign.headers.get("access-control-allow-origin", "")
+        ok = (cors == ALLOWED_ORIGIN) and (foreign_cors == "")
+        result("CORS restringido (permitido reflejado, ajeno bloqueado)", ok,
+               f"permitido='{cors}' ajeno='{foreign_cors}'", CAT)
     except Exception:
-        r = None
-    if r is not None:
-        cors = r.headers.get("access-control-allow-origin", "")
-        ok = cors == "*" or len(cors) > 0
-        result("Access-Control-Allow-Origin presente", ok, f"valor='{cors}'", CAT)
-    else:
-        result("Access-Control-Allow-Origin presente", False, "Sin respuesta", CAT)
+        result("CORS restringido (permitido reflejado, ajeno bloqueado)", False, "Sin respuesta", CAT)
 
     # 3.2 Content-Type JSON
     subheader("3.2 Interoperabilidad — respuestas en JSON estándar")

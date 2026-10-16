@@ -126,15 +126,19 @@ results['2_Eficiencia_Desempeno'] = (sum(cat), len(cat))
 # ── 3. COMPATIBILIDAD ─────────────────────────────────────────────────────────
 print('\n[3] COMPATIBILIDAD')
 cat = []
-# CORS: el header solo se emite cuando la peticion trae Origin (comportamiento real)
+# CORS restringido: se refleja un origen permitido y se bloquea uno ajeno.
+ALLOWED_ORIGIN = 'http://127.0.0.1:5050'
+FOREIGN_ORIGIN = 'http://evil.example'
 try:
-    r = requests.get(f'{BASE_URL}/health', headers={'Origin': 'http://example.com'}, timeout=8)
-    cors = r.headers.get('access-control-allow-origin', '')
+    r_allowed = requests.get(f'{BASE_URL}/health', headers={'Origin': ALLOWED_ORIGIN}, timeout=8)
+    cors = r_allowed.headers.get('access-control-allow-origin', '')
+    r_foreign = requests.get(f'{BASE_URL}/health', headers={'Origin': FOREIGN_ORIGIN}, timeout=8)
+    foreign_cors = r_foreign.headers.get('access-control-allow-origin', '')
+    ok = (cors == ALLOWED_ORIGIN) and (foreign_cors == '')
 except Exception:
-    cors = ''
-ok = len(cors) > 0
+    ok, cors = False, ''
 cat.append(ok)
-print(f'  {"PASA" if ok else "FALLA"}  CORS: Access-Control-Allow-Origin="{cors}"')
+print(f'  {"PASA" if ok else "FALLA"}  CORS restringido: permitido="{cors}" | ajeno bloqueado')
 
 for ep in ['/health', '/risk/today?limit=2', '/model/importance']:
     r = g(ep)
@@ -298,12 +302,12 @@ for f in ['main.py','model.py','propagation.py','scheduler.py','pdf_generator.py
     ok = (APP_DIR/f).exists()
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  app/{f}')
-mc = (APP_DIR/'main.py').read_text()
+mc = (APP_DIR/'main.py').read_text(encoding='utf-8')
 ok = 'os.getenv' in mc
 cat.append(ok); print(f'  {"PASA" if ok else "FALLA"}  main.py usa os.getenv()')
 req = ROOT / 'requirements.txt'
 if req.exists():
-    lines = [l for l in req.read_text().splitlines() if l.strip() and not l.startswith('#')]
+    lines = [l for l in req.read_text(encoding='utf-8').splitlines() if l.strip() and not l.startswith('#')]
     ok = len(lines) >= 10
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  requirements.txt: {len(lines)} dependencias')
@@ -324,7 +328,7 @@ print('\n[8] PORTABILIDAD')
 cat = []
 df_path = ROOT / 'Dockerfile'
 if df_path.exists():
-    dc = df_path.read_text()
+    dc = df_path.read_text(encoding='utf-8')
     for instr in ['FROM','WORKDIR','COPY','CMD']:
         ok = instr in dc
         cat.append(ok)
@@ -341,13 +345,13 @@ r = g('/')
 ok = r is not None and r.status_code == 200 and 'text/html' in r.headers.get('content-type','')
 cat.append(ok)
 print(f'  {"PASA" if ok else "FALLA"}  FastAPI sirve portal web en /: text/html={ok}')
-req_c = req.read_text().lower() if req.exists() else ''
+req_c = req.read_text(encoding='utf-8').lower() if req.exists() else ''
 for pkg,desc in [('fastapi','API'),('lightgbm','ML'),('geopandas','geo'),('locust','carga'),('apscheduler','scheduler')]:
     ok = pkg in req_c
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  requirements incluye {pkg} ({desc})')
 for f in ['main.py','model.py']:
-    c = (APP_DIR/f).read_text()
+    c = (APP_DIR/f).read_text(encoding='utf-8')
     ok = 'from pathlib' in c or 'Path(' in c
     cat.append(ok)
     print(f'  {"PASA" if ok else "FALLA"}  app/{f} usa pathlib (cross-platform)')

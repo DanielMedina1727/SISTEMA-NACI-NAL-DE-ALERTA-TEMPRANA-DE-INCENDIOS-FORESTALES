@@ -30,26 +30,22 @@ import shap
 import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.metrics import (
-    classification_report,
+    average_precision_score,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import GroupKFold, train_test_split
+from sklearn.model_selection import GroupKFold
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-FEATURE_COLUMNS = [
-    # Variables base
-    "pendiente_pct", "ndvi", "dist_carretera_m", "dist_poblado_m",
-    "temp_2m", "humedad_relativa", "viento_velocidad", "viento_direccion",
-    # Variables temporales & estacionales
-    "dias_sin_lluvia", "lluvia_acum_7d", "lluvia_acum_15d",
-    "temp_lag1", "humedad_lag1", "ndvi_anomaly", "mes_sin", "mes_cos",
-    # Variables espaciales (vecindario)
-    "temp_vecindad_media", "humedad_vecindad_media",
-]
+# Fuente única de verdad de las features: app/model.py (evita listas divergentes
+# entre el entrenamiento y el servicio).
+ROOT = Path(__file__).parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from app.model import FEATURE_ORDER as FEATURE_COLUMNS  # noqa: E402
 
 
 def load_and_prepare_data(data_path: str):
@@ -87,7 +83,6 @@ def optimize_lightgbm_optuna(X: pd.DataFrame, y: pd.Series, groups: pd.Series, n
     print(f"\n🔍 [Optuna] Iniciando búsqueda bayesiana de hiperparámetros ({n_trials} trials con Spatial CV)...")
 
     gkf = GroupKFold(n_splits=5)
-    scale_pos = max(1.0, (len(y) - y.sum()) / max(1, y.sum()))
 
     def objective(trial):
         params = {
@@ -199,6 +194,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     alert_budget = 0.01  # 1% de celdas de mayor riesgo (presupuesto de alerta)
     budgets = [0.01, 0.05, 0.10, 0.20]
     fold_aucs, base_fold_aucs = [], []
+    fold_ap, base_fold_ap = [], []
     rec_opt = {b: [] for b in budgets}
     rec_base = {b: [] for b in budgets}
 
@@ -237,6 +233,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
         if len(np.unique(yte)) > 1:
             fold_aucs.append(roc_auc_score(yte, oof_opt[te]))
             base_fold_aucs.append(roc_auc_score(yte, oof_base[te]))
+            fold_ap.append(average_precision_score(yte, oof_opt[te]))
+            base_fold_ap.append(average_precision_score(yte, oof_base[te]))
         for b in budgets:
             rec_opt[b].append(recall_at_budget(yte, oof_opt[te], b))
             rec_base[b].append(recall_at_budget(yte, oof_base[te], b))
@@ -244,6 +242,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
 
     base_auc = float(np.mean(base_fold_aucs)) if base_fold_aucs else float("nan")
     final_auc = float(np.mean(fold_aucs)) if fold_aucs else float("nan")
+    base_ap = float(np.mean(base_fold_ap)) if base_fold_ap else float("nan")
+    final_ap = float(np.mean(fold_ap)) if fold_ap else float("nan")
     base_pred = (oof_base >= 0.5).astype(int)
     base_f1 = f1_score(y, base_pred, zero_division=0)
     base_rec = recall_score(y, base_pred, zero_division=0)
@@ -259,6 +259,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     print(f"{'ROC-AUC (media por fold)':<26} | {base_auc:<20.4f} | {final_auc:<20.4f}")
     if fold_aucs:
         print(f"{'   ± desv. est. entre folds':<26} | {'-':<20} | {np.std(fold_aucs):<20.4f}")
+    print(f"{'PR-AUC (Average Precision)':<26} | {base_ap:<20.4f} | {final_ap:<20.4f}")
+    print(f"{'   (azar ≈ prevalencia)':<26} | {y.mean():<20.5f} | {y.mean():<20.5f}")
     for b in budgets:
         print(f"{'Recall @ Top-' + f'{int(b * 100)}% celdas':<26} | {np.mean(rec_base[b]):<20.2%} | {np.mean(rec_opt[b]):<20.2%}")
     print(f"{'F1 (alarma, presup. 1%)':<26} | {base_f1:<20.4f} | {final_f1:<20.4f}")
@@ -267,7 +269,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
 
     # ── Modelo FINAL para producción: entrenado en TODOS los datos ──────────────
     print("\n🏁 [Modelo final] Entrenando ensemble con todos los datos...")
-    calibrated_model = _build_ensemble(best_params).fit(X, y)
+    final_model = _build_ensemble(best_params).fit(X, y)
 
     # Umbral de operación del modelo final (cuantil de validación interna espacial,
     # sin tocar el test). Deja en alerta el `alert_budget` de celdas de mayor riesgo.
@@ -284,15 +286,29 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     # La API predice sobre su propia distribución de scores; los umbrales del
     # semáforo deben ser cuantiles de ESA distribución, no valores fijos (0.70/0.15)
     # ni el umbral OOF (que vive en otra escala). Rojo = top 1%, Amarillo = top 5%.
-    _scores = calibrated_model.predict_proba(X[FEATURE_COLUMNS])[:, 1]
+    _scores = final_model.predict_proba(X[FEATURE_COLUMNS])[:, 1]
     serving_thresholds = {
         "rojo": round(float(np.quantile(_scores, 0.99)), 6),
         "amarillo": round(float(np.quantile(_scores, 0.95)), 6),
         "budget_rojo": 0.01,
         "budget_amarillo": 0.05,
-        "descripcion": "Top 1% de celdas por score = Rojo; top 5% = Amarillo (presupuesto de alerta).",
+        "descripcion": (
+            "Cuantiles de la distribución de scores SERVIDA (in-sample): Rojo = top 1% "
+            "del ranking, Amarillo = top 5%. Es un criterio de RANKING relativo "
+            "(presupuesto de alerta), NO una probabilidad absoluta calibrada."
+        ),
     }
     score_quantiles = [round(float(np.quantile(_scores, i / 100.0)), 6) for i in range(101)]
+
+    # Umbrales OUT-OF-FOLD (escala OOF): referencia honesta de desempeño real.
+    # No se usan para servir (viven en otra escala), pero documentan la capacidad
+    # real del modelo sin el optimismo del p99/p95 in-sample.
+    oof_thresholds = {
+        "rojo": round(float(np.nanquantile(oof_opt, 0.99)), 6),
+        "amarillo": round(float(np.nanquantile(oof_opt, 0.95)), 6),
+        "nota": ("Cuantiles de los scores OUT-OF-FOLD. Sirven para comparar con la "
+                 "escala OOF; el semáforo servido usa serving_thresholds."),
+    }
     print(f"\n🚦 [Umbrales operativos] Rojo (p99) = {serving_thresholds['rojo']:.4f} | "
           f"Amarillo (p95) = {serving_thresholds['amarillo']:.4f}")
 
@@ -326,12 +342,13 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     # 9. MLOps: Registro y Metadatos
     out_model = Path(output_model_path)
     out_model.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(calibrated_model, out_model)
+    joblib.dump(final_model, out_model)
 
     metadata = {
-        "model_version": "v2.2.0-spatial-ensemble-real",
+        "model_version": "v2.3.0-spatial-ensemble-real",
         "training_date": datetime.now().isoformat(),
         "algorithm": "Ensemble (LightGBM + XGBoost + RandomForest)",
+        "task": "Índice de SUSCEPTIBILIDAD diario (ranking relativo), no pronóstico de ignición",
         "features": FEATURE_COLUMNS,
         "feature_sources": {
             "terreno": "Copernicus DEM GLO-30 (pendiente, aspecto, elevación)",
@@ -340,17 +357,25 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
             "infraestructura": "OpenStreetMap (distancia a vías y poblados)",
             "etiqueta": "NASA FIRMS (focos de calor reales)",
         },
+        "feature_engineering": (
+            "Vecindario por KNN geográfico (no por bloque de CV) y dirección de viento "
+            "codificada como sin/cos (variable circular). Se descartaron mes_sin/mes_cos "
+            "por ser constantes con una única fecha de referencia (train/serve skew)."
+        ),
         "probability_calibration": "descartada: Platt scaling resultaba inestable y degradaba el AUC con <50 positivos",
         "validation_strategy": "Spatial GroupKFold 5-fold out-of-fold (bloques de 50 km sin fuga espacial)",
+        "random_baseline_precision": round(float(y.mean()), 5),
         "operating_threshold": optimal_thresh,
         "alert_budget": alert_budget,
         "serving_thresholds": serving_thresholds,
+        "oof_thresholds": oof_thresholds,
         "score_quantiles": score_quantiles,
         "metrics": {
             "baseline": {
                 "f1_score": round(float(base_f1), 4),
                 "recall": round(float(base_rec), 4),
                 "roc_auc": round(float(base_auc), 4),
+                "average_precision": round(float(base_ap), 4),
             },
             "optimized_ensemble": {
                 "f1_score": round(float(final_f1), 4),
@@ -358,6 +383,8 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
                 "recall": round(float(final_rec), 4),
                 "roc_auc": round(float(final_auc), 4),
                 "roc_auc_fold_std": round(float(np.std(fold_aucs)), 4) if fold_aucs else None,
+                "average_precision": round(float(final_ap), 4),
+                "average_precision_fold_std": round(float(np.std(fold_ap)), 4) if fold_ap else None,
                 "recall_at_top_1pct": round(float(np.mean(rec_opt[0.01])), 4),
                 "recall_at_top_5pct": round(float(np.mean(rec_opt[0.05])), 4),
                 "recall_at_top_10pct": round(float(np.mean(rec_opt[0.10])), 4),
@@ -372,7 +399,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✅ Modelo Ensemble Calibrado guardado en: {out_model}")
+    print(f"\n✅ Modelo Ensemble guardado en: {out_model}")
     print(f"📄 Metadatos y registro MLOps guardados en: {meta_path}")
 
 

@@ -1,42 +1,20 @@
-version: "3.9"
-
 services:
-  postgis:
-    image: postgis/postgis:16-3.4
-    container_name: wildfire_postgis
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-wildfire}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cambia_esto}
-      POSTGRES_DB: ${POSTGRES_DB:-wildfire_risk}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgis_data:/var/lib/postgresql/data
-
-  minio:
-    image: minio/minio:latest
-    container_name: wildfire_minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
   api:
     build: .
     container_name: wildfire_api
-    depends_on:
-      - postgis
+    restart: unless-stopped
     env_file:
       - .env
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-volumes:
-  postgis_data:
-  minio_data:
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).status == 200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000

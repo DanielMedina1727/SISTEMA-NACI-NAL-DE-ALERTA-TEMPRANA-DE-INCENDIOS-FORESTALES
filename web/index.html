@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AlertaForestal Perú — Monitoreo de Incendios en Tiempo Real</title>
+  <title>AlertaForestal Perú — Monitoreo de Incendios Forestales</title>
   <meta name="description"
-    content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Información satelital en tiempo real, reportes ciudadanos y alertas por WhatsApp." />
+    content="Portal ciudadano de acceso abierto para monitoreo y alerta temprana de incendios forestales en Perú. Índice diario de susceptibilidad, focos satelitales NRT, reportes ciudadanos y alertas por WhatsApp." />
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
 
@@ -58,7 +58,7 @@
     <div class="hero-bg-particles" id="particles"></div>
     <div class="hero-content">
 
-      <!-- Badge de estado en tiempo real -->
+      <!-- Badge de nivel de riesgo del día -->
       <div class="risk-badge-container">
         <div class="risk-badge" id="riskBadge">
           <span class="badge-pulse"></span>
@@ -73,8 +73,8 @@
         al alcance de todos.
       </h1>
       <p class="hero-subtitle">
-        Información satelital y comunitaria en tiempo real para proteger nuestras tierras,
-        recursos y vidas — sin barreras de acceso, sin costo, sin restricciones.
+        Información satelital y comunitaria con índice diario de susceptibilidad para proteger
+        nuestras tierras, recursos y vidas — sin barreras de acceso, sin costo, sin restricciones.
       </p>
 
       <!-- Botonera de Acción Rápida -->
@@ -93,7 +93,7 @@
         </a>
       </div>
 
-      <!-- Métricas en tiempo real -->
+      <!-- Métricas del día -->
       <div class="hero-stats" id="heroStats">
         <div class="stat-item">
           <span class="stat-number" id="statFIRMS">--</span>
@@ -116,8 +116,8 @@
         </div>
         <div class="stat-divider"></div>
         <div class="stat-item">
-          <span class="stat-number">24h</span>
-          <span class="stat-label">⏱ Anticipación IA</span>
+          <span class="stat-number">HOY</span>
+          <span class="stat-label">📅 Riesgo del día</span>
         </div>
       </div>
     </div>
@@ -152,11 +152,11 @@
             <option value="norte">Sector Norte</option>
             <option value="sur">Sector Sur</option>
           </select>
-          <label class="filter-label">⏱ Horizonte:</label>
-          <select class="filter-select" id="timeFilter" onchange="loadMapData()">
-            <option value="6">Últimas 6 horas</option>
-            <option value="12">Últimas 12 horas</option>
-            <option value="24" selected>Últimas 24 horas</option>
+          <label class="filter-label">⏱ Ventana de focos:</label>
+          <select class="filter-select" id="timeFilter" onchange="loadFIRMSHotspots()">
+            <option value="1" selected>Últimas 24 h</option>
+            <option value="2">Últimas 48 h</option>
+            <option value="3">Últimas 72 h</option>
           </select>
         </div>
         <div class="map-layer-toggles">
@@ -187,8 +187,11 @@
         <div id="map"></div>
         <div class="map-legend">
           <div class="legend-title">Simbología</div>
-          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Riesgo muy alto (top 1% del territorio)</div>
-          <div class="legend-item"><span class="legend-dot orange"></span> <b>Naranja:</b> Riesgo alto (top 5%)
+          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Riesgo muy alto (top 1% del territorio)
+            <span class="legend-help" title="El modelo no predice probabilidades absolutas: ordena todas las celdas por score. El 1% con mayor score se marca Rojo; el siguiente 4% se marca Amarillo." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
+          </div>
+          <div class="legend-item"><span class="legend-dot orange"></span> <b>Amarillo:</b> Riesgo alto (top 5%)
+            <span class="legend-help" title="Amarillo = el siguiente 4% de celdas con mayor score, después del top 1% Rojo. Juntos forman el 5% de celdas bajo vigilancia (presupuesto de alerta)." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
           </div>
           <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Riesgo bajo (resto del territorio)</div>
           <div class="legend-item"
@@ -270,7 +273,7 @@
         <div class="whatsapp-subscribe-card">
           <div class="wa-icon-big">💬</div>
           <h3>Únete al grupo de alertas</h3>
-          <p>Selecciona tu provincia y empieza a recibir alertas en tiempo real</p>
+          <p>Selecciona tu provincia y empieza a recibir el resumen diario de alertas</p>
 
           <div class="wa-zone-selector">
             <select class="filter-select full-width" id="waZone" onchange="updateWaLink()">
@@ -439,6 +442,13 @@
           <button type="submit" class="btn btn-danger btn-lg btn-full" id="submitReportBtn">
             <span class="btn-icon">⚠️</span> Enviar Reporte Ciudadano
           </button>
+
+          <p class="report-legal-note" style="margin-top:0.75rem;font-size:0.75rem;line-height:1.5;color:var(--color-text-muted)">
+            ⚖️ <strong>Demo académica (Capstone).</strong> Los reportes ciudadanos son complementarios y
+            <strong>no reemplazan</strong> a las líneas oficiales de emergencia
+            (Bomberos <strong>116</strong> · INDECI <strong>115</strong> · SERFOR <strong>0800-11-070</strong>).
+            Los reportes se almacenan localmente con fines de demostración.
+          </p>
         </form>
 
         <!-- Mapa mini para seleccionar coordenadas -->
@@ -447,7 +457,7 @@
           <p class="report-map-hint">Haz clic en el mapa para fijar las coordenadas automáticamente</p>
           <div id="reportMap"></div>
           <div class="recent-reports">
-            <h4>Reportes recientes verificados</h4>
+            <h4>Reportes recientes registrados</h4>
             <div class="report-list" id="recentReportsList"></div>
           </div>
         </div>
@@ -722,8 +732,9 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <span>© 2025 AlertaForestal Perú — Licencia MIT — Uso libre y gratuito</span>
+        <span>© 2026 AlertaForestal Perú — Licencia MIT — Uso libre y gratuito</span>
         <span>Datos: NASA FIRMS · ERA5 (Open-Meteo) · Copernicus DEM · Sentinel-2 · OpenStreetMap</span>
+        <span id="dataFreshness">🤖 Cargando estado del modelo...</span>
       </div>
     </div>
   </footer>
@@ -734,7 +745,7 @@
     <span id="toastMsg">Mensaje</span>
   </div>
 
-  <script src="app.js?v=20261009_v3"></script>
+  <script src="app.js?v=20261015_v4"></script>
 </body>
 
 </html>

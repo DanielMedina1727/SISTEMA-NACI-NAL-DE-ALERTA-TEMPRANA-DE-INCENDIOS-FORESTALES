@@ -9,9 +9,9 @@
    ═══════════════════════════════════════════════════ */
 const API_URL = 'http://127.0.0.1:5050';
 
-// NASA FIRMS — acceso directo desde frontend o vía proxy FastAPI
-const FIRMS_KEY  = 'a86632ae3bb704ddc1818342f63bf8b0';
-const FIRMS_BASE = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
+// NASA FIRMS — SIEMPRE vía proxy FastAPI (/firms/hotspots).
+// La API key vive únicamente en el backend (FIRMS_MAP_KEY en .env); nunca se
+// expone en el frontend.
 
 // Bounding boxes predefinidas (minLon, minLat, maxLon, maxLat)
 const FIRMS_BBOXES = {
@@ -72,6 +72,16 @@ const CAJAMARCA_BBOX = {
   east:  -77.738889
 };
 
+// Sub-regiones del área de modelado (Cajamarca) para el filtro real del mapa IA.
+// 'all' no filtra. Los sectores Norte/Sur dividen Cajamarca por la latitud media.
+const AI_REGION_BBOX = {
+  cajamarca: { south: -7.7592, north: -4.5519, west: -79.4517, east: -77.7389 },
+  norte:     { south: -6.16,   north: -4.5519, west: -79.4517, east: -77.7389 },
+  sur:       { south: -7.7592, north: -6.16,   west: -79.4517, east: -77.7389 },
+  all:       null,
+};
+let currentRegion = 'cajamarca';
+
 const COLOR_MAP = {
   Rojo:     '#ef4444',
   Amarillo: '#f97316',
@@ -96,11 +106,13 @@ function generateDemoFeatures() {
       const reliefNoise = Math.sin(lat * 9.2 + lon * 4.1) * 0.4;
       const thermalGrad = (lat + 7.7) * 0.15; // Variación térmica latitudinal
       const basinEffect = Math.cos(lon * 11.5) * 0.35; // Cuenca del Marañón y valles occidentales
-      const rawRisk     = 0.38 + reliefNoise + thermalGrad + basinEffect + (Math.random() - 0.5) * 0.18;
-      const prob        = Math.max(0.03, Math.min(0.97, rawRisk));
-      // Umbrales ILUSTRATIVOS solo para la simulación offline. Con la API activa,
-      // el backend clasifica con umbrales data-driven (presupuesto de alerta top 1%/5%).
-      const nivel       = prob >= 0.65 ? 'Rojo' : prob >= 0.32 ? 'Amarillo' : 'Verde';
+      const spatialBias = Math.max(0, reliefNoise + thermalGrad + basinEffect);
+      // Score en el MISMO rango que el modelo real (~0.0001 – 0.145), con sesgo a
+      // valores bajos, para que el fallback offline se vea como el mapa real.
+      const rawRisk     = 0.001 + Math.pow(Math.random(), 6) * 0.14 + spatialBias * 0.015;
+      const prob        = Math.max(0.0001, Math.min(0.145, rawRisk));
+      // Umbrales data-driven reales (presupuesto de alerta top 1% / 5%).
+      const nivel       = prob >= 0.13 ? 'Rojo' : prob >= 0.094 ? 'Amarillo' : 'Verde';
 
       // Mostrar zonas rojas, amarillas y una selección de verdes para visualización equilibrada
       if (nivel === 'Verde' && Math.random() > 0.25) continue;
@@ -260,6 +272,7 @@ async function loadMapData() {
     features = DEMO_FEATURES;
     isDemo   = true;
   }
+  features = applyRegionFilter(features);
   currentFeatures = features;
   renderMapLayers(features);
   updateHeroStats(features);
@@ -300,13 +313,24 @@ function renderMapLayers(features) {
       const color   = COLOR_MAP[props.nivel] || '#22c55e';
       const coords  = f.geometry.coordinates[0].map(p => [p[1], p[0]]);
       const demoTag = isDemo
-        ? '<div style="margin-top:6px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:10px;color:#94a3b8">⚠️ Predicción simulada — <a href=\'#\' style=\'color:#f97316\' onclick=\'event.preventDefault();showToast("Inicia: uvicorn app.main:app --reload --port 8000",\"💻\")\'>iniciar API</a> para datos reales del modelo LightGBM</div>'
+        ? '<div style="margin-top:6px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:10px;color:#94a3b8">⚠️ Predicción simulada — <a href=\'#\' style=\'color:#f97316\' onclick=\'event.preventDefault();showToast("Inicia: uvicorn app.main:app --reload --port 5050",\"💻\")\'>iniciar API</a> para datos reales del modelo de IA</div>'
+        : '';
+      // El modelo ordena celdas por score; el percentil ubica esta celda en esa
+      // distribución (Top 1% = Rojo, Top 5% = Amarillo). Se muestra el ranking en
+      // lugar del % absoluto (que es bajo por diseño, ~0.1%).
+      const ranking = (props.percentil != null)
+        ? `<b>Ranking:</b> Top ${Math.max(1, Math.round(100 - props.percentil))}% del territorio<br/>`
         : '';
       const popup = `
-        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:210px;color:#1a1a2e">
+        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:220px;color:#1a1a2e">
           <b style="font-size:13px">🤖 Predicción IA — Grilla ${props.grid_id}</b><hr style="margin:6px 0"/>
           <b>Nivel:</b> <span style="color:${color};font-weight:700">${props.nivel}</span><br/>
-          <b>Probabilidad:</b> ${(props.probabilidad * 100).toFixed(1)}%<br/>
+          ${ranking}
+          <b>Score del modelo:</b> ${Number(props.probabilidad).toFixed(4)}<br/>
+          <div style="margin:4px 0;padding:3px 6px;background:#f1f5f9;border-radius:4px;font-size:10px;color:#475569">
+            El score no es una probabilidad absoluta: el modelo <b>ordena</b> las celdas por riesgo.<br/>
+            Top 1% = 🔴 Rojo · Top 5% = 🟡 Amarillo
+          </div>
           <b>Temperatura:</b> ${props.temp_2m?.toFixed(1)} °C<br/>
           <b>Humedad:</b> ${props.humedad_relativa?.toFixed(0)} %<br/>
           <b>Viento:</b> ${props.viento_velocidad?.toFixed(0)} km/h<br/>
@@ -328,17 +352,33 @@ function togglePolygonLayer()  { renderMapLayers(currentFeatures); }
 function toggleExtremesLayer() { renderExtremesLayer(); }
 
 function filterByRegion() {
-  const regionVal = document.getElementById('regionFilter')?.value || 'cajamarca';
-  if (regionVal === 'cajamarca' && mainMap) {
-    mainMap.flyToBounds([
-      [CAJAMARCA_BBOX.south, CAJAMARCA_BBOX.west],
-      [CAJAMARCA_BBOX.north, CAJAMARCA_BBOX.east]
-    ], { duration: 1.2, padding: [30, 30] });
-  } else if (regionVal === 'all' && mainMap) {
-    mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.2 });
+  currentRegion = document.getElementById('regionFilter')?.value || 'cajamarca';
+  if (mainMap) {
+    const bb = AI_REGION_BBOX[currentRegion];
+    if (bb) {
+      mainMap.flyToBounds([
+        [bb.south, bb.west],
+        [bb.north, bb.east]
+      ], { duration: 1.2, padding: [30, 30] });
+    } else {
+      mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.2 });
+    }
   }
   loadMapData();
   loadFIRMSHotspots();
+}
+
+/**
+ * Filtra las grillas del modelo por la sub-región seleccionada (filtro REAL,
+ * no solo movimiento de cámara). 'all' no filtra.
+ */
+function applyRegionFilter(features) {
+  const bb = AI_REGION_BBOX[currentRegion];
+  if (!bb) return features;
+  return features.filter(f => {
+    const [lon, lat] = f.geometry.coordinates[0][0];
+    return lat >= bb.south && lat <= bb.north && lon >= bb.west && lon <= bb.east;
+  });
 }
 
 /**
@@ -455,7 +495,7 @@ function showDemoBanner(isDemo, apiOnline = false) {
     banner.style.background = 'rgba(30,20,0,0.88)';
     banner.style.border     = '1px solid #f97316';
     banner.style.color      = '#fbbf24';
-    banner.innerHTML = '⚠️ <b>API offline</b> — Predicciones simuladas. Inicia el servidor para datos reales del modelo LightGBM';
+    banner.innerHTML = '⚠️ <b>API offline</b> — Predicciones simuladas. Inicia el servidor para datos reales del modelo de IA';
     banner.style.opacity = '1';
     banner.style.display = 'block';
   } else if (apiOnline) {
@@ -463,7 +503,7 @@ function showDemoBanner(isDemo, apiOnline = false) {
     banner.style.background = 'rgba(0,30,10,0.85)';
     banner.style.border     = '1px solid #22c55e';
     banner.style.color      = '#86efac';
-    banner.innerHTML = '✅ <b>Modelo LightGBM activo</b> — Predicciones de riesgo en tiempo real';
+    banner.innerHTML = '✅ <b>Modelo de IA activo</b> — Predicciones de riesgo en tiempo real';
     banner.style.opacity = '1';
     banner.style.display = 'block';
     // Auto-ocultar tras 4 segundos
@@ -488,7 +528,7 @@ async function loadFIRMSHotspots() {
 
   const regionVal = document.getElementById('regionFilter')?.value || 'cajamarca';
   const bboxKey   = FIRMS_BBOXES[regionVal] ? regionVal : 'cajamarca';
-  const bbox      = FIRMS_BBOXES[bboxKey];
+  const lookback  = parseInt(document.getElementById('timeFilter')?.value || '1', 10); // días (1-3)
 
   updateLegendTime('⏳ Sincronizando satélites VIIRS...');
 
@@ -498,9 +538,9 @@ async function loadFIRMSHotspots() {
 
   // 1) Intentar vía proxy FastAPI (datos reales de NASA FIRMS sin problemas de CORS)
   try {
-    // Primero consultar hoy (últimas 24h)
+    // Primero consultar la ventana seleccionada en el filtro (1-3 días)
     const proxyResp = await fetch(
-      `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=1`,
+      `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=${lookback}`,
       { signal: AbortSignal.timeout(5000) }
     );
     if (proxyResp.ok) {
@@ -537,24 +577,7 @@ async function loadFIRMSHotspots() {
     }
   } catch (_) { /* Servidor offline */ }
 
-  // 2) Fallback directo si la API backend no responde (CORS permitido en navegadores directos)
-  if (dataSourceType === 'offline') {
-    try {
-      const firmsUrl = `${FIRMS_BASE}/${FIRMS_KEY}/VIIRS_SNPP_NRT/${bbox}/2`;
-      const resp = await fetch(firmsUrl, { mode: 'cors', signal: AbortSignal.timeout(5000) });
-      if (resp.ok) {
-        const csvText = await resp.text();
-        const parsed  = parseFIRMScsv(csvText);
-        if (parsed.length > 0) {
-          features       = parsed;
-          sourceLabel    = 'NASA FIRMS directo';
-          dataSourceType = 'real_today';
-        }
-      }
-    } catch (_) { /* CORS bloqueado */ }
-  }
-
-  // 3) Fallback final consistente si el backend no está disponible en absoluto
+  // 2) Fallback final consistente si el backend no está disponible en absoluto
   if (features.length === 0) {
     features       = generateRealisticFIRMSDemo(bboxKey);
     sourceLabel    = 'Simulación de prueba (Servidor offline)';
@@ -709,13 +732,17 @@ function animateCounter(id, target) {
 }
 
 function updateRiskBadge(features) {
+  const total     = features.length || 0;
   const rojas     = features.filter(f => f.properties.nivel === 'Rojo').length;
   const amarillas = features.filter(f => f.properties.nivel === 'Amarillo').length;
+  const pctRojas  = total ? (rojas / total) * 100 : 0;
   const el = document.getElementById('badgeLevel');
+  // El semáforo se basa en la PROPORCIÓN de celdas en riesgo (no en conteos fijos),
+  // porque el modelo sirve ~1% Rojo y ~5% Amarillo (presupuesto de alerta).
   let level, cls;
-  if (rojas > 20)                       { level = 'ALTO 🔴';  cls = 'alto';  }
-  else if (rojas > 5 || amarillas > 30) { level = 'MEDIO 🟡'; cls = 'medio'; }
-  else                                  { level = 'BAJO 🟢';  cls = 'bajo';  }
+  if (rojas > 0 && (pctRojas >= 0.8 || rojas >= 3)) { level = 'ALTO 🔴';  cls = 'alto';  }
+  else if (rojas > 0 || amarillas >= 3)             { level = 'MEDIO 🟡'; cls = 'medio'; }
+  else                                             { level = 'BAJO 🟢';  cls = 'bajo';  }
   el.textContent = level;
   el.className   = `badge-level ${cls}`;
 }
@@ -789,23 +816,53 @@ function useMyLocation() {
   );
 }
 
-function renderRecentReports() {
-  const reports = [
-    { tipo: 'Columna de humo',  zona: 'Cajamarca Centro', hora: 'Hace 12 min', estado: 'verified' },
-    { tipo: 'Fuego activo',     zona: 'Jaén Norte',       hora: 'Hace 1h',     estado: 'verified' },
-    { tipo: 'Quema agrícola',   zona: 'Chota',            hora: 'Hace 3h',     estado: 'pending'  },
-  ];
-  document.getElementById('recentReportsList').innerHTML = reports.map(r => `
-    <div class="report-item">
-      <div class="report-dot ${r.estado}"></div>
-      <div style="flex:1">
-        <strong style="font-size:0.82rem">${r.tipo}</strong>
-        <span style="color:var(--color-text-muted);font-size:0.76rem;display:block">${r.zona} · ${r.hora}</span>
-      </div>
-      ${r.estado === 'verified'
-        ? '<span style="font-size:0.7rem;color:var(--color-success)">✓ Verificado</span>'
-        : '<span style="font-size:0.7rem;color:var(--color-warning)">⏳ Revisando</span>'}
-    </div>`).join('');
+async function renderRecentReports() {
+  const listEl = document.getElementById('recentReportsList');
+  if (!listEl) return;
+
+  let reports = [];
+  try {
+    const resp = await fetch(`${API_URL}/report/recent?limit=5`, { signal: AbortSignal.timeout(5000) });
+    if (resp.ok) {
+      const data = await resp.json();
+      reports = data.reports || [];
+    }
+  } catch (_) { /* API offline */ }
+
+  if (!reports.length) {
+    listEl.innerHTML = `
+      <div class="report-item" style="opacity:.7">
+        <div class="report-dot pending"></div>
+        <div style="flex:1">
+          <strong style="font-size:0.82rem">Aún no hay reportes registrados</strong>
+          <span style="color:var(--color-text-muted);font-size:0.76rem;display:block">Los reportes enviados desde este formulario aparecerán aquí.</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = reports.map(r => {
+    const zone = r.reporter_zone || `${Number(r.lat).toFixed(3)}, ${Number(r.lon).toFixed(3)}`;
+    return `
+      <div class="report-item">
+        <div class="report-dot ${r.status === 'verified' ? 'verified' : 'pending'}"></div>
+        <div style="flex:1">
+          <strong style="font-size:0.82rem">${r.incident_label || r.incident_type}</strong>
+          <span style="color:var(--color-text-muted);font-size:0.76rem;display:block">${zone} · ${timeAgo(r.timestamp)}</span>
+        </div>
+        <span style="font-size:0.7rem;color:var(--color-warning)">⏳ Revisando</span>
+      </div>`;
+  }).join('');
+}
+
+function timeAgo(iso) {
+  if (!iso) return 'Reciente';
+  const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diffMin < 1)  return 'Hace instantes';
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const h = Math.floor(diffMin / 60);
+  if (h < 24) return `Hace ${h} h`;
+  return `Hace ${Math.floor(h / 24)} d`;
 }
 
 async function submitReport(e) {
@@ -817,14 +874,40 @@ async function submitReport(e) {
     showToast('Por favor, selecciona una ubicación en el mapa o ingresa las coordenadas.', '⚠️');
     return;
   }
+  const incidentType = document.querySelector('input[name="incidentType"]:checked')?.value || 'fuego_activo';
+  const description  = document.getElementById('reportDesc')?.value || '';
+  const zone         = document.getElementById('waZone')?.value || null;
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Enviando...';
-  await new Promise(r => setTimeout(r, 1500));
-  showToast('¡Reporte enviado! El equipo lo verificará en los próximos minutos.', '✅');
-  document.getElementById('reportForm').reset();
-  document.getElementById('photoPreview').style.display = 'none';
-  document.getElementById('locationStatus').textContent = '';
-  if (reportMarker) { reportMarker.remove(); reportMarker = null; }
+
+  let ok = false;
+  try {
+    const resp = await fetch(`${API_URL}/report/citizen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: parseFloat(lat),
+        lon: parseFloat(lon),
+        incident_type: incidentType,
+        description,
+        reporter_zone: zone,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    ok = resp.ok;
+  } catch (_) { ok = false; }
+
+  if (ok) {
+    showToast('¡Reporte registrado! El equipo lo verificará con datos satelitales.', '✅');
+    document.getElementById('reportForm').reset();
+    document.getElementById('photoPreview').style.display = 'none';
+    document.getElementById('locationStatus').textContent = '';
+    if (reportMarker) { reportMarker.remove(); reportMarker = null; }
+    renderRecentReports();  // refrescar la lista de reportes
+  } else {
+    showToast('No se pudo enviar (API offline). Modo demo: revisa que el servidor esté activo.', '⚠️');
+  }
   btn.disabled = false;
   btn.innerHTML = '<span class="btn-icon">⚠️</span> Enviar Reporte Ciudadano';
 }
@@ -959,11 +1042,15 @@ function closeResource() {
    ═══════════════════════════════════════════════════ */
 async function loadWeatherData() {
   try {
-    const resp = await fetch(`${API_URL}/risk/today?limit=10`, { signal: AbortSignal.timeout(3000) });
+    const resp = await fetch(`${API_URL}/risk/today?limit=200`, { signal: AbortSignal.timeout(4000) });
     if (resp.ok) {
       const data = await resp.json();
-      const f = data.features?.[0]?.properties;
-      if (f) {
+      const feats = data.features || [];
+      if (feats.length) {
+        // Mostrar la celda de MAYOR riesgo (no la primera arbitraria del arreglo).
+        const best = feats.reduce((a, b) =>
+          (b.properties.probabilidad > a.properties.probabilidad ? b : a));
+        const f = best.properties;
         document.getElementById('wTemp').textContent     = `${f.temp_2m?.toFixed(1)}°C`;
         document.getElementById('wHumidity').textContent = `${f.humedad_relativa?.toFixed(0)}%`;
         document.getElementById('wWind').textContent     = `${f.viento_velocidad?.toFixed(0)} km/h`;
@@ -978,6 +1065,28 @@ async function loadWeatherData() {
   document.getElementById('wHumidity').textContent = '32%';
   document.getElementById('wWind').textContent     = '22 km/h';
   document.getElementById('wFWI').textContent      = '74';
+}
+
+/* ═══════════════════════════════════════════════════
+   FRESCURA DE DATOS (modelo)
+   ═══════════════════════════════════════════════════ */
+async function loadDataFreshness() {
+  const el = document.getElementById('dataFreshness');
+  if (!el) return;
+  try {
+    const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    if (resp.ok) {
+      const h = await resp.json();
+      const train = h.training_date
+        ? new Date(h.training_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+      const th = h.thresholds || {};
+      el.textContent = `🤖 Modelo ${h.model_version || ''} · entrenado ${train}` +
+        (th.rojo != null ? ` · umbral Rojo ≥ ${Number(th.rojo).toFixed(3)}` : '');
+      return;
+    }
+  } catch (_) {}
+  el.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1060,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initParticles();
   initScrollAnimations();
   loadWeatherData();
+  loadDataFreshness();
 
   // Stats iniciales con datos demo
   updateHeroStats(DEMO_FEATURES);
