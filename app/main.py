@@ -207,6 +207,7 @@ class WhatsAppAlertRequest(BaseModel):
 
 
 @app.get("/health")
+@app.get("/healthz", include_in_schema=False)
 def health():
     model_loaded = True
     try:
