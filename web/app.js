@@ -7,7 +7,11 @@
 /* ═══════════════════════════════════════════════════
    CONFIGURACIÓN GLOBAL
    ═══════════════════════════════════════════════════ */
-const API_URL = 'http://127.0.0.1:5050';
+// Detección dinámica de API_URL: en producción usa el dominio actual (HTTPS/HTTP),
+// y en entorno local usa http://127.0.0.1:5050
+const API_URL = (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:'))
+  ? window.location.origin
+  : 'http://127.0.0.1:5050';
 
 // NASA FIRMS — SIEMPRE vía proxy FastAPI (/firms/hotspots).
 // La API key vive únicamente en el backend (FIRMS_MAP_KEY en .env); nunca se
