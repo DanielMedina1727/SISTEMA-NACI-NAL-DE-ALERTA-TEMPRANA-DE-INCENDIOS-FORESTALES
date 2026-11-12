@@ -1,8 +1,8 @@
 ==========================================================================================
 SISTEMA NACIONAL DE ALERTA TEMPRANA DE INCENDIOS FORESTALES
 COMPILACIÓN COMPLETA DEL CÓDIGO FUENTE DEL SISTEMA
-Fecha de generación: 2026-11-11 19:45:59
-Archivos incluidos: 58 | Líneas: 15,024 | Bytes: 711,331
+Fecha de generación: 2026-11-12 10:58:00
+Archivos incluidos: 58 | Líneas: 15,029 | Bytes: 711,685
 ==========================================================================================
 
 Archivos excluidos deliberadamente:
@@ -20,7 +20,7 @@ Archivos excluidos deliberadamente:
     02. requirements-dev.txt (129 bytes, 6 líneas)
     03. pyproject.toml (1,002 bytes, 34 líneas)
     04. .env.example (4,441 bytes, 84 líneas)
-    05. Dockerfile (341 bytes, 15 líneas)
+    05. Dockerfile (347 bytes, 15 líneas)
     06. docker-compose.yml (504 bytes, 20 líneas)
     07. .github/workflows/ci.yml (578 bytes, 30 líneas)
     08. .gitignore (85 bytes, 8 líneas)
@@ -42,7 +42,7 @@ Archivos excluidos deliberadamente:
   [MODELO ENTRENADO Y METADATOS (models/)]
     21. models/model_metadata.json (5,096 bytes, 207 líneas)
   [BACKEND API FASTAPI Y PROGRAMADOR (app/)]
-    22. app/main.py (30,964 bytes, 770 líneas)
+    22. app/main.py (31,010 bytes, 771 líneas)
     23. app/model.py (6,082 bytes, 151 líneas)
     24. app/security.py (4,458 bytes, 128 líneas)
     25. app/scheduler.py (13,044 bytes, 353 líneas)
@@ -53,8 +53,8 @@ Archivos excluidos deliberadamente:
   [DASHBOARD OPERATIVO STREAMLIT (dashboard/)]
     30. dashboard/app.py (17,656 bytes, 416 líneas)
   [PORTAL WEB CIUDADANO (web/)]
-    31. web/index.html (46,009 bytes, 934 líneas)
-    32. web/app.js (54,644 bytes, 1,249 líneas)
+    31. web/index.html (46,011 bytes, 934 líneas)
+    32. web/app.js (54,944 bytes, 1,253 líneas)
     33. web/styles.css (42,362 bytes, 1,129 líneas)
   [ORQUESTACIÓN AIRFLOW (airflow/)]
     34. airflow/dags/pipeline_dag.py (3,517 bytes, 106 líneas)
@@ -292,7 +292,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 
 
 ==========================================================================================
@@ -3518,6 +3518,7 @@ class WhatsAppAlertRequest(BaseModel):
 
 
 @app.get("/health")
+@app.get("/healthz", include_in_schema=False)
 def health():
     model_loaded = True
     try:
@@ -7256,7 +7257,7 @@ ARCHIVO [31]: web/index.html
     <span id="toastMsg">Mensaje</span>
   </div>
 
-  <script src="app.js?v=20261015_v4"></script>
+  <script src="app.js?v=20261112_v230"></script>
 </body>
 
 </html>
@@ -7274,7 +7275,11 @@ ARCHIVO [32]: web/app.js
 /* ═══════════════════════════════════════════════════
    CONFIGURACIÓN GLOBAL
    ═══════════════════════════════════════════════════ */
-const API_URL = 'http://127.0.0.1:5050';
+// Detección dinámica de API_URL: en producción usa el dominio actual (HTTPS/HTTP),
+// y en entorno local usa http://127.0.0.1:5050
+const API_URL = (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:'))
+  ? window.location.origin
+  : 'http://127.0.0.1:5050';
 
 // NASA FIRMS — SIEMPRE vía proxy FastAPI (/firms/hotspots).
 // La API key vive únicamente en el backend (FIRMS_MAP_KEY en .env); nunca se
