@@ -1,0 +1,52 @@
+# ── Secretos y configuración local ──
+.env
+*.env.*
+!.env.example
+
+# ── Entorno virtual ──
+venv/
+.venv/
+env/
+
+# ── Cache de Python ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── Modelos y datos en caché ──
+data/cache/
+data/citizen_reports.jsonl
+
+# ── Control de versiones ──
+.git/
+.gitignore
+
+# ── CI/CD y GitHub ──
+.github/
+
+# ── Documentación y notebooks ──
+docs/
+notebooks/
+
+# ── Scripts de utilidad ──
+scripts/
+
+# ── Tests ──
+tests/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# ── Build artifacts ──
+*.bat
+CODIGO_COMPLETO_SISTEMA.txt
+README.md
+
+# ── IDEs ──
+.vscode/
+.idea/
+*.swp
+*.swo
+

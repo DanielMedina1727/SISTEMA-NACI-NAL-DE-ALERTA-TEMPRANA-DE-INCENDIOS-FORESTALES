@@ -23,7 +23,7 @@ logging.basicConfig(
 )
 
 from app.scheduler import ZONAS, _classify_zone, _build_message, _get_zone_group_id
-from app.whatsapp_alerts import _get_config, _send_message
+from app.whatsapp_alerts import get_accounts, send_message_to_chat
 
 # ─── Datos de riesgo de prueba (simulando respuesta del modelo) ───
 # Generamos grillas sintéticas dentro de cada zona con niveles variados
@@ -77,11 +77,12 @@ def run_test_alerts():
     print("  🔥 PRUEBA DE ALERTAS AUTOMÁTICAS — AlertaForestal Perú")
     print("="*60)
 
-    # Verificar credenciales
+    # Verificar credenciales y cuentas
     try:
-        instance_id, token, _ = _get_config()
-        print(f"\n✅ Credenciales Green API verificadas")
-        print(f"   Instance ID: {instance_id}")
+        accounts = get_accounts()
+        print(f"\n✅ Cuentas Green API verificadas: {len(accounts)}")
+        for account in accounts:
+            print(f"   - {account.label}: {len(account.group_ids)} grupo(s)")
     except RuntimeError as e:
         print(f"\n❌ Error de credenciales: {e}")
         return
@@ -115,15 +116,16 @@ def run_test_alerts():
         # Construir mensaje
         mensaje = _build_message(zona_info)
 
-        # Enviar
+        # Enviar por la cuenta que tiene asignado este grupo
         print(f"   📤 Enviando al grupo WhatsApp ({chat_id[:20]}...)...")
         try:
-            result = _send_message(instance_id, token, chat_id, mensaje)
-            print(f"   ✅ Enviado correctamente → {result}")
+            result = send_message_to_chat(chat_id, mensaje, accounts=accounts)
+            print(f"   ✅ Enviado vía {result['account']} → {result['response']}")
             resultados.append({
                 "zona": zona["nombre"],
                 "nivel": nivel,
                 "chat_id": chat_id,
+                "account": result["account"],
                 "status": "ok",
             })
         except Exception as exc:

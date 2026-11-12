@@ -14,9 +14,16 @@ Integración con FastAPI (en main.py):
     from app.scheduler import init_scheduler
     init_scheduler(app)
 
-Variables de entorno requeridas (ya en .env):
-    GREEN_API_INSTANCE_ID, GREEN_API_TOKEN, WHATSAPP_GROUP_IDS
-    
+Variables de entorno (una de las dos opciones):
+    A) Varias instancias con reparto automático (recomendado):
+       GREEN_API_INSTANCE_ID, GREEN_API_TOKEN,
+       GREEN_API_INSTANCE_ID_2, GREEN_API_TOKEN_2, ...
+    B) Asignación manual de grupos (avanzado):
+       GREEN_API_ACCOUNTS='[{"label":"principal",...},{"label":"secundaria",...}]'
+
+Cada WA_GROUP_* se asigna a una cuenta (automáticamente en la opción A).
+Así el scheduler envía cada zona por la instancia que tiene acceso a ese grupo.
+
 Dependencias adicionales:
     apscheduler>=3.10.0
 """
@@ -33,50 +40,8 @@ from dotenv import load_dotenv
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-from app.whatsapp_alerts import _get_config, _send_message
-
-# ─────────────────────────────────────────────────────────
-# Mapeo: nombre de provincia → ChatID de grupo WhatsApp
-# El orden debe coincidir con WHATSAPP_GROUP_IDS en .env
-# ─────────────────────────────────────────────────────────
-ZONAS = [
-    {
-        "nombre":   "San Marcos",
-        "lat_min":  -7.60, "lat_max": -7.20,
-        "lon_min": -78.20, "lon_max": -77.90,
-        "env_key":  "WA_GROUP_SAN_MARCOS",
-    },
-    {
-        "nombre":   "San Pablo",
-        "lat_min":  -7.25, "lat_max": -6.90,
-        "lon_min": -79.10, "lon_max": -78.80,
-        "env_key":  "WA_GROUP_SAN_PABLO",
-    },
-    {
-        "nombre":   "Bambamarca",
-        "lat_min":  -6.80, "lat_max": -6.40,
-        "lon_min": -78.70, "lon_max": -78.20,
-        "env_key":  "WA_GROUP_BAMBAMARCA",
-    },
-    {
-        "nombre":   "Celendín",
-        "lat_min":  -6.95, "lat_max": -6.55,
-        "lon_min": -78.30, "lon_max": -77.90,
-        "env_key":  "WA_GROUP_CELENDIN",
-    },
-    {
-        "nombre":   "Chota",
-        "lat_min":  -6.70, "lat_max": -6.20,
-        "lon_min": -79.00, "lon_max": -78.50,
-        "env_key":  "WA_GROUP_CHOTA",
-    },
-    {
-        "nombre":   "Cajamarca",
-        "lat_min":  -7.30, "lat_max": -6.90,
-        "lon_min": -78.70, "lon_max": -78.30,
-        "env_key":  "WA_GROUP_CAJAMARCA",
-    },
-]
+from app.whatsapp_alerts import get_accounts, send_message_to_chat
+from app.zones import ZONAS
 
 API_URL = os.getenv("INTERNAL_API_URL", "http://localhost:8000")
 
@@ -307,10 +272,15 @@ async def run_daily_alerts() -> None:
     logger.info("🕐 Iniciando envío de alertas automáticas diarias...")
 
     try:
-        instance_id, token, _ = _get_config()
+        accounts = get_accounts()
     except RuntimeError as exc:
         logger.error("⛔ Scheduler: credenciales no configuradas — %s", exc)
         return
+
+    logger.info(
+        "🔔 Cuentas Green API: %s",
+        ", ".join(f"{account.label} ({len(account.group_ids)} grupos)" for account in accounts),
+    )
 
     features = _fetch_risk_data()
     if not features:
@@ -332,15 +302,24 @@ async def run_daily_alerts() -> None:
         mensaje   = _build_message(zona_info)
 
         try:
-            result = _send_message(instance_id, token, chat_id, mensaje)
+            result = send_message_to_chat(chat_id, mensaje, accounts=accounts)
             logger.info(
-                "✅ Alerta %s → %s (%s) | respuesta: %s",
-                zona_info["nivel"], zona["nombre"], chat_id, result
+                "✅ Alerta %s → %s (%s) vía %s | respuesta: %s",
+                zona_info["nivel"], zona["nombre"], chat_id,
+                result["account"], result["response"]
             )
         except Exception as exc:
             if "466" in str(exc):
                 logger.warning(
-                    "⚠️  Límite Green API Free (máx 3 grupos): el grupo %s (%s) no está entre los 3 autorizados en la cuenta gratuita.",
+                    "⚠️  Green API rechazó el grupo %s (%s): puede ser el límite Free "
+                    "(máx. 3 grupos por instancia) o que el número no esté en ese grupo. "
+                    "Revisa el reparto con `python -m app.whatsapp_alerts --plan`.",
+                    zona["nombre"], chat_id
+                )
+            elif "no está asignado" in str(exc):
+                logger.error(
+                    "❌ El grupo %s (%s) no está asignado a ninguna cuenta. "
+                    "Revisa el reparto con `python -m app.whatsapp_alerts --plan`.",
                     zona["nombre"], chat_id
                 )
             else:

@@ -65,7 +65,15 @@ def test_report_citizen_rejects_unknown_incident_type():
 def test_report_citizen_accepts_and_persists(tmp_path, monkeypatch):
     import app.main as m
 
+    calls = []
+
+    def fake_send(chat_id, message, accounts=None, max_retries=3):
+        calls.append((chat_id, message, max_retries))
+        return {"account": "principal", "response": {"idMessage": "test"}}
+
     monkeypatch.setattr(m, "REPORTS_PATH", tmp_path / "reports.jsonl")
+    monkeypatch.setattr(m, "send_message_to_chat", fake_send)
+    monkeypatch.setenv("WA_GROUP_CAJAMARCA", "cajamarca-test@g.us")
     r = client.post(
         "/report/citizen",
         json={
@@ -78,7 +86,40 @@ def test_report_citizen_accepts_and_persists(tmp_path, monkeypatch):
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "received" and body["id"]
+    assert body["zone"] == "Cajamarca"
+    assert body["whatsapp"]["status"] == "sent"
+    assert calls and calls[0][0] == "cajamarca-test@g.us"
+    assert calls[0][2] == 1
+    assert "Cajamarca" in calls[0][1]
+    assert "-7.16000" in calls[0][1] and "-78.50000" in calls[0][1]
     assert (tmp_path / "reports.jsonl").exists()
+
+
+def test_report_citizen_outside_zone_skips_whatsapp(tmp_path, monkeypatch):
+    import app.main as m
+
+    monkeypatch.setattr(m, "REPORTS_PATH", tmp_path / "reports.jsonl")
+
+    def fail_send(*args, **kwargs):
+        raise AssertionError("No se debe enviar WhatsApp fuera de una zona")
+
+    monkeypatch.setattr(m, "send_message_to_chat", fail_send)
+    r = client.post(
+        "/report/citizen",
+        json={"lat": -12.05, "lon": -77.04, "incident_type": "columna_humo"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["zone"] is None
+    assert body["whatsapp"] == {"status": "skipped", "reason": "outside_zone"}
+
+
+def test_find_zone_for_point():
+    from app.zones import find_zone_for_point
+
+    assert find_zone_for_point(-7.16, -78.5)["nombre"] == "Cajamarca"
+    assert find_zone_for_point(-7.5, -78.1)["nombre"] == "San Marcos"
+    assert find_zone_for_point(-12.05, -77.04) is None
 
 
 def test_alerts_require_key_when_configured(monkeypatch):

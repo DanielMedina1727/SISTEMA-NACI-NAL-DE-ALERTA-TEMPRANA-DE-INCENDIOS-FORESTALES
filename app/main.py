@@ -13,11 +13,12 @@ Expone:
   GET  /report/pdf          -> informe ejecutivo en PDF
   GET  /model/importance    -> importancia de características del modelo (SHAP)
   GET  /social/matrix       -> matriz de entorno social y mitigación de restricciones
-  POST /report/citizen      -> registra un reporte ciudadano de foco/humo
+  POST /report/citizen      -> registra un reporte ciudadano y alerta al grupo de su zona
   GET  /report/recent       -> últimos reportes ciudadanos registrados
 """
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,8 +39,9 @@ from app.security import (
     require_admin_key,
     validate_peru_coords,
 )
-from app.whatsapp_alerts import send_red_alert
+from app.whatsapp_alerts import send_message_to_chat, send_red_alert
 from app.scheduler import init_scheduler, run_daily_alerts
+from app.zones import find_zone_for_point
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ app = FastAPI(
         "Proporciona datos satelitales, predicciones de riesgo y motor de propagación. "
         "Portal ciudadano en /web/ · Swagger UI en /docs"
     ),
-    version="2.0.0",
+    version="2.3.0",
     lifespan=_lifespan,
 )
 
@@ -537,7 +539,6 @@ def get_social_environment_matrix():
 # ─────────────────────────────────────────────
 import csv
 import io
-import os
 import urllib.request
 
 FIRMS_MAP_KEY = os.getenv("FIRMS_MAP_KEY", "")  # Configura FIRMS_MAP_KEY en .env (ver .env.example)
@@ -640,6 +641,34 @@ INCIDENT_LABELS = {
 }
 
 
+def _citizen_alert_message(record: dict, zona: dict) -> str:
+    """Construye el mensaje de WhatsApp para el grupo de la zona detectada."""
+    description = record.get("description") or "Sin descripción."
+    reporter_zone = (record.get("reporter_zone") or "").strip()
+    zone_note = f"\n👤 Zona indicada por el usuario: {reporter_zone}" if reporter_zone else ""
+    return (
+        f"🚨 *REPORTE CIUDADANO — {record['incident_label']}*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📍 Zona detectada: *{zona['nombre']}*\n"
+        f"🌐 Coordenadas: {record['lat']:.5f}, {record['lon']:.5f}\n"
+        f"🗺️ Ver en mapa: https://www.google.com/maps?q={record['lat']},{record['lon']}\n"
+        f"📝 {description}{zone_note}\n"
+        f"🕒 {record['timestamp']}\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"⚠️ Reporte ciudadano no verificado. Si hay emergencia, llama al "
+        f"*116* (Bomberos), *115* (INDECI) o *0800-11-070* (SERFOR)."
+    )
+
+
+def _safe_whatsapp_error(exc: Exception) -> str:
+    """Redacta tokens de Green API antes de devolver o registrar un error."""
+    text = str(exc)
+    for key, value in os.environ.items():
+        if key.startswith("GREEN_API_TOKEN") and value:
+            text = text.replace(value, "***")
+    return text[:300]
+
+
 class CitizenReport(BaseModel):
     lat: float
     lon: float
@@ -651,7 +680,11 @@ class CitizenReport(BaseModel):
 @app.post("/report/citizen", tags=["Reportes"], dependencies=[Depends(rate_limit(5, 600))])
 def report_citizen(report: CitizenReport):
     """
-    Registra un reporte ciudadano de foco/humo.
+    Registra un reporte ciudadano de foco/humo y alerta al grupo de su zona.
+
+    Detecta la zona operativa según el punto geográfico y envía el reporte al
+    grupo de WhatsApp correspondiente. Si el punto está fuera de las zonas o el
+    envío falla, el reporte igual queda guardado.
 
     Persiste en `data/citizen_reports.jsonl` (almacenamiento local). Limitado a 5
     reportes por IP cada 10 minutos y valida que las coordenadas estén en Perú.
@@ -664,6 +697,9 @@ def report_citizen(report: CitizenReport):
             status_code=422,
             detail=f"incident_type inválido. Opciones: {', '.join(INCIDENT_LABELS)}.",
         )
+
+    zona = find_zone_for_point(report.lat, report.lon)
+
     REPORTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "id": uuid4().hex[:12],
@@ -673,12 +709,50 @@ def report_citizen(report: CitizenReport):
         "incident_type": report.incident_type,
         "incident_label": INCIDENT_LABELS.get(report.incident_type, report.incident_type),
         "description": (report.description or "")[:500],
-        "reporter_zone": report.reporter_zone,
+        "reporter_zone": (report.reporter_zone or "")[:100] or None,
+        "zone": zona["nombre"] if zona else None,
         "status": "pending",
     }
     with REPORTS_PATH.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return {"status": "received", "id": record["id"], "timestamp": record["timestamp"]}
+
+    if zona is None:
+        whatsapp = {"status": "skipped", "reason": "outside_zone"}
+    else:
+        chat_id = (os.getenv(zona["env_key"]) or "").strip()
+        if not chat_id:
+            whatsapp = {"status": "skipped", "reason": "group_not_configured"}
+        else:
+            try:
+                result = send_message_to_chat(
+                    chat_id,
+                    _citizen_alert_message(record, zona),
+                    max_retries=1,
+                )
+                whatsapp = {"status": "sent", "account": result.get("account")}
+                logger.info(
+                    "📲 Reporte ciudadano %s enviado a %s vía %s",
+                    record["id"],
+                    zona["nombre"],
+                    result.get("account"),
+                )
+            except Exception as exc:
+                detail = _safe_whatsapp_error(exc)
+                whatsapp = {"status": "error", "detail": detail}
+                logger.error(
+                    "❌ No se pudo enviar el reporte ciudadano %s a %s: %s",
+                    record["id"],
+                    zona["nombre"],
+                    detail,
+                )
+
+    return {
+        "status": "received",
+        "id": record["id"],
+        "timestamp": record["timestamp"],
+        "zone": record["zone"],
+        "whatsapp": whatsapp,
+    }
 
 
 @app.get("/report/recent", tags=["Reportes"])

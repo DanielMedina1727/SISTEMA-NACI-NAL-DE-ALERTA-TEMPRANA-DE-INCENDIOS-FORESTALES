@@ -319,22 +319,35 @@ function renderMapLayers(features) {
       // distribución (Top 1% = Rojo, Top 5% = Amarillo). Se muestra el ranking en
       // lugar del % absoluto (que es bajo por diseño, ~0.1%).
       const ranking = (props.percentil != null)
-        ? `<b>Ranking:</b> Top ${Math.max(1, Math.round(100 - props.percentil))}% del territorio<br/>`
+        ? `<b>Posición:</b> Entre el <b>Top ${Math.max(1, Math.round(100 - props.percentil))}%</b> de zonas con más riesgo<br/>`
         : '';
+
+      // Explicación del nivel en lenguaje simple
+      const nivelExplicacion = {
+        'Rojo':     '🔴 Condiciones muy peligrosas hoy. Evitar quemas y estar alerta.',
+        'Amarillo': '🟡 Condiciones de precaución. Monitorear la zona.',
+        'Verde':    '🟢 Condiciones normales. Sin alerta activa.',
+      }[props.nivel] || '';
+
       const popup = `
-        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:220px;color:#1a1a2e">
-          <b style="font-size:13px">🤖 Predicción IA — Grilla ${props.grid_id}</b><hr style="margin:6px 0"/>
-          <b>Nivel:</b> <span style="color:${color};font-weight:700">${props.nivel}</span><br/>
-          ${ranking}
-          <b>Score del modelo:</b> ${Number(props.probabilidad).toFixed(4)}<br/>
-          <div style="margin:4px 0;padding:3px 6px;background:#f1f5f9;border-radius:4px;font-size:10px;color:#475569">
-            El score no es una probabilidad absoluta: el modelo <b>ordena</b> las celdas por riesgo.<br/>
-            Top 1% = 🔴 Rojo · Top 5% = 🟡 Amarillo
+        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:230px;color:#1a1a2e">
+          <b style="font-size:13px">📍 Zona de Riesgo — ${props.grid_id}</b><hr style="margin:6px 0"/>
+          <div style="background:${color}22;border-left:3px solid ${color};border-radius:4px;padding:5px 8px;margin-bottom:7px">
+            <b style="color:${color};font-size:13px">${props.nivel}</b> — ${nivelExplicacion}
           </div>
-          <b>Temperatura:</b> ${props.temp_2m?.toFixed(1)} °C<br/>
-          <b>Humedad:</b> ${props.humedad_relativa?.toFixed(0)} %<br/>
-          <b>Viento:</b> ${props.viento_velocidad?.toFixed(0)} km/h<br/>
-          <b>Pendiente:</b> ${props.pendiente_pct?.toFixed(0)} %
+          ${ranking}
+          <details style="margin:4px 0">
+            <summary style="cursor:pointer;color:#475569;font-size:11px">🌦️ Condiciones del día (haz clic para ver)</summary>
+            <div style="padding:5px 0 2px 0">
+              🌡️ <b>Temperatura:</b> ${props.temp_2m?.toFixed(1)} °C<br/>
+              💧 <b>Humedad:</b> ${props.humedad_relativa?.toFixed(0)} %<br/>
+              💨 <b>Viento:</b> ${props.viento_velocidad?.toFixed(0)} km/h<br/>
+              ⛰️ <b>Pendiente del terreno:</b> ${props.pendiente_pct?.toFixed(0)} %
+            </div>
+          </details>
+          <div style="margin-top:5px;padding:3px 6px;background:#f1f5f9;border-radius:4px;font-size:10px;color:#475569">
+            💡 El color indica riesgo <b>relativo</b>: el modelo ordena todas las zonas del territorio y marca el 1% más alto en rojo.
+          </div>
           ${demoTag}
         </div>`;
       L.polygon(coords, {
@@ -678,16 +691,20 @@ function renderFIRMSLayer(features, dataSourceType = 'offline') {
     }
 
     const popup = `
-      <div style="font-family:Inter,sans-serif;font-size:12px;min-width:225px;color:#1a1a2e">
+      <div style="font-family:Inter,sans-serif;font-size:12px;min-width:230px;color:#1a1a2e">
         ${header}
         <hr style="margin:5px 0"/>
-        <b>Satélite:</b> ${p.satellite} (${p.instrument || 'VIIRS'})<br/>
-        <b>Fecha detección:</b> ${p.acq_date || 'Reciente'} ${tFmt}<br/>
-        <b>Nivel de Confianza:</b> <span style="color:${color};font-weight:700">${confPct}%</span><br/>
-        <b>FRP:</b> ${p.frp} MW <span style="color:#888;font-size:10px">(potencia radiativa)</span><br/>
-        <b>Temperatura de brillo:</b> ${p.bright_ti4 ? p.bright_ti4.toFixed(1) : '330.0'} K<br/>
-        <b>Periodo de paso:</b> ${isDark}<br/>
-        <b>Nivel de Alerta:</b> <span style="color:${color};font-weight:700">${p.nivel}</span>
+        🛰️ <b>Satélite:</b> ${p.satellite} (${p.instrument || 'VIIRS'})<br/>
+        📅 <b>Detectado:</b> ${p.acq_date || 'Reciente'} a las ${tFmt}<br/>
+        🔥 <b>Intensidad del fuego (FRP):</b> ${p.frp} MW
+          <span style="color:#888;font-size:10px"> — valores &gt;10 MW suelen ser incendios forestales</span><br/>
+        🌡️ <b>Temperatura de brillo:</b> ${p.bright_ti4 ? p.bright_ti4.toFixed(1) : '330.0'} K<br/>
+        📊 <b>Confianza del satélite:</b> <span style="color:${color};font-weight:700">${confPct}%</span><br/>
+        🕐 <b>Paso del satélite:</b> ${isDark}<br/>
+        <div style="margin-top:6px;padding:4px 8px;background:${p.nivel==='Rojo'?'#fef2f2':'#fffbeb'};border-radius:4px;font-size:11px;color:#374151">
+          ⚠️ Nivel de alerta: <strong style="color:${color}">${p.nivel}</strong>
+          ${p.nivel==='Rojo' ? ' — Si hay humo visible, llama a Bomberos: <strong>116</strong>' : ''}
+        </div>
       </div>`;
 
     L.circleMarker([lat, lon], {
@@ -842,7 +859,7 @@ async function renderRecentReports() {
   }
 
   listEl.innerHTML = reports.map(r => {
-    const zone = r.reporter_zone || `${Number(r.lat).toFixed(3)}, ${Number(r.lon).toFixed(3)}`;
+    const zone = r.zone || r.reporter_zone || `${Number(r.lat).toFixed(3)}, ${Number(r.lon).toFixed(3)}`;
     return `
       <div class="report-item">
         <div class="report-dot ${r.status === 'verified' ? 'verified' : 'pending'}"></div>
@@ -876,12 +893,12 @@ async function submitReport(e) {
   }
   const incidentType = document.querySelector('input[name="incidentType"]:checked')?.value || 'fuego_activo';
   const description  = document.getElementById('reportDesc')?.value || '';
-  const zone         = document.getElementById('waZone')?.value || null;
 
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px"></div> Enviando...';
 
   let ok = false;
+  let data = null;
   try {
     const resp = await fetch(`${API_URL}/report/citizen`, {
       method: 'POST',
@@ -891,22 +908,48 @@ async function submitReport(e) {
         lon: parseFloat(lon),
         incident_type: incidentType,
         description,
-        reporter_zone: zone,
       }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(25000),
     });
     ok = resp.ok;
+    data = await resp.json().catch(() => null);
   } catch (_) { ok = false; }
 
   if (ok) {
-    showToast('¡Reporte registrado! El equipo lo verificará con datos satelitales.', '✅');
+    const detectedZone = data?.zone;
+    const waStatus = data?.whatsapp?.status;
+    const waReason = data?.whatsapp?.reason;
+    let message = '¡Reporte registrado! El equipo lo verificará con datos satelitales.';
+    let icon = '✅';
+
+    if (waStatus === 'sent') {
+      message = `¡Reporte registrado! Alerta enviada al grupo de ${detectedZone}.`;
+    } else if (waStatus === 'skipped') {
+      icon = '⚠️';
+      if (waReason === 'outside_zone') {
+        message = '¡Reporte registrado! El punto está fuera de las zonas operativas; no se envió WhatsApp.';
+      } else if (waReason === 'group_not_configured') {
+        message = `¡Reporte registrado! El grupo de ${detectedZone || 'esa zona'} no está configurado; no se envió WhatsApp.`;
+      } else {
+        message = '¡Reporte registrado! No se envió WhatsApp.';
+      }
+    } else if (waStatus === 'error') {
+      icon = '⚠️';
+      message = '¡Reporte registrado! No se pudo enviar el WhatsApp, pero el reporte quedó guardado.';
+    }
+
+    showToast(message, icon);
     document.getElementById('reportForm').reset();
     document.getElementById('photoPreview').style.display = 'none';
     document.getElementById('locationStatus').textContent = '';
     if (reportMarker) { reportMarker.remove(); reportMarker = null; }
     renderRecentReports();  // refrescar la lista de reportes
   } else {
-    showToast('No se pudo enviar (API offline). Modo demo: revisa que el servidor esté activo.', '⚠️');
+    const detail = data?.detail;
+    showToast(
+      detail ? `No se pudo enviar: ${detail}` : 'No se pudo enviar (API offline). Modo demo: revisa que el servidor esté activo.',
+      '⚠️'
+    );
   }
   btn.disabled = false;
   btn.innerHTML = '<span class="btn-icon">⚠️</span> Enviar Reporte Ciudadano';
@@ -1087,6 +1130,17 @@ async function loadDataFreshness() {
     }
   } catch (_) {}
   el.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
+}
+
+/* ═══════════════════════════════════════════════════
+   GUÍA DE LECTURA DEL MAPA
+   ═══════════════════════════════════════════════════ */
+function toggleMapGuide() {
+  const body = document.getElementById('mapGuideBody');
+  const icon = document.getElementById('guideToggleIcon');
+  if (!body) return;
+  const isOpen = body.classList.toggle('open');
+  if (icon) icon.textContent = isOpen ? '▲' : '▼';
 }
 
 /* ═══════════════════════════════════════════════════

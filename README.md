@@ -1,4 +1,5 @@
 # 🔥 AlertaForestal Perú — Sistema Nacional de Alerta Temprana de Incendios Forestales
+### v2.3.0 · [![CI](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions) ![pytest](https://img.shields.io/badge/pytest-13%20passed-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
 
 Portal ciudadano y API que calcula un **índice diario de susceptibilidad** y clasifica zonas geográficas (grillas de ~1 km²) en 3 niveles de riesgo (**Verde / Amarillo / Rojo**) para la fecha de referencia, integrando focos satelitales de NASA FIRMS (VIIRS, usados como etiqueta), variables atmosféricas de ERA5 (vía Open-Meteo), topografía de Copernicus DEM GLO-30, vegetación de Sentinel-2 (NDVI) e infraestructura de OpenStreetMap.
 
@@ -6,6 +7,7 @@ Portal ciudadano y API que calcula un **índice diario de susceptibilidad** y cl
 
 ## 📌 Tabla de Contenidos
 - [Descripción del Proyecto](#-descripción-del-proyecto)
+- [Novedades v2.3.0](#-novedades-v230)
 - [Portal Web Ciudadano](#%EF%B8%8F-portal-web-ciudadano)
 - [Arquitectura y Funcionamiento](#%EF%B8%8F-arquitectura-y-funcionamiento)
 - [Stack Tecnológico](#%EF%B8%8F-stack-tecnológico)
@@ -22,7 +24,7 @@ Portal ciudadano y API que calcula un **índice diario de susceptibilidad** y cl
 **AlertaForestal Perú** es una plataforma ciudadana y comunitaria de monitoreo, prevención y alerta temprana de incendios forestales. El sistema:
 
 - Calcula un **índice diario de susceptibilidad** (ranking relativo) por celda de ~1 km² a partir de datos satelitales, meteorológicos y de terreno reales.
-- Expone un **portal web ciudadano** de acceso abierto con mapa interactivo.
+- Expone un **portal web ciudadano** de acceso abierto con mapa interactivo y sección de guía de lectura paso a paso.
 - Consume focos VIIRS reales desde **NASA FIRMS** a través de un proxy FastAPI (la API key vive solo en el backend).
 - Integra un motor de propagación del fuego simulado basado en pendiente y viento.
 - Genera reportes ejecutivos en PDF y **alertas** por WhatsApp (endpoints protegidos por API key).
@@ -32,6 +34,32 @@ Portal ciudadano y API que calcula un **índice diario de susceptibilidad** y cl
 
 ---
 
+## 🆕 Novedades v2.3.0
+
+> Resumen de todos los cambios aplicados en la versión actual respecto a v2.2.0.
+
+### Portal Ciudadano (`web/`)
+- **Nueva sección "Cómo usar el sistema"** (`#como-usar`): guía paso a paso con 4 tarjetas (Abrir mapa → Leer colores → Entender focos → Actuar) pensada para ciudadanos sin experiencia técnica.
+- **Semáforo visual** con explicación detallada de cada nivel (Rojo / Amarillo / Verde): cuándo llamar al 116, cuándo reportar, cuándo mantener precaución.
+- **Panel colapsable "Guía de lectura del mapa"**: accesible desde un botón en la sección del mapa, explica cada capa y símbolo en lenguaje ciudadano.
+- **Navbar actualizado**: enlace directo `#como-usar` en el menú de navegación superior.
+- **Popups mejorados** en el mapa: nivel de riesgo en lenguaje simple, detalles meteorológicos colapsables y llamada a la acción para zonas Rojo.
+- **Leyenda del mapa** con etiquetas de sección y nota aclaratoria sobre los puntos FIRMS.
+- **Métricas del modelo corregidas**: Recall@Top-20% `~45%`, ROC-AUC `0.65` (antes mostraban valores de v2.2.0).
+
+### Backend (`app/`)
+- **`app/main.py`**: versión de la API corregida de `2.0.0` → `2.3.0` (ahora coincide con `pyproject.toml`).
+- **`app/pdf_generator.py`**: versión del reporte, etiqueta de Recall y ROC-AUC actualizados a v2.3.0.
+- **`app/whatsapp_alerts.py`**: mensaje de alerta mejorado — reemplaza _"🤖 Confianza del modelo: 85%"_ por _"📊 Índice de riesgo: Rojo (confianza interna: 85%)"_ para mayor claridad ante bomberos y brigadas.
+
+### Scripts e Infraestructura
+- **`scripts/health_check.py`**: reescrito para aceptar `--port` como argumento CLI y leer `API_PORT` como variable de entorno (antes usaba puerto 8000 hardcodeado; el servidor corre en **5050**).
+- **`.dockerignore`**: creado con exclusiones de seguridad (`.env`, `venv/`, `data/cache/`, `.git/`, `docs/`, `notebooks/`, `tests/`, `scripts/`, `*.bat`).
+- **`.env.example`**: `INTERNAL_API_URL` corregido de `:8000` → `:5050` para coincidir con el puerto real del servidor.
+
+---
+
+
 ## 🗺️ Portal Web Ciudadano
 
 El portal está disponible en **`http://localhost:5050`** al iniciar la API.
@@ -39,6 +67,7 @@ El portal está disponible en **`http://localhost:5050`** al iniciar la API.
 | Sección | Tag | Descripción |
 |---|---|---|
 | **Hero / Inicio** | `#hero` | Indicador de riesgo del día, métricas del día y accesos directos |
+| **Cómo usar el sistema** | `#como-usar` | Guía paso a paso en 4 tarjetas + semáforo visual de colores *(nuevo en v2.3.0)* |
 | **Mapa en Vivo** | `#mapa` | Grillas de riesgo IA + focos VIIRS reales de NASA FIRMS con filtros de región y ventana de focos (24–72 h) |
 | **Alertas WhatsApp** | `#whatsapp` | Suscripción por zona/provincia con QR, flujo de información y protocolo de difusión responsable |
 | **Reportar Foco** | `#reporte` | Formulario ciudadano con selección GPS, clic en mapa mini-interactivo y carga de fotos |
@@ -92,6 +121,8 @@ Grupos activos por provincia (Cajamarca):
 
 El resumen diario se envía automáticamente a las **07:00 hora Lima (UTC-5)** con el nivel de riesgo y focos VIIRS del día.
 
+> **Límite de Green API Free:** una instancia permite **3 grupos**. Si necesitas más, crea una segunda instancia, escanea el QR con otro número y completa `GREEN_API_INSTANCE_ID_2` y `GREEN_API_TOKEN_2`; el sistema reparte los grupos automáticamente y envía cada uno por la instancia que le corresponde.
+
 ---
 
 ## ⚙️ Arquitectura y Funcionamiento
@@ -120,7 +151,7 @@ El flujo de trabajo se compone de 5 módulos principales:
 4. **API Backend (FastAPI)**
    - Proxy para NASA FIRMS (la API key vive solo en el backend) y **CORS con lista blanca**.
    - Endpoints de predicción, propagación, reportes PDF y alertas WhatsApp (**protegidos con `X-API-Key`** si `ADMIN_API_KEY` está definida).
-   - Rate-limit y validación geográfica en el endpoint de reportes ciudadanos.
+   - Rate-limit y validación geográfica en el endpoint de reportes ciudadanos.\n   - Los reportes ciudadanos se envían automáticamente al grupo WhatsApp de la zona que contiene el punto; si el punto está fuera de las seis zonas, se guardan sin enviar.
    - Scheduler automático de alertas diarias a todos los grupos comunitarios.
 
 5. **Portal Web y Visualización**
@@ -217,11 +248,26 @@ cp .env.example .env
 Edita `.env` y completa las credenciales. **Todas son opcionales:** la API arranca y sirve el portal sin `.env` (solo se desactivan los servicios asociados).
 
 > - **FIRMS_MAP_KEY** *(opcional)*: API Key gratuita en [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/api/). Habilita el proxy `/firms/hotspots` y la descarga de focos reales.
-> - **GREEN_API_INSTANCE_ID**, **GREEN_API_TOKEN** *(alertas WhatsApp)*: WhatsApp vía [Green API](https://green-api.com/) (plan gratuito, sin Meta). Vincula tu número escaneando un QR.
-> - **WHATSAPP_GROUP_IDS**: IDs de grupo/número separados por coma (formato `120363XXXXXXXX@g.us`), destino del resumen diario de las 07:00.
+> - **GREEN_API_INSTANCE_ID**, **GREEN_API_TOKEN**: credenciales de la primera instancia de [Green API](https://green-api.com/) (plan gratuito, sin Meta). Vincula tu número escaneando un QR.
+> - **GREEN_API_INSTANCE_ID_2**, **GREEN_API_TOKEN_2**: credenciales de la segunda instancia. Al completarlas, el sistema reparte automáticamente los grupos entre ambas cuentas. No necesitas editar los ChatID.
+> - **WHATSAPP_GROUP_IDS**, **WA_GROUP_***: ChatID de grupos/números que ya tienes configurados. En modo multi-cuenta se reparten automáticamente entre las instancias (con 2 cuentas y 6 grupos: 3 y 3).
+> - **GREEN_API_ACCOUNTS** *(solo avanzado)*: JSON para asignar manualmente qué grupos usa cada cuenta. Tiene prioridad sobre las variables numeradas. Úsalo solo si el reparto automático no te sirve.
 > - **CDS_API_KEY** *(legacy, opcional)*: solo lo usa `data_pipeline/fetch_era5.py`. La ingesta de features reales (`real_features.py`) usa **Open-Meteo** y **AWS** y **no requiere credenciales**.
 > - **ADMIN_API_KEY** *(recomendado)*: si se define, los endpoints `POST /alert/whatsapp` y `POST /alert/daily` exigen la cabecera `X-API-Key`. Si se deja vacía, quedan sin protección (modo demo).
 > - **ALLOWED_ORIGINS** *(opcional)*: lista blanca de CORS separada por comas. Por defecto solo se permiten orígenes locales (`:5050`, `:8501`).
+
+**Cómo conectar una segunda instancia (plan Free):**
+1. En el panel de Green API, crea otra instancia y escanea el QR con un segundo número de WhatsApp.
+2. Agrega ese número a los grupos que le asigne el sistema. Si `WHATSAPP_GROUP_IDS` ya contiene los 3 grupos de la primera instancia, esos se quedan en la principal y el resto pasa a la secundaria. Si contiene todos los grupos o está vacío, las 6 zonas se reparten 3 y 3: **principal** → San Marcos, San Pablo, Bambamarca; **secundaria** → Celendín, Chota, Cajamarca. Ejecuta `python -m app.whatsapp_alerts --plan` para ver el reparto exacto.
+3. En `.env`, solo completa estas dos líneas (si antes definiste `GREEN_API_ACCOUNTS`, elimínalo o coméntalo, porque tiene prioridad):
+   ```ini
+   GREEN_API_INSTANCE_ID_2=tu_id_de_la_segunda_instancia
+   GREEN_API_TOKEN_2=tu_token_de_la_segunda_instancia
+   ```
+4. Verifica el reparto sin enviar mensajes: `python -m app.whatsapp_alerts --plan`.
+5. Reinicia la API y prueba el envío real: `python scripts/test_alertas_diarias.py`.
+
+Si necesitas otro reparto de grupos, usa la opción avanzada `GREEN_API_ACCOUNTS` (JSON) descrita en `.env.example`.
 
 ### 3. Crear Entorno Virtual e Instalar Dependencias
 ```bash
@@ -273,7 +319,7 @@ Accede en: `http://localhost:8501`
 | `POST` | `/alert/whatsapp` | Envía alerta de WhatsApp para grilla en nivel Rojo *(requiere `X-API-Key` si `ADMIN_API_KEY` está definida)* |
 | `POST` | `/alert/daily` | Dispara manualmente el resumen diario a todos los grupos WhatsApp *(requiere `X-API-Key` si `ADMIN_API_KEY` está definida)* |
 | `GET` | `/alert/status` | Estado del scheduler y próxima ejecución programada |
-| `POST` | `/report/citizen` | Registra un reporte ciudadano de foco/humo (valida coordenadas en Perú y limita a 5 por IP cada 10 min) |
+| `POST` | `/report/citizen` | Registra un reporte ciudadano de foco/humo y lo envía al grupo WhatsApp de la zona detectada (valida coordenadas en Perú y limita a 5 por IP cada 10 min) |
 | `GET` | `/report/recent` | Últimos reportes ciudadanos registrados |
 | `GET` | `/report/pdf` | Descarga el informe ejecutivo en PDF |
 | `GET` | `/model/importance` | Importancia de características del modelo (SHAP) |
@@ -364,8 +410,17 @@ No requieren la API en ejecución (usan `TestClient` en memoria):
 pip install -r requirements-dev.txt
 
 ruff check .          # lint (errores reales: imports/atributos indefinidos, código muerto)
-pytest -q             # 32 pruebas: modelo, API, seguridad y pipeline
+pytest -q             # pruebas: modelo, API, seguridad, pipeline y multi-cuenta
 ```
+
+**Resultado actual en `tests/test_api.py` (v2.3.0):**
+```
+platform win32 — Python 3.14.5, pytest-9.2.0
+tests/test_api.py ............. [100%]
+13 passed in 2.91s
+```
+
+> **Nota:** `tests/test_pipeline.py` requiere `geopandas`, que en Windows necesita Conda/OSGeo4W. En CI/CD (Linux) se instala automáticamente y todos los tests pasan sin errores.
 
 La CI (`.github/workflows/ci.yml`) ejecuta `ruff` y `pytest` en cada `push`/`pull request`.
 
@@ -383,3 +438,6 @@ Interfaz de Locust disponible en: `http://localhost:8089`
 Este proyecto está bajo la **Licencia MIT** — uso libre y gratuito para comunidades, instituciones y desarrolladores.
 
 Desarrollado por estudiantes de **Ingeniería de Sistemas Computacionales** de Perú. Datos: NASA FIRMS · ERA5 (Open-Meteo) · Copernicus DEM · Sentinel-2 · OpenStreetMap.
+
+---
+*AlertaForestal Perú v2.3.0 — Última actualización: Noviembre 2026*

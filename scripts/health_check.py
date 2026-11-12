@@ -3,8 +3,13 @@ Script de Health Check automatizado (Entregable Semana 12 del Capstone).
 Verifica el estado del servicio FastAPI /health y reinicia el proceso si no responde.
 
 Uso:
-    python scripts/health_check.py
+    python scripts/health_check.py [--port PUERTO]
+
+    El puerto también se puede configurar con la variable de entorno API_PORT.
+    Por defecto usa 5050 (puerto de producción local).
 """
+import argparse
+import os
 import sys
 import time
 import requests
@@ -12,7 +17,16 @@ import requests
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-API_HEALTH_URL = "http://localhost:8000/health"
+parser = argparse.ArgumentParser(description="Health check del servidor FastAPI.")
+parser.add_argument(
+    "--port",
+    type=int,
+    default=int(os.getenv("API_PORT", "5050")),
+    help="Puerto del servidor FastAPI (default: 5050 o variable API_PORT).",
+)
+args = parser.parse_args()
+
+API_HEALTH_URL = f"http://localhost:{args.port}/health"
 MAX_RETRIES = 3
 RETRY_DELAY_SEC = 5
 
