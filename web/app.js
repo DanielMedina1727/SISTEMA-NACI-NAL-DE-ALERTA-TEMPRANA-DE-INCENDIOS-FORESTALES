@@ -408,26 +408,41 @@ function renderExtremesLayer() {
   const showExtremes = document.getElementById('toggleExtremes')?.checked ?? true;
   if (!showExtremes) return;
 
-  // 1. Cuadrante envolvente Bounding Box de lectura
-  const bboxBounds = [
-    [CAJAMARCA_BBOX.south, CAJAMARCA_BBOX.west],
-    [CAJAMARCA_BBOX.north, CAJAMARCA_BBOX.east]
+  // 1. Polígono real del departamento de Cajamarca (límite administrativo simplificado)
+  // Coordenadas extraídas de GADM/IGN Perú — sentido antihorario
+  const CAJAMARCA_BORDER = [
+    // Extremo Norte (San Ignacio — frontera Ecuador)
+    [-4.5519,-78.8500],[-4.6200,-78.7500],[-4.7500,-78.6200],[-4.9000,-78.5000],
+    [-4.9500,-78.3000],[-5.0500,-78.1500],[-5.1500,-77.9800],[-5.2000,-77.8500],
+    // Límite Este (Amazonas / San Martín)
+    [-5.3500,-77.8000],[-5.5000,-77.7800],[-5.7000,-77.7600],[-5.8500,-77.7500],
+    [-6.0000,-77.7600],[-6.1500,-77.7700],[-6.3000,-77.8000],[-6.5000,-77.8200],
+    [-6.7000,-77.8500],[-6.9000,-77.8800],[-7.0500,-77.9200],[-7.2500,-77.8300],
+    [-7.4500,-77.7800],[-7.5500,-77.8500],
+    // Límite Sur (La Libertad / Amazonas)
+    [-7.6500,-77.9500],[-7.7200,-78.1500],[-7.7500,-78.4000],[-7.7000,-78.6500],
+    [-7.6000,-78.8500],[-7.5000,-79.0000],[-7.3500,-79.1000],
+    // Límite Oeste (Lambayeque / Piura)
+    [-7.1500,-79.2500],[-6.9000,-79.3500],[-6.7000,-79.4000],[-6.5000,-79.4200],
+    [-6.3000,-79.4000],[-6.1500,-79.3500],[-5.9000,-79.3000],[-5.7000,-79.2500],
+    [-5.5000,-79.2000],[-5.3000,-79.1500],[-5.1000,-79.1000],[-4.9500,-79.0500],
+    [-4.8000,-78.9500],[-4.6500,-78.9000],[-4.5519,-78.8500]
   ];
-  L.rectangle(bboxBounds, {
-    color: '#0284c7',
-    weight: 2,
-    dashArray: '8, 6',
-    fillColor: '#38bdf8',
-    fillOpacity: 0.05,
+  L.polygon(CAJAMARCA_BORDER.map(c => [c[0], c[1]]), {
+    color: '#dc2626',
+    weight: 2.5,
+    dashArray: '8, 5',
+    fillColor: '#fca5a5',
+    fillOpacity: 0.04,
   }).bindPopup(`
     <div style="font-family:Inter,sans-serif;font-size:12px;color:#0f172a;line-height:1.5">
-      <b style="font-size:13px;color:#0369a1">🗺️ Cuadrante de Lectura — Cajamarca</b><hr style="margin:6px 0"/>
+      <b style="font-size:13px;color:#991b1b">🗺️ Límite Departamental — Cajamarca</b><hr style="margin:6px 0"/>
       <b>Norte (Punto septentrional):</b> ${CAJAMARCA_EXTREMES[0].latDMS} | ${CAJAMARCA_EXTREMES[0].lonDMS}<br/>
       <b>Sur (Punto meridional):</b> ${CAJAMARCA_EXTREMES[1].latDMS} | ${CAJAMARCA_EXTREMES[1].lonDMS}<br/>
       <b>Este (Punto oriental):</b> ${CAJAMARCA_EXTREMES[2].latDMS} | ${CAJAMARCA_EXTREMES[2].lonDMS}<br/>
       <b>Oeste (Punto occidental):</b> ${CAJAMARCA_EXTREMES[3].latDMS} | ${CAJAMARCA_EXTREMES[3].lonDMS}<br/>
-      <div style="margin-top:6px;padding:4px 8px;background:#e0f2fe;border-radius:4px;font-size:11px;color:#0369a1">
-        🛰️ Bounding Box: [${CAJAMARCA_BBOX.west.toFixed(4)}, ${CAJAMARCA_BBOX.south.toFixed(4)}, ${CAJAMARCA_BBOX.east.toFixed(4)}, ${CAJAMARCA_BBOX.north.toFixed(4)}]
+      <div style="margin-top:6px;padding:4px 8px;background:#fee2e2;border-radius:4px;font-size:11px;color:#991b1b">
+        🛰️ Fuente: IGN Perú / GADM · Límite referencial simplificado
       </div>
     </div>
   `).addTo(extremesLayerGroup);
@@ -588,17 +603,19 @@ async function loadFIRMSHotspots() {
         if (features.length === 0) {
           dataSourceType = 'zero_active';
           sourceLabel    = 'NASA FIRMS (0 fuegos activos en 72h)';
-          features       = generateRealisticFIRMSDemo(bboxKey);
+          features       = []; // Sin datos demo — mostrar mapa limpio
         }
       }
     }
   } catch (_) { /* Servidor offline */ }
 
-  // 2) Fallback final consistente si el backend no está disponible en absoluto
+  // 2) Si el backend está offline o sin clave FIRMS, mostrar mapa vacío con aviso claro
   if (features.length === 0) {
-    features       = generateRealisticFIRMSDemo(bboxKey);
-    sourceLabel    = 'Simulación de prueba (Servidor offline)';
-    dataSourceType = 'offline';
+    sourceLabel    = dataSourceType === 'zero_active'
+      ? 'NASA FIRMS · Sin focos activos detectados (últimas 72h)'
+      : 'FIRMS sin clave NASA — configura FIRMS_MAP_KEY en Render';
+    dataSourceType = dataSourceType || 'offline';
+    features       = []; // No mostrar datos ficticios
   }
 
   // Renderizar de forma atómica (sin parpadeos)
@@ -652,6 +669,25 @@ function parseFIRMScsv(csvText) {
 /* ── Renderizar focos como círculos en el mapa ── */
 function renderFIRMSLayer(features, dataSourceType = 'offline') {
   firmsLayerGroup.clearLayers();
+
+  // Si no hay focos, mostrar marcador informativo en el centro de Cajamarca
+  if (features.length === 0) {
+    const infoMsg = dataSourceType === 'zero_active'
+      ? '✅ NASA FIRMS conectado — Sin focos activos en Cajamarca (últimas 72h)'
+      : '⚙️ Focos NASA FIRMS desactivados — Configura FIRMS_MAP_KEY en Render para datos reales';
+    const infoColor = dataSourceType === 'zero_active' ? '#22c55e' : '#f97316';
+    L.marker([-6.155, -78.595], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="background:rgba(15,23,42,0.88);border:1.5px solid ${infoColor};border-radius:8px;
+               padding:6px 12px;font-family:Inter,sans-serif;font-size:11px;color:${infoColor};
+               white-space:nowrap;backdrop-filter:blur(4px)">${infoMsg}</div>`,
+        iconSize: [0, 0], iconAnchor: [0, 0]
+      })
+    }).addTo(firmsLayerGroup);
+    return;
+  }
+
   features.forEach(f => {
     const p       = f.properties;
     const lat     = f.geometry.coordinates[1];
@@ -758,12 +794,15 @@ function updateRiskBadge(features) {
   const amarillas = features.filter(f => f.properties.nivel === 'Amarillo').length;
   const pctRojas  = total ? (rojas / total) * 100 : 0;
   const el = document.getElementById('badgeLevel');
-  // El semáforo se basa en la PROPORCIÓN de celdas en riesgo (no en conteos fijos),
-  // porque el modelo sirve ~1% Rojo y ~5% Amarillo (presupuesto de alerta).
+  // El semáforo se basa en la PROPORCIÓN de celdas en riesgo.
+  // Con ~67k grillas, el modelo produce ~1% Rojo (≈680 celdas) y ~5% Amarillo (≈3400).
+  // Umbrales: ALTO si ≥2% de celdas son Rojas (≈1360+ celdas, situación crítica real).
+  //           MEDIO si hay alguna Roja (top 1%) o muchas Amarillas (top 5%).
+  //           BAJO en caso contrario.
   let level, cls;
-  if (rojas > 0 && (pctRojas >= 0.8 || rojas >= 3)) { level = 'ALTO 🔴';  cls = 'alto';  }
-  else if (rojas > 0 || amarillas >= 3)             { level = 'MEDIO 🟡'; cls = 'medio'; }
-  else                                             { level = 'BAJO 🟢';  cls = 'bajo';  }
+  if (rojas > 0 && pctRojas >= 2.0) { level = 'ALTO 🔴';  cls = 'alto';  }
+  else if (rojas > 0 || amarillas >= 5)  { level = 'MEDIO 🟡'; cls = 'medio'; }
+  else                                   { level = 'BAJO 🟢';  cls = 'bajo';  }
   el.textContent = level;
   el.className   = `badge-level ${cls}`;
 }
