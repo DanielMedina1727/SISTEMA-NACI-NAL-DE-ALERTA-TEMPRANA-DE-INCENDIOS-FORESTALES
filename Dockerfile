@@ -12,4 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
+
+# Forzar UTF-8 en stdout/stderr para evitar caracteres corruptos en logs
+ENV PYTHONIOENCODING=utf-8
+ENV LANG=C.UTF-8
+
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
