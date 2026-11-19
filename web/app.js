@@ -685,21 +685,12 @@ function parseFIRMScsv(csvText) {
 function renderFIRMSLayer(features, dataSourceType = 'offline') {
   firmsLayerGroup.clearLayers();
 
-  // Si no hay focos, mostrar marcador informativo en el centro de Cajamarca
+  // Si no hay focos, actualizar solo la leyenda — sin marcador flotante en el mapa
   if (features.length === 0) {
-    const infoMsg = dataSourceType === 'zero_active'
-      ? '✅ NASA FIRMS conectado — Sin focos activos en Cajamarca (últimas 72h)'
-      : '⚙️ Focos NASA FIRMS desactivados — Configura FIRMS_MAP_KEY en Render para datos reales';
-    const infoColor = dataSourceType === 'zero_active' ? '#22c55e' : '#f97316';
-    L.marker([-6.155, -78.595], {
-      icon: L.divIcon({
-        className: '',
-        html: `<div style="background:rgba(15,23,42,0.88);border:1.5px solid ${infoColor};border-radius:8px;
-               padding:6px 12px;font-family:Inter,sans-serif;font-size:11px;color:${infoColor};
-               white-space:nowrap;backdrop-filter:blur(4px)">${infoMsg}</div>`,
-        iconSize: [0, 0], iconAnchor: [0, 0]
-      })
-    }).addTo(firmsLayerGroup);
+    const legendMsg = dataSourceType === 'zero_active'
+      ? '🛰️ NASA FIRMS · Sin focos activos en Cajamarca (últimas 72h)'
+      : '🛰️ NASA FIRMS · Sin clave API — agrega FIRMS_MAP_KEY en Render';
+    updateLegendTime(legendMsg);
     return;
   }
 
