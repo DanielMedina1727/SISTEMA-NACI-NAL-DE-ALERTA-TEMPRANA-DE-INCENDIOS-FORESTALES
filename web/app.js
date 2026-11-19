@@ -297,24 +297,51 @@ let lastApiStats = null;
 
 const BASEMAPS = {
   dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 19,
+    // Esri World Dark Gray Canvas + Etiquetas (100 % gratuito, sin API key ni marcas de agua)
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, OpenStreetMap',
+        maxZoom: 16,
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+        attribution: '',
+        maxZoom: 16,
+      },
+    ],
   },
   satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
-    maxZoom: 18,
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+        maxZoom: 18,
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        attribution: '',
+        maxZoom: 18,
+      },
+    ],
   },
   topo: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap',
-    maxZoom: 17,
+    layers: [
+      {
+        url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap',
+        maxZoom: 17,
+      },
+    ],
   },
   streets: {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors',
-    maxZoom: 19,
+    layers: [
+      {
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      },
+    ],
   },
 };
 
@@ -322,11 +349,10 @@ function switchBasemap(key) {
   if (!mainMap || !BASEMAPS[key]) return;
   if (currentBaseLayer) mainMap.removeLayer(currentBaseLayer);
   const cfg = BASEMAPS[key];
-  currentBaseLayer = L.tileLayer(cfg.url, {
-    attribution: cfg.attribution,
-    maxZoom: cfg.maxZoom,
-  }).addTo(mainMap);
-  currentBaseLayer.bringToBack();
+  const tileLayers = cfg.layers.map((l, idx) =>
+    L.tileLayer(l.url, { attribution: l.attribution, maxZoom: l.maxZoom, zIndex: idx + 1 })
+  );
+  currentBaseLayer = L.layerGroup(tileLayers).addTo(mainMap);
 
   document.querySelectorAll('.basemap-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.basemap === key);
