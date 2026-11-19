@@ -1,5 +1,5 @@
 # 🔥 AlertaForestal Perú — Sistema Nacional de Alerta Temprana de Incendios Forestales
-### v2.3.0 · [![CI](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions) ![pytest](https://img.shields.io/badge/pytest-58%20passed-brightgreen) ![ruff](https://img.shields.io/badge/ruff-0%20errors-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+### v2.5.0 · [![CI](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions) ![pytest](https://img.shields.io/badge/pytest-60%20passed-brightgreen) ![ruff](https://img.shields.io/badge/ruff-0%20errors-brightgreen) ![ROC-AUC](https://img.shields.io/badge/ROC--AUC-0.78%20espacial-blue) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
 
 > **Despliegue en vivo (Render):** https://alerta-temprana-de-incendios-forestales.onrender.com/web/ · **OpenAPI Docs:** https://alerta-temprana-de-incendios-forestales.onrender.com/docs
 

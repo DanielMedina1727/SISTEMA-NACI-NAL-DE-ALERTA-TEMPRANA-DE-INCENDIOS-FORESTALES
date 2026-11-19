@@ -812,22 +812,22 @@
             algoritmos de árboles de decisión potenciados por gradiente, elegidos por su:</p>
           <div class="ai-metrics">
             <div class="ai-metric">
-              <span class="ai-val">2.5×</span>
-              <span class="ai-lbl">Focos capturados en el Top-5% frente al azar (12.7% vs 5%)</span>
+              <span class="ai-val">55.4%</span>
+              <span class="ai-lbl">Focos capturados en el Top-20% (21.5% en Top-5% = 4.3× azar)</span>
             </div>
             <div class="ai-metric">
-              <span class="ai-val">0.65</span>
-              <span class="ai-lbl">ROC-AUC (StratifiedGroupKFold espacial 5-fold)</span>
+              <span class="ai-val">0.78</span>
+              <span class="ai-lbl">ROC-AUC espacial (0.70 en validación temporal 2026)</span>
             </div>
             <div class="ai-metric">
               <span class="ai-val">&lt;2ms</span>
-              <span class="ai-lbl">Tiempo de respuesta</span>
+              <span class="ai-lbl">Tiempo de respuesta + XAI SHAP</span>
             </div>
           </div>
           <p class="ai-note">
-            💡 <strong>Nota metodológica:</strong> con ~45 celdas positivas reales (0.07%) y validación
-            espacial estricta, un ROC-AUC de ~0.6 es lo esperable. Una versión previa reportaba 0.9966
-            por fuga de información (la etiqueta usaba un índice derivado de las mismas señales).
+            💡 <strong>Nota metodológica:</strong> entrenado con panel multi-fecha real (818 244 observaciones,
+            2 255 focos FIRMS en temporadas secas 2024–2026, NDVI Sentinel-2 al 99.5% y 21 variables físicas).
+            Validado sin fuga por bloques espaciales de 50 km (StratifiedGroupKFold) y corte temporal futuro (2024–2025 → 2026).
           </p>
           <p class="ai-note">
             💡 <strong>¿Por qué no Deep Learning?</strong> LightGBM es más interpretable

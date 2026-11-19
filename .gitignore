@@ -6,3 +6,5 @@ __pycache__/
 .DS_Store
 data/cache/
 data/citizen_reports.jsonl
+data/dataset_panel.parquet
+data/firms_multidate.csv

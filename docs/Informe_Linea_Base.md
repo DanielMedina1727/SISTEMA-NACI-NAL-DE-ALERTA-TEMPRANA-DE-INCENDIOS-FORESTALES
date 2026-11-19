@@ -50,12 +50,16 @@
 
 ## 4. Línea Base Técnica y de Configuración (Antes vs. Después)
 
-| Indicador | Línea Base (Antes) | Línea Base Final (v2.3.0) |
-|---|---|---|
-| ROC-AUC espacial | 0.413 (baseline tutorial) / 0.500 (azar) | **0.6489 ± 0.0685** |
-| PR-AUC | 0.0006 (prevalencia 0.00066) | **0.0017 ± 0.0015** (2.6× azar) |
-| Recall@Top-10% / Top-20% | 10% / 20% (azar) | **19.44% / 45.11%** |
-| Cobertura territorial automatizada | 0 celdas (proceso manual) | **67 640 celdas (~1 km²)** |
-| Pruebas automatizadas | 0 | **58/58 passed (4 niveles)** |
-| Errores análisis estático (`ruff`) | No medido | **0 errores** |
-| Repositorio y rama base | `main` en GitHub (`DanielMedina1727/...`) | Versionado con CI en GitHub Actions |
+| Indicador | Línea Base (Antes) | Línea Base v2.3.0 (1 fecha) | Línea Base Final v2.5.0 (Panel Multi-Fecha 2024–2026) |
+|---|---|---|---|
+| Observaciones / Positivos reales | 0 (manual) | 68 187 / 45 (0.066%) | **818 244 / 2 255 (0.276%, 12 fechas)** |
+| Cobertura NDVI real (Sentinel-2) | No integrada | 2.20% (bug `src_transform`) | **99.48% (45/45 positivos en snapshot)** |
+| Variables predictoras | 0 | 18 | **21 (+`vpd_kpa`, `viento_pendiente`, `indice_sequedad`)** |
+| ROC-AUC espacial (5-fold OOF) | 0.413 / 0.500 (azar) | 0.6489 ± 0.0685 | **0.7799 ± 0.0212** (+0.131; varianza −3.2×) |
+| Validación temporal (2024–2025 → 2026) | No realizada | No aplicable (1 fecha) | **ROC-AUC 0.7006** · PR-AUC 0.0058 (`437` positivos futuros) |
+| PR-AUC | 0.0006 | 0.0017 (2.6× azar) | **0.0104 (3.77× prevalencia)** |
+| Recall@Top-1% / Top-5% | 1% / 5% (azar) | 1.05% / 5.05% | **6.30% (6.3×) / 21.53% (4.3×)** |
+| Recall@Top-10% / Top-20% | 10% / 20% (azar) | 19.44% / 45.11% | **35.69% (3.6×) / 55.38% (2.8×)** |
+| Pruebas automatizadas | 0 | 58/58 passed | **60/60 passed (4 niveles + XAI SHAP)** |
+| Errores análisis estático (`ruff`) | No medido | 0 errores | **0 errores** |
+

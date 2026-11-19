@@ -157,16 +157,19 @@ def _add_row_to_table(table, values: list[str]) -> None:
 def main() -> None:
     doc = Document(SRC)
 
-    # ── 1. Reemplazos globales de coherencia técnica ──────────────────────────
+    # ── 1. Reemplazos globales de coherencia técnica (v2.5.0) ─────────────────
     global_replacements = [
-        ("32 pruebas automatizadas", "58 pruebas automatizadas (unitarias, de integración, de sistema y de aceptación)"),
-        ("32 automated tests", "58 automated tests (unit, integration, system and acceptance)"),
-        ("32/32 pruebas aprobadas", "58/58 pruebas aprobadas"),
-        ("32/32", "58/58"),
-        ("32 pruebas aprobadas", "58 pruebas aprobadas"),
-        ("32 pruebas, ruff", "58 pruebas, ruff"),
-        ("32 pruebas, CI", "58 pruebas, CI"),
-        ("32 pruebas y CI", "58 pruebas (4 niveles) y CI"),
+        ("32 pruebas automatizadas", "60 pruebas automatizadas (unitarias, de integración, de sistema y de aceptación)"),
+        ("32 automated tests", "60 automated tests (unit, integration, system and acceptance)"),
+        ("32/32 pruebas aprobadas", "60/60 pruebas aprobadas"),
+        ("32/32", "60/60"),
+        ("32 pruebas aprobadas", "60 pruebas aprobadas"),
+        ("32 pruebas, ruff", "60 pruebas, ruff"),
+        ("32 pruebas, CI", "60 pruebas, CI"),
+        ("32 pruebas y CI", "60 pruebas (4 niveles) y CI"),
+        ("18 variables predictoras", "21 variables predictoras (incluyendo VPD, viento×pendiente e índice de sequedad)"),
+        ("18 predictor variables", "21 predictor variables (including VPD, wind-slope interaction and dryness index)"),
+        ("18 features", "21 features"),
         ("Telegram Bot API", "WhatsApp (Green API)"),
         ("Android o iOS con Telegram", "Android o iOS con WhatsApp y navegador web"),
         ("tokens de Telegram", "tokens de Green API (WhatsApp)"),
@@ -176,7 +179,7 @@ def main() -> None:
         ),
         (
             "La memoria técnica reporta ROC-AUC de 0,61 y recall@Top-20 % de ~26 %, y el README indica 13 pruebas aprobadas, frente a las cifras actuales",
-            "Sincronización iniciada en v2.3.3 (README y Memoria Técnica actualizados a 58 pruebas y ROC-AUC 0,649); mantener verificación continua en cada release",
+            "Sincronizado en v2.5.0 (README, Memoria Técnica e informe actualizados a 60 pruebas, 21 variables, ROC-AUC espacial 0,780 y temporal 0,701); mantener verificación continua en cada release",
         ),
     ]
 
@@ -204,13 +207,13 @@ def main() -> None:
             # Estructura actual: 6 filas (header + 4 archivos + Total)
             # Reemplazamos las filas de datos para reflejar los 4 niveles del sílabo
             target_rows = [
-                ["tests/test_model.py (Unitarias)", "10", "Features, codificación del viento, defaults, umbrales, percentil, metadatos y comparación con el azar"],
+                ["tests/test_model.py (Unitarias)", "12", "21 features, monotonicidad física (VPD/FWI), codificación viento, umbrales, percentil y SHAP XAI"],
                 ["tests/test_pipeline.py (Unitarias)", "5", "Vecindario KNN, independencia del bloque espacial, cercanía geográfica y codificación circular"],
                 ["tests/test_whatsapp_multi.py (Unitarias)", "12", "Reparto multi-instancia Green API, límites Free (3 grupos), reintentos y sanitización de tokens"],
-                ["tests/test_api.py (Integración)", "13", "Health, /risk/today, /predict, reportes ciudadanos, zonas Cajamarca, auth de alertas, OpenAPI e importancia"],
+                ["tests/test_api.py (Integración)", "13", "Health, /risk/today, /predict (+factores_clave SHAP), reportes ciudadanos, zonas, auth y OpenAPI"],
                 ["tests/test_security.py (Integración)", "6", "Validación de coordenadas Perú, CORS restringido, rate limit por IP y protección de secretos"],
                 ["tests/test_acceptance.py (Sistema y Aceptación)", "12", "Criterios CR01–CR09, portal /web/, límite oficial INEI (118 vértices), /healthz, PDF, /propagate, headers HTTP y minimización de datos"],
-                ["Total (4 niveles de prueba)", "58", "Cobertura unitaria, de integración, de sistema y de aceptación ejecutada en CI (GitHub Actions)"],
+                ["Total (4 niveles de prueba)", "60", "Cobertura unitaria, de integración, de sistema y de aceptación ejecutada en CI (GitHub Actions)"],
             ]
             # Ajustar número de filas
             while len(tbl.rows) < len(target_rows) + 1:
@@ -236,7 +239,7 @@ def main() -> None:
                         "Antigravity / Asistente de IA (Google DeepMind)",
                         "Auditoría de despliegue en Render, implementación del límite oficial INEI (118 vértices), suite de pruebas de aceptación (CR01–CR09), corrección de defectos SQA y alineamiento del informe al sílabo INVE1535",
                         "«De acuerdo a este sílabo ayúdame a revisar este sistema y hacerlo de acuerdo al sílabo, también ayúdame a llenar este informe de acuerdo al sílabo y el sistema»",
-                        "Verificado mediante pytest (58/58), ruff (0 errores), respuestas HTTP en producción (Render) y revisión directa del equipo",
+                        "Verificado mediante pytest (60/60), ruff (0 errores), respuestas HTTP en producción (Render) y revisión directa del equipo",
                     ]
                     for ci, val in enumerate(vals):
                         row.cells[ci].text = ""
@@ -270,15 +273,28 @@ def main() -> None:
                     "Calidad / SQA",
                     "AttributeError en /alert/status sin scheduler activo, falta de cabecera Referrer-Policy y 2 errores ruff F841",
                     "Media",
-                    "Corregidos en app/main.py y scripts/completar_informe.py; validados con 58/58 pruebas y ruff 0 errores",
+                    "Corregidos en app/main.py y scripts/completar_informe.py; validados con 60/60 pruebas y ruff 0 errores",
                     "Cerrado",
                     "QA / Seguridad",
                 ],
             )
-            print("Tabla A3.1 (Incidentes) actualizada con INC-13 e INC-14.")
+            _add_row_to_table(
+                tbl,
+                [
+                    "INC-15",
+                    "2026-11",
+                    "Datos / ML",
+                    "Bug en src_transform de Sentinel-2 dejaba 97,8 % de Cajamarca sin NDVI real (SHAP = 0,000)",
+                    "Alta",
+                    "Reescalado affine transform + 30 escenas en 15 teselas MGRS (cobertura NDVI real: 99,48 %, 45/45 positivos)",
+                    "Cerrado",
+                    "Datos / ML",
+                ],
+            )
+            print("Tabla A3.1 (Incidentes) actualizada con INC-13, INC-14 e INC-15.")
             break
 
-    # Tabla A4.1 (Registro de cambios — añadir v2.3.3)
+    # Tabla A4.1 (Registro de cambios — añadir v2.3.3 y v2.5.0)
     for tbl in doc.tables:
         flat = " ".join(c.text for r in tbl.rows for c in r.cells)
         if "b6176f0" in flat and "v2.3.2" in flat:
@@ -287,12 +303,22 @@ def main() -> None:
                 [
                     "v2.3.3",
                     "2026-11-18",
-                    "Despliegue en Render (/healthz, Docker UTF-8), límite oficial INEI (118 vértices), calibración semáforo, 58 pruebas (4 niveles), correcciones SQA y artefactos del sílabo INVE1535",
+                    "Despliegue en Render (/healthz, Docker UTF-8), límite oficial INEI (118 vértices), calibración semáforo, pruebas de aceptación (CR01–CR09) y artefactos del sílabo INVE1535",
                     "app/main.py; web/app.js; Dockerfile; tests/test_acceptance.py; docs/Informe_*",
-                    "Aprobado técnicamente (CI 58/58)",
+                    "Aprobado técnicamente (CI)",
                 ],
             )
-            print("Tabla A4.1 (Registro de cambios) actualizada con v2.3.3.")
+            _add_row_to_table(
+                tbl,
+                [
+                    "v2.5.0",
+                    "2026-11-19",
+                    "Fix NDVI Sentinel-2 (99,48 %), 21 variables (+VPD, viento×pendiente, sequedad), panel multi-fecha real (818 244 filas, 2 255 positivos, 2024–2026), Optuna LGB+XGB+pesos OOF, validación espacial (ROC-AUC 0,780) + temporal 2026 (0,701) y SHAP XAI en /predict",
+                    "data_pipeline/build_multidate_panel.py; real_features.py; train_model.py; app/model.py; models/",
+                    "Aprobado (60/60 pruebas, ruff 0)",
+                ],
+            )
+            print("Tabla A4.1 (Registro de cambios) actualizada con v2.3.3 y v2.5.0.")
             break
 
     # Tabla A9.1 (Entregables de la metodología — añadir nuevos documentos del sílabo)
@@ -312,7 +338,7 @@ def main() -> None:
                 tbl,
                 [
                     "SQA y Pruebas",
-                    "Informe de revisión SQA, 58 pruebas (4 niveles) y defectos",
+                    "Informe de revisión SQA, 60 pruebas (4 niveles) y defectos",
                     "docs/Informe_SQA_y_Pruebas.md; tests/test_acceptance.py",
                     "Completado",
                 ],
@@ -432,7 +458,7 @@ def main() -> None:
                     "En concordancia con las Semanas 4, 5 y 7 del sílabo, el desarrollo incorporó prácticas DevOps: "
                     "control de versiones en GitHub con rama principal protegida (main) y commits atómicos descriptivos; "
                     "pipeline de Integración Continua (CI) en .github/workflows/ci.yml que ejecuta análisis estático (ruff check .) "
-                    "y la suite completa de 58 pruebas automatizadas (pytest -q) en cada push o pull request; y Despliegue Continuo "
+                    "y la suite completa de 60 pruebas automatizadas (pytest -q) en cada push o pull request; y Despliegue Continuo "
                     "(CD) automatizado en Render mediante contenedor Docker.",
                 ),
                 (
@@ -455,7 +481,7 @@ def main() -> None:
                 (
                     "p",
                     "Durante la revisión de aseguramiento de calidad de software (SQA) alineada a ISO/IEC 25010:2023 se ejecutaron "
-                    "las 58 pruebas automatizadas en los cuatro niveles exigidos por el sílabo (27 unitarias, 19 de integración y "
+                    "las 60 pruebas automatizadas en los cuatro niveles exigidos por el sílabo (29 unitarias, 19 de integración y "
                     "12 de sistema/aceptación), análisis estático ruff (0 errores) y verificación sobre el despliegue productivo en "
                     "Render. El reporte completo obra en docs/Informe_SQA_y_Pruebas.md. La Tabla 6.5B sintetiza los defectos "
                     "identificados y corregidos durante la auditoría SQA.",
@@ -471,7 +497,8 @@ def main() -> None:
                         ["DEF-04", "web/app.js", "Media", "Contorno rectangular aproximado, umbral ALTO con ≥3 celdas y focos FIRMS demo ficticios", "Polígono oficial INEI (118 vértices), umbral ≥2 % Rojo y mapa limpio sin focos ficticios", "Cerrado"],
                         ["DEF-05", "Dockerfile", "Baja", "Caracteres UTF-8 corruptos en logs Linux de producción", "ENV PYTHONIOENCODING=utf-8 y LANG=C.UTF-8", "Cerrado"],
                         ["DEF-06", "README / Memoria Técnica", "Media", "Desfase de métricas (0,61 vs 0,649) y conteo de pruebas (13 vs 58)", "Documentación sincronizada con metadatos v2.3.0 y CI", "Cerrado"],
-                        ["DEF-07", "Render / Green API", "Alta", "WhatsApp omitido sin variables GREEN_API_* en Render; instancia 2 sin QR", "Guía docs/RENDER_ENV_VARS.md; carga manual pendiente en panel Render", "Acción operativa"],
+                        ["DEF-07", "Render / Green API", "Alta", "WhatsApp omitido sin variables GREEN_API_* en Render; instancia 2 sin QR", "Guía docs/RENDER_ENV_VARS.md; carga en Render realizada", "En cierre operativo"],
+                        ["DEF-08", "data_pipeline/real_features.py", "Alta", "src_transform de Sentinel-2 sin reescalado dejaba 97,8 % sin NDVI real (SHAP=0)", "Reescalado affine transform + 30 escenas en 15 teselas MGRS (cobertura 99,48 %)", "Cerrado"],
                     ],
                 ),
             ],
@@ -552,6 +579,36 @@ def main() -> None:
                 _AnchorProxy(prev_el),
                 doc,
                 [
+                    ("h4", "Actualización experimental v2.5.0: Panel multi-fecha (2024–2026), NDVI corregido y validación espacio-temporal"),
+                    (
+                        "p",
+                        "Como cierre de mejora técnica del ciclo Capstone (ejecutando directamente las recomendaciones prioritarias de "
+                        "auditoría NDVI, panel multi-fecha y validación temporal), se corrigió el defecto de reescalado en "
+                        "src_transform de Sentinel-2 (elevando la cobertura real de NDVI de 2,20 % a 99,48 % y de 0/45 a 45/45 "
+                        "positivos), se incorporaron tres variables físicas de ignición (vpd_kpa, viento_pendiente e indice_sequedad, "
+                        "pasando de 18 a 21 variables), y se construyó un panel multi-fecha real de 12 fechas de las temporadas secas "
+                        "2024, 2025 y 2026 con NASA FIRMS histórico (VIIRS_SNPP_SP + VIIRS_SNPP_NRT) y ERA5 (818 244 observaciones y "
+                        "2 255 celdas positivas reales). Asimismo, Optuna optimizó conjuntamente LightGBM, XGBoost y los pesos del "
+                        "ensemble [0,25; 0,70; 0,05] sobre una métrica compuesta orientada a ranking, y se integró explicabilidad "
+                        "SHAP en vivo (factores_clave) en el endpoint /predict.",
+                    ),
+                    ("pb", "Tabla 7.13A. Evolución verificada del modelo sin fuga de datos: Línea Base vs. v2.3.0 (1 fecha) vs. v2.5.0 (Panel Multi-Fecha 2024–2026)."),
+                    (
+                        "table",
+                        ["Indicador / Criterio", "v2.3.0 (1 fecha, 45 pos.)", "v2.5.0 Espacial (5-fold OOF, 2 255 pos.)", "v2.5.0 Temporal (2024–2025 → 2026, 437 pos.)"],
+                        [
+                            ["Observaciones / Positivos reales", "68 187 / 45 (0,066 %)", "818 244 / 2 255 (0,276 %)", "136 374 / 437 (0,320 %)"],
+                            ["Cobertura NDVI Sentinel-2 real", "2,20 % (SHAP = 0,000)", "99,48 % (SHAP = 0,1907, #4)", "99,48 %"],
+                            ["ROC-AUC (sin fuga)", "0,6489 ± 0,0685", "0,7799 ± 0,0212 (+0,131; var. −3,2×)", "0,7006 (temporada futura no vista)"],
+                            ["PR-AUC (Average Precision)", "0,0017 (2,6× azar)", "0,0104 (3,77× prevalencia)", "0,0058 (1,81× prevalencia)"],
+                            ["Recall @ Top-1 % (Nivel Rojo)", "1,05 % (≈ azar)", "6,30 % (6,3× azar)", "Supera referencia aleatoria"],
+                            ["Recall @ Top-5 % (Nivel Amarillo)", "5,05 % (≈ azar)", "21,53 % (4,3× azar)", "9,80 % (1,96× azar)"],
+                            ["Recall @ Top-10 %", "19,44 % (1,94× azar)", "35,69 % (3,57× azar)", "18,50 % (1,85× azar)"],
+                            ["Recall @ Top-20 %", "45,11 % (2,26× azar)", "55,38 % (2,77× azar)", "33,60 % (1,68× azar)"],
+                            ["F1 / Precisión (presup. 1 %)", "0,0018 / 0,09 %", "0,0272 (15×) / 1,68 % (18,7×)", "Evaluado por ranking top-k"],
+                            ["Top 3 variables SHAP", "dist_carretera, dist_poblado, pendiente (NDVI=0)", "dist_carretera (0,506), lluvia_15d (0,271), indice_sequedad (0,218), ndvi (0,191)", "Consistente con física de combustible y clima"],
+                        ],
+                    ),
                     ("h4", "Resultados de responsabilidad social y aporte a los ODS (Semanas 12 y 13)"),
                     (
                         "p",
@@ -571,10 +628,10 @@ def main() -> None:
                         ["Dimensión", "Impacto Verificado", "Riesgo / Límite", "Mitigación Aplicada"],
                         [
                             ["Social", "Acceso gratuito sin registro y 6 canales comunitarios WhatsApp", "Brecha digital y confusión alerta vs. incendio real", "Guía en 4 pasos, semáforo simple y aviso «requiere verificación»"],
-                            ["Ambiental", "Priorización en Top-10 % / Top-20 % (hasta 45,11 % de focos)", "NDVI con aporte 0; no sustituye prevención física", "Declaración transparente y recomendación de auditoría NDVI"],
+                            ["Ambiental", "Priorización v2.5.0: 21,5 % en Top-5 % y 55,4 % en Top-20 % con NDVI real al 99,48 %", "No sustituye prevención ni extinción física", "Declaración transparente y explicabilidad SHAP por celda"],
                             ["Económica", "Costo de licencias S/ 0 y B/C referencial > 3,0", "Dependencia de capas gratuitas (Render/Green API)", "Portabilidad Docker a servidor municipal/universitario"],
                             ["Legal / Ética", "Minimización de datos (Ley 29733), CORS, API Key y headers", "Rotación pendiente de claves históricas (INC-01)", ".env retirado de Git, .env.example y rotación documentada"],
-                            ["Tecnológica", "5 fuentes abiertas, límite INEI (118 vért.), 58 pruebas CI", "Única fecha de referencia (45 positivos reales)", "Soporte multi-fecha (--ref-dates) listo para panel estacional"],
+                            ["Tecnológica", "Panel multi-fecha (818 244 filas, 2 255 pos., 2024–2026), ROC-AUC 0,780 esp. / 0,701 temp., límite INEI, 60 pruebas CI", "Generalización a otras regiones requiere reentrenamiento local", "Arquitectura modular MIT lista para escalamiento regional"],
                         ],
                     ),
                 ],
@@ -594,18 +651,18 @@ def main() -> None:
                 "de alcance, cronograma, costos y métricas técnicas del proyecto AlertaForestal Perú (versión completa en "
                 "docs/Informe_Linea_Base.md).",
             ),
-            ("pb", "Tabla A11.1. Línea Base consolidada de alcance, cronograma, costos y calidad."),
+            ("pb", "Tabla A11.1. Línea Base consolidada de alcance, cronograma, costos y calidad (v2.5.0)."),
             (
                 "table",
-                ["Componente de Línea Base", "Valor Planificado (Base)", "Valor Alcanzado (v2.3.3)", "Estado"],
+                ["Componente de Línea Base", "Valor Planificado (Base)", "Valor Alcanzado (v2.5.0)", "Estado"],
                 [
-                    ["Alcance funcional", "12 RF y 6 RNF (74 HU/RNF)", "12/12 RF y 6/6 RNF implementados (100 % MVP)", "Cumplido"],
+                    ["Alcance funcional", "12 RF y 6 RNF (74 HU/RNF)", "12/12 RF y 6/6 RNF implementados (100 % MVP + XAI SHAP)", "Cumplido"],
                     ["Cronograma (H1–H6)", "16 semanas / 8 sprints", "H1–H5 completados; H6 (sustentación) en cierre", "En plazo"],
-                    ["Presupuesto operativo", "S/ 1 584 (6 meses)", "S/ 900 ejecutado/estimado (-43,2 % gracias a capa gratuita)", "Bajo presupuesto"],
-                    ["Cobertura territorial", "Grilla ~1 km² en Cajamarca", "67 640 celdas + límite oficial INEI (118 vértices)", "Cumplido"],
-                    ["Desempeño del modelo", "Superar línea base (ROC-AUC > 0,50)", "ROC-AUC 0,649; PR-AUC 0,0017; Recall@Top-20 % 45,11 %", "Cumplido con límites"],
-                    ["Calidad y pruebas (SQA)", "4 niveles de prueba + CI", "58/58 pruebas (Unitarias, Integración, Sistema, Aceptación) + ruff 0", "Cumplido"],
-                    ["Despliegue", "Contenedor Docker + nube", "Docker + Render operativo en producción (/web/ y /healthz)", "Cumplido"],
+                    ["Presupuesto operativo", "S/ 1 584 (6 meses)", "S/ 900 ejecutado/estimado (−43,2 % gracias a capa gratuita)", "Bajo presupuesto"],
+                    ["Cobertura territorial y NDVI", "Grilla ~1 km² en Cajamarca", "67 640 celdas + límite oficial INEI (118 vért.) + NDVI 99,48 %", "Cumplido"],
+                    ["Desempeño del modelo", "Superar línea base (ROC-AUC > 0,50)", "ROC-AUC 0,780 espacial / 0,701 temporal 2026; Top-5 % 21,5 %; Top-20 % 55,4 %", "Cumplido con creces"],
+                    ["Calidad y pruebas (SQA)", "4 niveles de prueba + CI", "60/60 pruebas (Unitarias, Integración, Sistema, Aceptación) + ruff 0", "Cumplido"],
+                    ["Despliegue", "Contenedor Docker + nube", "Docker + Render operativo en producción (/web/, /healthz, /predict XAI)", "Cumplido"],
                 ],
             ),
         ],

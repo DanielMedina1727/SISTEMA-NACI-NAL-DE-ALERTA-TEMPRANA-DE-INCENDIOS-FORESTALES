@@ -84,12 +84,12 @@ def generate_executive_pdf(risk_data: dict) -> bytes:
             Paragraph(f"<b>Fecha / Hora Sello:</b> {now_str}", body_style)
         ],
         [
-            Paragraph("<b>Modelo Evaluador:</b> Ensemble (LightGBM + XGBoost + RandomForest) v2.4.0-XAI (21 variables)", body_style),
+            Paragraph("<b>Modelo Evaluador:</b> Ensemble (LightGBM + XGBoost + RandomForest) v2.5.0-XAI (21 variables)", body_style),
             Paragraph(f"<b>Firma Digital Hash SHA-256:</b> <font color='#c0392b'>{data_hash}</font>", body_style)
         ],
         [
-            Paragraph("<b>Tipo de Índice:</b> Índice de susceptibilidad diaria (ranking relativo + SHAP)", body_style),
-            Paragraph("<b>Desempeño:</b> ROC-AUC 0.65 · Recall@Top-5% 12.7% (2.5x azar)", body_style)
+            Paragraph("<b>Tipo de Índice:</b> Índice de susceptibilidad diaria multi-fecha (2024-2026) + SHAP", body_style),
+            Paragraph("<b>Desempeño:</b> ROC-AUC 0.78 (espacial) / 0.70 (temporal 2026) · Top-5% 21.5%", body_style)
         ]
     ]
 

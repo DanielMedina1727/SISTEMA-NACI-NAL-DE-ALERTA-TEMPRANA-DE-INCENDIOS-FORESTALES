@@ -29,13 +29,14 @@ Aunque la ficha general del sílabo indica "ODS: No aplica" a nivel genérico de
 | Dimensión | Impacto Positivo Verificado | Riesgo / Límite Identificado | Medida de Mitigación Aplicada |
 |---|---|---|---|
 | **Social** | Democratiza el acceso a información preventiva de incendios en Cajamarca y facilita el reporte ciudadano georreferenciado. | Brecha de conectividad rural y posible confusión de alertas preventivas con incendios confirmados. | Mensajes breves por WhatsApp, semáforo llano, etiquetas explícitas *"riesgo estimado"* y *"requiere verificación"*. |
-| **Ambiental** | Focaliza la vigilancia preventiva en el Top-10% / Top-20% de mayor susceptibilidad (capturando hasta 45.11% de focos). | No extingue incendios ni captura aún el vigor real de combustible vía NDVI (importancia SHAP = 0). | Declarado explícitamente como herramienta de apoyo; recomendada auditoría NDVI y panel multi-fecha. |
+| **Ambiental** | Focaliza vigilancia preventiva con `v2.5.0` capturando **21.5 % en Top-5 %**, **35.7 % en Top-10 %** y **55.4 % en Top-20 %** de incendios reales, incorporando NDVI real al 99.48 %. | No extingue incendios ni sustituye protocolos de campo. | Declarado explícitamente como herramienta preventiva de apoyo con explicabilidad SHAP por celda. |
 | **Económico** | Costo de licencias S/ 0 (software libre y datos abiertos); costo operativo estimado S/ 180/mes frente a S/ 3 520/mes de consolidación manual. | Dependencia de planes gratuitos (Render, Green API) y mantenimiento voluntario. | Contenedor Docker portable a cualquier servidor municipal o universitario de bajo costo. |
 | **Legal / Profesional** | Cumplimiento de minimización de datos (Ley 29733), cabeceras de seguridad, CORS restringido y API Key en endpoints sensibles. | Incidente histórico INC-01 (`.env` versionado) y `ADMIN_API_KEY` opcional en modo demo. | Retiro de `.env` del índice Git, `.gitignore`, `.env.example`, rotación obligatoria de claves documentada. |
-| **Tecnológico** | Fusión reproducible de 5 fuentes heterogéneas, 58 pruebas automatizadas (4 niveles), CI/CD y límite departamental oficial INEI (118 vértices). | Entrenamiento con una sola fecha de referencia (45 positivos reales). | Pipeline ya soporta `--ref-dates` y `--start-date` para escalamiento multi-temporal. |
+| **Tecnológico** | Fusión reproducible de 5 fuentes abiertas, panel multi-fecha real (818 244 filas, 2 255 positivos, 2024–2026), validación espacial (`ROC-AUC 0.780`) y temporal (`0.701`), 60 pruebas CI y límite oficial INEI (118 vértices). | Generalización a otras regiones requiere reentrenamiento local; NDVI estático entre años. | Arquitectura modular y abierta (MIT) lista para escalamiento regional y mosaicos NDVI estacionales. |
 
 ---
 
 ## 4. Juicio Profesional Sustentado
 
 Con base en la evidencia técnica y ética recopilada, el equipo emite un **juicio profesional favorable condicionado**: la solución es viable para **despliegue piloto comunitario y académico de priorización preventiva con verificación humana**, pero **no debe operar como sistema oficial de alarma determinista** hasta completar la validación de campo con usuarios, la rotación definitiva de credenciales y el reentrenamiento con un panel multi-temporal de una temporada seca completa (mayo–noviembre).
+

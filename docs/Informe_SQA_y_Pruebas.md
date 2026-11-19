@@ -23,13 +23,13 @@ Se auditó el producto **AlertaForestal Perú** en sus ocho características de 
 
 | Nivel de Prueba | Suite (`tests/`) | N.º Pruebas | Resultado | Tiempo | Qué verifica |
 |---|---|---:|---|---:|---|
-| **Unitarias** | `test_model.py` | 10 | ✅ 10/10 | < 1 s | Features, codificación viento, umbrales, percentil, metadatos |
+| **Unitarias** | `test_model.py` | 12 | ✅ 12/12 | < 1 s | 21 features, monotonicidad física (VPD/FWI), umbrales, percentil, SHAP XAI |
 | **Unitarias** | `test_pipeline.py` | 5 | ✅ 5/5 | < 1 s | Vecindario KNN geográfico, ausencia de fuga espacial |
 | **Unitarias** | `test_whatsapp_multi.py` | 12 | ✅ 12/12 | < 1 s | Reparto multi-instancia Green API, reintentos, sanitización de tokens |
 | **Integración** | `test_api.py` | 13 | ✅ 13/13 | < 1 s | Endpoints REST, reportes ciudadanos, zonas Cajamarca, auth alertas |
 | **Integración** | `test_security.py` | 6 | ✅ 6/6 | < 1 s | CORS restringido, rate limit por IP, bounding box Perú, API Key |
 | **Sistema y Aceptación** | `test_acceptance.py` | 12 | ✅ 12/12 | < 1 s | Criterios CR01–CR09, portal `/web/`, límite INEI 118 vértices, PDF, `/propagate`, `/healthz`, headers HTTP, minimización datos |
-| **TOTAL** | **6 suites** | **58** | **✅ 58/58 (100%)** | **3.25 s** | **Cobertura integral en CI/CD** |
+| **TOTAL** | **6 suites** | **60** | **✅ 60/60 (100%)** | **~4.0 s** | **Cobertura integral en CI/CD (`v2.5.0`)** |
 
 ### Análisis Estático y Auditorías Complementarias
 - **`ruff check .`**: **0 errores** (`All checks passed!`)
@@ -49,9 +49,11 @@ Se auditó el producto **AlertaForestal Perú** en sus ocho características de 
 | DEF-05 | `Dockerfile` | Baja | Caracteres UTF-8 corruptos en logs de producción | Agregados `ENV PYTHONIOENCODING=utf-8` y `LANG=C.UTF-8` | ✅ Cerrado |
 | DEF-06 | `README.md` / `Memoria_Tecnica` | Media | Desfase de métricas (0.61 vs 0.649) y conteo de pruebas (13 vs 58) | Documentación sincronizada con `models/model_metadata.json` y suite actual | ✅ Cerrado |
 | DEF-07 | Operación Render | Alta | Envío WhatsApp devuelve `skipped` si no se configuran `GREEN_API_*` y `WA_GROUP_*` en Render; instancia 2 `notAuthorized` | Documentado en `docs/RENDER_ENV_VARS.md`; pendiente carga manual en panel Render y re-escaneo QR de instancia 2 | ⚠️ Acción operativa |
+| DEF-08 | `data_pipeline/real_features.py` | Alta | `src_transform` de Sentinel-2 no se reescalaba al hacer `out_shape`, dejando 97.8% de Cajamarca sin NDVI real (SHAP=0) | Reescalado de `affine transform` + 30 escenas en 15 teselas MGRS (cobertura NDVI real: **99.48%**, 45/45 positivos) | ✅ Cerrado |
 
 ---
 
 ## 4. Dictamen SQA
 
 El software **APRUEBA** la revisión técnica de calidad (58/58 pruebas automatizadas, 0 errores de análisis estático, despliegue verificado en Render en `/health`, `/healthz`, `/web/`, `/risk/today`, `/report/pdf`, `/propagate`). Las únicas observaciones pendientes son de carácter operativo/campo (configuración de variables secretas en Render y aplicación de encuestas de satisfacción con usuarios finales).
+

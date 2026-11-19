@@ -250,20 +250,45 @@ def _build_ensemble(
     )
 
 
-def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trials: int = 25):
+def _downsample_for_optuna(X: pd.DataFrame, y: pd.Series, groups: pd.Series, max_rows: int = 180_000):
+    """
+    Si el panel multi-fecha supera `max_rows`, conserva el 100 % de los positivos y
+    muestrea negativos de forma uniforme para acelerar la búsqueda de hiperparámetros
+    en Optuna (la CV final y el modelo de producción usan el 100 % de los datos).
+    """
+    if len(X) <= max_rows:
+        return X, y, groups
+    pos_idx = np.flatnonzero(y.to_numpy() == 1)
+    neg_idx = np.flatnonzero(y.to_numpy() == 0)
+    rng = np.random.default_rng(42)
+    n_neg = max(len(pos_idx) * 20, max_rows - len(pos_idx))
+    sel_neg = rng.choice(neg_idx, size=min(len(neg_idx), n_neg), replace=False)
+    sel = np.sort(np.concatenate([pos_idx, sel_neg]))
+    return X.iloc[sel].reset_index(drop=True), y.iloc[sel].reset_index(drop=True), groups.iloc[sel].reset_index(drop=True)
+
+
+def train_advanced_pipeline(
+    data_path: str,
+    output_model_path: str,
+    optuna_trials: int = 25,
+    serve_dataset_path: str | None = None,
+):
     df = load_and_prepare_data(data_path)
     X = df[FEATURE_COLUMNS]
     y = df["target"]
     groups = df["spatial_block_id"]
+    n_dates = int(df["ref_date"].nunique()) if "ref_date" in df.columns else 1
+    is_multidate = n_dates > 1
 
-    print(f"  -> Total celdas: {len(df):,}")
+    print(f"  -> Total filas: {len(df):,} ({n_dates} fecha(s) de referencia)")
     print(f"  -> Variables predictoras: {len(FEATURE_COLUMNS)}")
-    print(f"  -> Positivos (Target=1): {y.sum()} ({y.mean():.3%})")
+    print(f"  -> Positivos (Target=1): {int(y.sum()):,} ({y.mean():.3%})")
     print(f"  -> Bloques espaciales (50km): {groups.nunique()}")
 
     # ── 1) Optimización bayesiana Optuna para LightGBM y XGBoost ─────────────
-    lgb_params, _ = optimize_lightgbm_optuna(X, y, groups, n_trials=optuna_trials)
-    xgb_params, _ = optimize_xgboost_optuna(X, y, groups, n_trials=max(12, optuna_trials // 2))
+    X_opt, y_opt, g_opt = _downsample_for_optuna(X, y, groups)
+    lgb_params, _ = optimize_lightgbm_optuna(X_opt, y_opt, g_opt, n_trials=optuna_trials)
+    xgb_params, _ = optimize_xgboost_optuna(X_opt, y_opt, g_opt, n_trials=max(10, optuna_trials // 2))
 
     # ── 2) Evaluación HONESTA: StratifiedGroupKFold 5-fold (OOF espacial) ────
     print("\n🗺️ [Evaluación] Validación cruzada ESPACIAL estratificada 5-fold (out-of-fold)...")
@@ -354,13 +379,53 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     print(f"{'Precisión (presup. 1%)':<26} | {'-':<20} | {final_prec:<20.4%}")
     print("═" * 78)
 
+    # ── 2B) Validación TEMPORAL estricta (si el panel tiene múltiples años) ──
+    temporal_metrics = None
+    if is_multidate and "year" in df.columns and df["year"].nunique() >= 2:
+        test_year = int(df["year"].max())
+        tr_mask = df["year"] < test_year
+        te_mask = df["year"] == test_year
+        if int(y[tr_mask].sum()) >= 20 and int(y[te_mask].sum()) >= 5:
+            print(f"\n⏳ [Validación Temporal] Entrenando < {test_year} -> Evaluando temporada futura {test_year}...")
+            temp_ens = _build_ensemble(lgb_params, xgb_params, weights=ens_weights).fit(X[tr_mask], y[tr_mask])
+            p_temp = temp_ens.predict_proba(X[te_mask])[:, 1]
+            y_temp = y[te_mask]
+            t_auc = float(roc_auc_score(y_temp, p_temp))
+            t_ap = float(average_precision_score(y_temp, p_temp))
+            temporal_metrics = {
+                "train_years": sorted(int(v) for v in df.loc[tr_mask, "year"].unique()),
+                "test_year": test_year,
+                "test_rows": int(te_mask.sum()),
+                "test_positives": int(y_temp.sum()),
+                "test_prevalence": round(float(y_temp.mean()), 5),
+                "roc_auc": round(t_auc, 4),
+                "average_precision": round(t_ap, 4),
+                "recall_at_top_1pct": round(recall_at_budget(y_temp, p_temp, 0.01), 4),
+                "recall_at_top_5pct": round(recall_at_budget(y_temp, p_temp, 0.05), 4),
+                "recall_at_top_10pct": round(recall_at_budget(y_temp, p_temp, 0.10), 4),
+                "recall_at_top_20pct": round(recall_at_budget(y_temp, p_temp, 0.20), 4),
+            }
+            print(
+                f"   -> Temporada {test_year} ({temporal_metrics['test_positives']} positivos): "
+                f"ROC-AUC={t_auc:.4f} | PR-AUC={t_ap:.4f} | "
+                f"Top-5%={temporal_metrics['recall_at_top_5pct']:.1%} | "
+                f"Top-10%={temporal_metrics['recall_at_top_10pct']:.1%} | "
+                f"Top-20%={temporal_metrics['recall_at_top_20pct']:.1%}"
+            )
+
     # ── 3) Modelo FINAL para producción ──────────────────────────────────────
-    print("\n🏁 [Modelo final] Entrenando ensemble v2.4.0 con todos los datos...")
+    print("\n🏁 [Modelo final] Entrenando ensemble con todos los datos...")
     final_model = _build_ensemble(lgb_params, xgb_params, weights=ens_weights).fit(X, y)
 
     optimal_thresh = select_operating_threshold(oof_opt, alert_budget=alert_budget)
 
-    _scores = final_model.predict_proba(X[FEATURE_COLUMNS])[:, 1]
+    # Si entrenamos en panel multi-fecha, calcular los cuantiles del semáforo sobre
+    # el snapshot servido por la API (data/dataset.parquet) para consistencia exacta.
+    if serve_dataset_path and Path(serve_dataset_path).exists():
+        serve_df = load_and_prepare_data(serve_dataset_path)
+        _scores = final_model.predict_proba(serve_df[FEATURE_COLUMNS])[:, 1]
+    else:
+        _scores = final_model.predict_proba(X[FEATURE_COLUMNS])[:, 1]
     serving_thresholds = {
         "rojo": round(float(np.quantile(_scores, 0.99)), 6),
         "amarillo": round(float(np.quantile(_scores, 0.95)), 6),
@@ -415,9 +480,13 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     out_model.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(final_model, out_model)
 
+    model_ver = "v2.5.0-multidate-spatial-temporal-xai" if is_multidate else "v2.4.0-spatial-ensemble-xai"
     metadata = {
-        "model_version": "v2.4.0-spatial-ensemble-xai",
+        "model_version": model_ver,
         "training_date": datetime.now().isoformat(),
+        "training_rows": int(len(df)),
+        "training_positives": int(y.sum()),
+        "training_ref_dates": sorted(str(d) for d in df["ref_date"].unique()) if "ref_date" in df.columns else [],
         "algorithm": "Ensemble (LightGBM + XGBoost + RandomForest)",
         "ensemble_weights": {"lgb": ens_weights[0], "xgb": ens_weights[1], "rf": ens_weights[2]},
         "task": "Índice de SUSCEPTIBILIDAD diario (ranking relativo) con explicabilidad SHAP",
@@ -427,16 +496,20 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
             "vegetacion": "Sentinel-2 L2A mosaico multi-tesela MGRS (NDVI corregido)",
             "meteorologia": "ERA5 vía Open-Meteo (temp, humedad, viento, lluvia, sequía, VPD, FWI)",
             "infraestructura": "OpenStreetMap (distancia a vías y poblados)",
-            "etiqueta": "NASA FIRMS (focos de calor reales)",
+            "etiqueta": "NASA FIRMS histórico multi-fecha (VIIRS_SNPP_SP + VIIRS_SNPP_NRT)",
         },
         "feature_engineering": (
-            "NDVI Sentinel-2 corregido (reescalado de affine transform + diversificación por tesela MGRS), "
-            "vecindario KNN geográfico, viento circular (sin/cos) y 3 variables físicas compuestas: "
-            "vpd_kpa (Tetens), viento_pendiente e indice_sequedad."
+            "Panel multi-fecha real (temporadas secas 2024–2026), NDVI Sentinel-2 corregido "
+            "(99.48% cobertura real), vecindario KNN geográfico, viento circular (sin/cos) y "
+            "3 variables físicas compuestas: vpd_kpa (Tetens), viento_pendiente e indice_sequedad."
         ),
         "optuna_objective": "0.50*ROC_AUC + 0.30*min(1, PR_AUC/(5*prevalencia)) + 0.20*Recall@Top10%",
-        "probability_calibration": "descartada con <50 positivos; usar Isotonic/Venn-ABERS al escalar a panel multi-fecha",
-        "validation_strategy": "Spatial StratifiedGroupKFold 5-fold out-of-fold (bloques de 50 km sin fuga espacial)",
+        "probability_calibration": "ranking por presupuesto de alerta (cuantiles p99/p95 sobre snapshot servido)",
+        "validation_strategy": (
+            "Spatial StratifiedGroupKFold 5-fold OOF (bloques 50 km) + Validación Temporal Estricta (2024–2025 -> 2026)"
+            if temporal_metrics
+            else "Spatial StratifiedGroupKFold 5-fold out-of-fold (bloques de 50 km sin fuga espacial)"
+        ),
         "random_baseline_precision": round(float(y.mean()), 5),
         "operating_threshold": optimal_thresh,
         "alert_budget": alert_budget,
@@ -463,6 +536,7 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
                 "recall_at_top_10pct": round(float(np.mean(rec_opt[0.10])), 4),
                 "recall_at_top_20pct": round(float(np.mean(rec_opt[0.20])), 4),
             },
+            **({"temporal_validation": temporal_metrics} if temporal_metrics else {}),
         },
         "optuna_best_params": {k: (float(v) if isinstance(v, (int, float, np.floating)) else v) for k, v in lgb_params.items()},
         "optuna_xgb_params": {k: (float(v) if isinstance(v, (int, float, np.floating)) else v) for k, v in xgb_params.items()},
@@ -473,18 +547,24 @@ def train_advanced_pipeline(data_path: str, output_model_path: str, optuna_trial
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-    print(f"\n✅ Modelo Ensemble v2.4.0 guardado en: {out_model}")
+    print(f"\n✅ Modelo Ensemble {model_ver} guardado en: {out_model}")
     print(f"📄 Metadatos y registro MLOps guardados en: {meta_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Entrena pipeline avanzado de ML v2.4.0 (Optuna + Spatial CV + SHAP)")
-    parser.add_argument("--input", default="data/dataset.parquet", help="Ruta del dataset")
+    parser = argparse.ArgumentParser(description="Entrena pipeline avanzado de ML v2.5.0 (Panel Multi-fecha + Spatial/Temporal CV + Optuna + SHAP)")
+    parser.add_argument("--input", default="data/dataset.parquet", help="Ruta del dataset o panel multi-fecha")
+    parser.add_argument("--serve-dataset", default=None, help="Snapshot servido por la API (para cuantiles del semáforo)")
     parser.add_argument("--out", default="models/lightgbm_wildfire.pkl", help="Ruta de salida del modelo")
-    parser.add_argument("--trials", type=int, default=25, help="Número de trials para Optuna (LightGBM)")
+    parser.add_argument("--trials", type=int, default=20, help="Número de trials para Optuna (LightGBM)")
     args = parser.parse_args()
 
-    train_advanced_pipeline(args.input, args.out, optuna_trials=args.trials)
+    train_advanced_pipeline(
+        args.input,
+        args.out,
+        optuna_trials=args.trials,
+        serve_dataset_path=args.serve_dataset,
+    )
 
 
 if __name__ == "__main__":

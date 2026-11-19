@@ -88,14 +88,14 @@ graph TD
 
 **Validación honesta (sin fuga de información):** partición espacial 5-fold *out-of-fold* por bloques de 50 km (GroupKFold), de modo que ninguna celda de test comparte vecindad de 50 km con el entrenamiento. Con solo **45 celdas positivas reales** (0.066%), esta es la única estimación defendible.
 
-- **Algoritmo:** Ensemble (LightGBM + XGBoost + RandomForest — `v2.3.0-spatial-ensemble-real`), sin calibración de probabilidades
-- **Etiqueta (target):** `fire_count > 0` (presencia real de focos NASA FIRMS en la celda; 45 positivos en 68 187 celdas, prevalencia 0.066%)
-- **ROC-AUC (media por fold):** `0.6489 ± 0.0685` (línea base tutorial: `0.4132`; azar: `0.5000`)
-- **PR-AUC (Average Precision):** `0.0017 ± 0.0015` (2.6× la prevalencia aleatoria de `0.00066`)
-- **Recall @ Top-1% / Top-5% de celdas:** `1.05%` / `5.05%` (equivalente al azar — el semáforo es criterio de ranking prioritario)
-- **Recall @ Top-10% de celdas:** `19.44%` (`1.94×` lo esperado por azar)
-- **Recall @ Top-20% de celdas:** `45.11%` (`2.26×` lo esperado por azar)
-- **Pruebas automatizadas:** `58/58 passed` (Unitarias, Integración, Sistema y Aceptación) + `ruff check .` (0 errores)
+- **Algoritmo:** Ensemble (LightGBM + XGBoost + RandomForest — `v2.5.0-multidate-spatial-temporal-xai`, pesos OOF `[0.25, 0.70, 0.05]`), 21 variables físicas y explicabilidad SHAP en `/predict`
+- **Panel de entrenamiento:** 12 fechas reales (temporadas secas 2024–2026), `818 244` observaciones, `2 255` celdas positivas reales NASA FIRMS (`0.276%`) y cobertura NDVI Sentinel-2 del `99.48%` (`45/45` positivos en snapshot)
+- **ROC-AUC espacial (5-fold `StratifiedGroupKFold` OOF):** `0.7799 ± 0.0212` (línea base tutorial: `0.6645`; azar: `0.5000`)
+- **PR-AUC (Average Precision):** `0.0104` (`3.77×` la prevalencia de `0.00276`)
+- **Recall por presupuesto de alerta:** Top-1% **`6.30%`** (`6.3×` azar) · Top-5% **`21.53%`** (`4.3×` azar) · Top-10% **`35.69%`** (`3.6×` azar) · Top-20% **`55.38%`** (`2.8×` azar)
+- **Validación temporal estricta (`2024–2025 → 2026`, `437` positivos futuros):** `ROC-AUC = 0.7006` · `PR-AUC = 0.0058` · `Recall@Top-20% = 33.6%`
+- **Top SHAP drivers:** `dist_carretera_m` (0.506), `lluvia_acum_15d` (0.271), `indice_sequedad` (0.218), `ndvi` (0.191), `elevacion_m` (0.169), `vpd_kpa` (0.166)
+- **Pruebas automatizadas:** `60/60 passed` (Unitarias, Integración, Sistema y Aceptación) + `ruff check .` (0 errores)
 
 **Fuentes de datos reales (todas sin credenciales):**
 - **Terreno:** Copernicus DEM GLO-30 (pendiente, aspecto, elevación).
