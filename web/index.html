@@ -23,7 +23,7 @@
   <!-- Leaflet Heatmap -->
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20261119_v250" />
 </head>
 
 <body>
@@ -324,19 +324,42 @@
       <!-- Controles del mapa -->
       <div class="map-controls">
         <div class="map-filters">
-          <label class="filter-label">📍 Filtrar por región:</label>
+          <label class="filter-label">📍 Zona / Provincia:</label>
           <select class="filter-select" id="regionFilter" onchange="filterByRegion()">
-            <option value="all">Todo Perú</option>
-            <option value="cajamarca" selected>Cajamarca</option>
-            <option value="norte">Sector Norte</option>
-            <option value="sur">Sector Sur</option>
+            <option value="cajamarca" selected>Cajamarca (Todo el Dpto.)</option>
+            <option value="prov_cajamarca">Cajamarca (Capital)</option>
+            <option value="chota">Chota</option>
+            <option value="celendin">Celendín</option>
+            <option value="bambamarca">Bambamarca (Hualgayoc)</option>
+            <option value="san_marcos">San Marcos</option>
+            <option value="san_pablo">San Pablo</option>
+            <option value="jaen">Jaén</option>
+            <option value="san_ignacio">San Ignacio</option>
+            <option value="cutervo">Cutervo</option>
+            <option value="cajabamba">Cajabamba</option>
           </select>
-          <label class="filter-label">⏱ Ver focos de:</label>
+          <label class="filter-label">🎯 Vista IA:</label>
+          <select class="filter-select" id="riskViewFilter" onchange="loadMapData()">
+            <option value="alerts" selected>🔴 Solo Alerta y Vigilancia</option>
+            <option value="all">🌐 Todas las grillas</option>
+          </select>
+          <label class="filter-label">⏱ Focos VIIRS:</label>
           <select class="filter-select" id="timeFilter" onchange="loadFIRMSHotspots()">
             <option value="1" selected>Últimas 24 horas</option>
             <option value="2">Últimas 48 horas</option>
             <option value="3">Últimas 72 horas</option>
           </select>
+        </div>
+        <div class="map-actions-bar">
+          <button type="button" class="map-action-btn" onclick="locateOnMainMap()" title="Centrar mapa en tu ubicación GPS">
+            📍 Ubicarme
+          </button>
+          <a href="#" id="btnDownloadPdf" class="map-action-btn primary" onclick="downloadExecutivePdf(event)" title="Descargar informe ejecutivo diario en PDF">
+            📄 Informe PDF
+          </a>
+          <button type="button" class="map-action-btn" id="btnFullscreen" onclick="toggleMapFullscreen()" title="Ver mapa en pantalla completa">
+            ⛶ Pantalla completa
+          </button>
         </div>
         <div class="map-layer-toggles">
           <label class="toggle-switch" title="Muestra una nube de calor difusa sobre las zonas de mayor riesgo">
@@ -354,38 +377,61 @@
             <span class="toggle-slider"></span>
             <span class="toggle-text">🛰️ Focos satelitales reales</span>
           </label>
-          <label class="toggle-switch" title="Muestra los límites geográficos del área de monitoreo de Cajamarca">
+          <label class="toggle-switch" title="Muestra los 4 hitos geográficos cardinales extremos de Cajamarca">
             <input type="checkbox" id="toggleExtremes" onchange="toggleExtremesLayer()">
             <span class="toggle-slider"></span>
-            <span class="toggle-text">🧭 Límites de Cajamarca</span>
+            <span class="toggle-text">🧭 Puntos cardinales</span>
           </label>
         </div>
       </div>
 
-      <div class="map-wrapper">
+      <div class="map-wrapper" id="mapWrapper">
         <div id="map"></div>
-        <div class="map-legend">
-          <div class="legend-title">🗺️ Leyenda</div>
-          <div class="legend-section-label">Nivel de riesgo (IA)</div>
-          <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Alerta alta — top 1% de riesgo
-            <span class="legend-help" title="El 1% de zonas con mayor puntuación de riesgo en el departamento hoy. Condiciones muy favorables para un incendio." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
-          </div>
-          <div class="legend-item"><span class="legend-dot orange"></span> <b>Amarillo:</b> Vigilancia — top 5%
-            <span class="legend-help" title="El 5% de zonas con mayor puntuación (incluye el 1% rojo). Se recomienda precaución." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
-          </div>
-          <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Riesgo bajo — sin alarma</div>
 
-          <div class="legend-section-label" style="margin-top:0.5rem;">Focos satelitales</div>
-          <div class="legend-item">
-            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;margin-right:4px"></span>
-            <b>Círculo:</b> Foco de calor NASA VIIRS
+        <!-- Badge discreto del modelo activo -->
+        <div class="map-model-badge" id="mapModelBadge">🤖 Modelo v2.5.0 · 21 variables · NDVI Sentinel-2</div>
+
+        <!-- Selector flotante de Mapa Base -->
+        <div class="map-basemap-bar" role="group" aria-label="Selector de mapa base">
+          <button type="button" class="basemap-btn active" data-basemap="dark" onclick="switchBasemap('dark')">🗺️ Oscuro</button>
+          <button type="button" class="basemap-btn" data-basemap="satellite" onclick="switchBasemap('satellite')">🛰️ Satélite</button>
+          <button type="button" class="basemap-btn" data-basemap="topo" onclick="switchBasemap('topo')">⛰️ Relieve</button>
+          <button type="button" class="basemap-btn" data-basemap="streets" onclick="switchBasemap('streets')">🛣️ Calles</button>
+        </div>
+
+        <!-- Chip flotante para limpiar simulación de propagación por viento -->
+        <div class="map-prop-chip" id="propChip">
+          <span id="propChipText">💨 Simulación de propagación activa</span>
+          <button type="button" onclick="clearPropagation()">✕ Limpiar</button>
+        </div>
+
+        <div class="map-legend" id="mapLegend">
+          <div class="legend-header">
+            <div class="legend-title">🗺️ Leyenda</div>
+            <button type="button" class="legend-toggle-btn" id="legendToggleBtn" onclick="toggleLegend()" title="Minimizar/expandir leyenda">−</button>
           </div>
-          <div class="legend-item" style="margin-top:0.3rem">
-            <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#38bdf8;border:1px solid #fff;margin-right:4px"></span>
-            <b>Línea roja:</b> Límite departamental de Cajamarca
+          <div class="legend-body">
+            <div class="legend-section-label">Nivel de riesgo (IA)</div>
+            <div class="legend-item"><span class="legend-dot red"></span> <b>Rojo:</b> Alerta alta — top 1% de riesgo
+              <span class="legend-help" title="El 1% de zonas con mayor puntuación de riesgo en el departamento hoy. Condiciones muy favorables para un incendio." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
+            </div>
+            <div class="legend-item"><span class="legend-dot orange"></span> <b>Amarillo:</b> Vigilancia — top 5%
+              <span class="legend-help" title="El 5% de zonas con mayor puntuación (incluye el 1% rojo). Se recomienda precaución." style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.18);font-size:10px;cursor:help;margin-left:4px">?</span>
+            </div>
+            <div class="legend-item"><span class="legend-dot green"></span> <b>Verde:</b> Riesgo bajo — sin alarma</div>
+
+            <div class="legend-section-label" style="margin-top:0.5rem;">Focos y límites</div>
+            <div class="legend-item">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff;margin-right:4px"></span>
+              <b>Círculo:</b> Foco de calor NASA VIIRS
+            </div>
+            <div class="legend-item" style="margin-top:0.3rem">
+              <span style="display:inline-block;width:16px;height:0;border-top:2.5px dashed #ef4444;margin-right:4px"></span>
+              <b>Línea roja:</b> Límite oficial INEI — Cajamarca
+            </div>
+            <div class="legend-note">💡 Haz clic en una zona para ver factores SHAP y simular propagación por viento</div>
+            <div class="legend-update" id="legendUpdate">Actualizando...</div>
           </div>
-          <div class="legend-note">💡 Haz clic en cualquier zona o punto para ver detalles</div>
-          <div class="legend-update" id="legendUpdate">Actualizando...</div>
         </div>
         <div class="map-loading" id="mapLoading">
           <div class="spinner"></div>
@@ -836,6 +882,15 @@
           </p>
         </div>
 
+        <!-- Explicabilidad SHAP en vivo -->
+        <div class="transparency-card transparency-card-full">
+          <h3>🔮 Explicabilidad del Modelo (Importancia Global SHAP — 21 variables)</h3>
+          <p>Peso relativo real de los factores físicos, climáticos, topográficos y de vegetación que explican el riesgo en Cajamarca (consultado en vivo desde <code>/model/importance</code>):</p>
+          <div class="shap-bars" id="shapImportanceList">
+            <p style="font-size:0.82rem;opacity:0.7">⏳ Cargando importancias SHAP del modelo...</p>
+          </div>
+        </div>
+
         <!-- Declaración de uso -->
         <div class="transparency-card transparency-card-full">
           <h3>📜 Declaración de Interés Público</h3>
@@ -928,7 +983,7 @@
     <span id="toastMsg">Mensaje</span>
   </div>
 
-  <script src="app.js?v=20261118_v233"></script>
+  <script src="app.js?v=20261119_v250"></script>
 </body>
 
 </html>

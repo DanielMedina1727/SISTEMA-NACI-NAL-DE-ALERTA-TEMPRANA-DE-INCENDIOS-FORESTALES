@@ -1127,3 +1127,215 @@ img { max-width: 100%; }
   text-align: center;
 }
 .semaforo-note strong { color: var(--color-text); }
+
+/* ══════════════════════════════════════════════════════
+   MEJORAS PROFESIONALES MAPA & XAI SHAP (v2.5.0)
+   ══════════════════════════════════════════════════════ */
+.map-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.map-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(30, 41, 59, 0.85);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.map-action-btn:hover {
+  border-color: var(--color-primary);
+  background: rgba(249, 115, 22, 0.16);
+  color: #fff;
+}
+.map-action-btn.primary {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+.map-action-btn.primary:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fff;
+}
+
+/* Selector flotante de Mapa Base */
+.map-basemap-bar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 520;
+  display: flex;
+  gap: 4px;
+  background: rgba(13, 17, 23, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+}
+.basemap-btn {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.basemap-btn:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.basemap-btn.active {
+  background: var(--color-primary);
+  color: #0b0f17;
+  font-weight: 700;
+}
+
+/* Badge discreto del modelo en el mapa */
+.map-model-badge {
+  position: absolute;
+  top: 12px;
+  left: 54px;
+  z-index: 510;
+  background: rgba(13, 17, 23, 0.86);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.73rem;
+  color: #bae6fd;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* Chip para limpiar simulación de propagación por viento */
+.map-prop-chip {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 530;
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid #f97316;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  color: #fed7aa;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+.map-prop-chip.visible { display: inline-flex; }
+.map-prop-chip button {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fecaca;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.map-prop-chip button:hover { background: #ef4444; color: #fff; }
+
+/* Leyenda colapsable */
+.legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.legend-header .legend-title { margin-bottom: 0; }
+.legend-toggle-btn {
+  background: rgba(255,255,255,0.08);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.legend-toggle-btn:hover { color: #fff; border-color: var(--color-primary); }
+.map-legend.collapsed .legend-body { display: none; }
+.map-legend.collapsed .legend-header { margin-bottom: 0; }
+
+/* Pantalla completa del mapa */
+.map-wrapper.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  border-radius: 0;
+  border: none;
+  background: #0d1117;
+}
+.map-wrapper.is-fullscreen #map {
+  height: 100vh !important;
+}
+
+/* Barras de importancia SHAP en vivo (sección Transparencia) */
+.shap-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+.shap-row {
+  display: grid;
+  grid-template-columns: 195px 1fr 52px;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+.shap-label {
+  color: var(--color-text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shap-bar-track {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.shap-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f97316, #ef4444);
+  transition: width 0.6s ease;
+}
+.shap-pct {
+  text-align: right;
+  font-weight: 700;
+  color: #fdba74;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 768px) {
+  .map-basemap-bar {
+    top: auto;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    right: auto;
+    flex-wrap: wrap;
+    max-width: calc(100% - 1.5rem);
+  }
+  .map-model-badge { display: none; }
+  .shap-row { grid-template-columns: 135px 1fr 44px; font-size: 0.76rem; }
+}

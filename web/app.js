@@ -76,15 +76,75 @@ const CAJAMARCA_BBOX = {
   east:  -77.738889
 };
 
-// Sub-regiones del área de modelado (Cajamarca) para el filtro real del mapa IA.
-// 'all' no filtra. Los sectores Norte/Sur dividen Cajamarca por la latitud media.
+// Sub-regiones y provincias de Cajamarca para navegación y filtro real del mapa IA
 const AI_REGION_BBOX = {
-  cajamarca: { south: -7.7592, north: -4.5519, west: -79.4517, east: -77.7389 },
-  norte:     { south: -6.16,   north: -4.5519, west: -79.4517, east: -77.7389 },
-  sur:       { south: -7.7592, north: -6.16,   west: -79.4517, east: -77.7389 },
-  all:       null,
+  cajamarca:      { south: -7.7592, north: -4.5519, west: -79.4517, east: -77.7389 },
+  prov_cajamarca: { south: -7.50,   north: -6.82,   west: -78.80,   east: -78.18   },
+  chota:          { south: -6.78,   north: -6.20,   west: -79.22,   east: -78.30   },
+  celendin:       { south: -7.20,   north: -6.50,   west: -78.35,   east: -77.82   },
+  bambamarca:     { south: -6.92,   north: -6.50,   west: -78.82,   east: -78.35   },
+  san_marcos:     { south: -7.58,   north: -7.12,   west: -78.35,   east: -77.80   },
+  san_pablo:      { south: -7.30,   north: -6.92,   west: -78.98,   east: -78.55   },
+  jaen:           { south: -6.05,   north: -5.30,   west: -79.35,   east: -78.55   },
+  san_ignacio:    { south: -5.45,   north: -4.55,   west: -79.40,   east: -78.58   },
+  cutervo:        { south: -6.48,   north: -5.92,   west: -79.15,   east: -78.42   },
+  cajabamba:      { south: -7.76,   north: -7.35,   west: -78.38,   east: -77.85   },
+  norte:          { south: -6.16,   north: -4.5519, west: -79.4517, east: -77.7389 },
+  sur:            { south: -7.7592, north: -6.16,   west: -79.4517, east: -77.7389 },
+  all:            null,
 };
 let currentRegion = 'cajamarca';
+
+// Límite oficial del departamento de Cajamarca
+// Fuente: INEI Perú / juaneladio/peru-geojson (peru_departamental_simple.geojson)
+// 118 vértices — límite administrativo oficial
+const CAJAMARCA_BORDER = [
+  [-7.02568,-79.32259],[-6.99983,-79.29663],[-6.90134,-79.31101],[-6.85916,-79.26274],
+  [-6.77697,-79.12085],[-6.70154,-79.14156],[-6.69563,-79.21379],[-6.67141,-79.22906],
+  [-6.67567,-79.29642],[-6.54952,-79.36699],[-6.54073,-79.40328],[-6.47972,-79.43129],
+  [-6.45188,-79.42289],[-6.39684,-79.45349],[-6.31043,-79.42266],[-6.30429,-79.35356],
+  [-6.26306,-79.32179],[-6.22669,-79.25226],[-6.14673,-79.27253],[-6.05501,-79.22399],
+  [-6.00246,-79.26434],[-5.97010,-79.41861],[-5.89363,-79.33407],[-5.79109,-79.38982],
+  [-5.74951,-79.40069],[-5.60619,-79.37555],[-5.53702,-79.39832],[-5.51898,-79.27240],
+  [-5.45813,-79.29770],[-5.31591,-79.32807],[-5.28863,-79.35905],[-5.23258,-79.34865],
+  [-5.19052,-79.37841],[-5.11048,-79.29436],[-5.00136,-79.24509],[-4.96524,-79.21007],
+  [-4.97105,-79.07354],[-5.01399,-79.01195],[-4.89702,-78.97389],[-4.89144,-78.89510],
+  [-4.80801,-78.89169],[-4.79100,-78.91273],[-4.71406,-78.88275],[-4.65604,-78.83922],
+  [-4.63747,-78.80252],[-4.62387,-78.70596],[-4.65798,-78.63794],[-4.73645,-78.64466],
+  [-4.77339,-78.60065],[-4.96227,-78.64582],[-5.00053,-78.61963],[-5.06742,-78.65771],
+  [-5.10408,-78.70062],[-5.17963,-78.70911],[-5.26749,-78.68424],[-5.30990,-78.60449],
+  [-5.39928,-78.51840],[-5.45435,-78.51518],[-5.49909,-78.55852],[-5.60721,-78.60482],
+  [-5.70705,-78.68380],[-5.83044,-78.71202],[-5.95556,-78.66032],[-6.01818,-78.61227],
+  [-6.07654,-78.58944],[-6.07148,-78.51880],[-6.16569,-78.43816],[-6.31868,-78.33539],
+  [-6.35098,-78.33373],[-6.39478,-78.25515],[-6.45702,-78.19003],[-6.52630,-78.13603],
+  [-6.64233,-78.10760],[-6.67615,-78.05820],[-6.82230,-78.01406],[-6.97053,-77.99951],
+  [-7.16681,-77.89787],[-7.22139,-77.88090],[-7.31003,-77.83105],[-7.39254,-77.81344],
+  [-7.41846,-77.77199],[-7.46669,-77.74137],[-7.51438,-77.84417],[-7.58533,-77.87044],
+  [-7.67907,-77.99864],[-7.69617,-78.08122],[-7.65401,-78.11605],[-7.75933,-78.22465],
+  [-7.75352,-78.27242],[-7.69646,-78.30280],[-7.69963,-78.33014],[-7.63011,-78.38282],
+  [-7.57401,-78.35679],[-7.50039,-78.35998],[-7.48507,-78.41563],[-7.55487,-78.49139],
+  [-7.54856,-78.62457],[-7.52902,-78.64960],[-7.44550,-78.62984],[-7.41300,-78.66247],
+  [-7.40198,-78.76012],[-7.43762,-78.84162],[-7.48410,-78.88669],[-7.53744,-78.89591],
+  [-7.59842,-78.94434],[-7.65783,-78.96086],[-7.66095,-78.99215],[-7.59989,-79.04123],
+  [-7.47271,-79.06543],[-7.43982,-79.15272],[-7.39541,-79.18818],[-7.38186,-79.25633],
+  [-7.34726,-79.29312],[-7.33664,-79.34713],[-7.27506,-79.28263],[-7.19239,-79.26727],
+  [-7.14715,-79.30530],[-7.02568,-79.32259]
+];
+
+/**
+ * Ray-casting rápido: verifica si (lat, lon) está dentro del polígono oficial INEI de Cajamarca.
+ */
+function pointInCajamarca(lat, lon) {
+  let inside = false;
+  for (let i = 0, j = CAJAMARCA_BORDER.length - 1; i < CAJAMARCA_BORDER.length; j = i++) {
+    const yi = CAJAMARCA_BORDER[i][0], xi = CAJAMARCA_BORDER[i][1];
+    const yj = CAJAMARCA_BORDER[j][0], xj = CAJAMARCA_BORDER[j][1];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lon < ((xj - xi) * (lat - yi)) / (yj - yi + 1e-12) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
 
 const COLOR_MAP = {
   Rojo:     '#ef4444',
@@ -227,61 +287,159 @@ function generateRealisticFIRMSDemo(region) {
 }
 
 /* ═══════════════════════════════════════════════════
-   MAPA PRINCIPAL (LEAFLET)
+   MAPA PRINCIPAL (LEAFLET — PROFESIONAL v2.5.0)
    ═══════════════════════════════════════════════════ */
 let mainMap, heatmapLayer, polygonLayerGroup, firmsLayerGroup, extremesLayerGroup;
+let cajamarcaBorderLayer, propagationLayerGroup, userLocationMarker, mapCanvasRenderer;
+let currentBaseLayer = null;
 let currentFeatures = [];
+let lastApiStats = null;
+
+const BASEMAPS = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19,
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+    maxZoom: 18,
+  },
+  topo: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: 'Map data: &copy; OpenStreetMap, SRTM | Style: &copy; OpenTopoMap',
+    maxZoom: 17,
+  },
+  streets: {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+  },
+};
+
+function switchBasemap(key) {
+  if (!mainMap || !BASEMAPS[key]) return;
+  if (currentBaseLayer) mainMap.removeLayer(currentBaseLayer);
+  const cfg = BASEMAPS[key];
+  currentBaseLayer = L.tileLayer(cfg.url, {
+    attribution: cfg.attribution,
+    maxZoom: cfg.maxZoom,
+  }).addTo(mainMap);
+  currentBaseLayer.bringToBack();
+
+  document.querySelectorAll('.basemap-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.basemap === key);
+  });
+}
 
 function initMainMap() {
   // Centrado en el departamento de Cajamarca abarcando de Norte a Sur
   mainMap = L.map('map', {
-    center: [-6.1556, -78.5953],
+    center: [-6.20, -78.60],
     zoom: 8,
     zoomControl: true,
+    preferCanvas: true,
   });
 
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
-  }).addTo(mainMap);
+  // Renderizador Canvas para miles de grillas fluidas sin bordes negros
+  mapCanvasRenderer = L.canvas({ padding: 0.5 });
 
-  polygonLayerGroup  = L.layerGroup().addTo(mainMap);
-  firmsLayerGroup    = L.layerGroup().addTo(mainMap);
-  extremesLayerGroup = L.layerGroup().addTo(mainMap);
+  // Mapa base oscuro por defecto (estándar COEN/EFFIS: resalta alertas Rojas/Amarillas)
+  switchBasemap('dark');
 
-  // Crear panel exclusivo para focos satelitales con z-index superior (650)
-  // Esto evita que el canvas del mapa de calor o los polígonos IA tapen los focos
+  // Escala métrica profesional
+  L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(mainMap);
+
+  cajamarcaBorderLayer  = L.layerGroup().addTo(mainMap);
+  polygonLayerGroup     = L.layerGroup().addTo(mainMap);
+  propagationLayerGroup = L.layerGroup().addTo(mainMap);
+  firmsLayerGroup       = L.layerGroup().addTo(mainMap);
+  extremesLayerGroup    = L.layerGroup().addTo(mainMap);
+
+  // Paneles exclusivos de z-index para orden cartográfico limpio
+  mainMap.createPane('borderPane');
+  mainMap.getPane('borderPane').style.zIndex = '450';
+  mainMap.createPane('propPane');
+  mainMap.getPane('propPane').style.zIndex = '610';
   mainMap.createPane('firmsPane');
   mainMap.getPane('firmsPane').style.zIndex = '650';
 
+  renderCajamarcaBorder();
   renderExtremesLayer();
   loadMapData();
   loadFIRMSHotspots();
 }
 
+/**
+ * Dibuja siempre el contorno oficial INEI de Cajamarca (118 vértices) + máscara suave exterior
+ */
+function renderCajamarcaBorder() {
+  if (!cajamarcaBorderLayer) return;
+  cajamarcaBorderLayer.clearLayers();
+
+  // Máscara exterior semitransparente (efecto spotlight sobre Cajamarca)
+  const worldRing = [[-90, -180], [-90, 180], [90, 180], [90, -180]];
+  L.polygon([worldRing, CAJAMARCA_BORDER], {
+    pane: 'borderPane',
+    stroke: false,
+    fillColor: '#020617',
+    fillOpacity: 0.34,
+    interactive: false,
+  }).addTo(cajamarcaBorderLayer);
+
+  // Contorno oficial INEI en línea punteada roja
+  L.polygon(CAJAMARCA_BORDER, {
+    pane: 'borderPane',
+    color: '#ef4444',
+    weight: 2.2,
+    dashArray: '7, 5',
+    fill: false,
+    interactive: false,
+  }).addTo(cajamarcaBorderLayer);
+}
+
 /* ── Predicciones IA ── */
 async function loadMapData() {
   showMapLoading(true);
-  let features    = [];
-  let isDemo      = false;
-  let apiOnline   = false;
+  let features  = [];
+  let isDemo    = false;
+  let apiOnline = false;
+  lastApiStats  = null;
+
+  const viewMode   = document.getElementById('riskViewFilter')?.value || 'alerts';
+  const onlyAlerts = viewMode === 'alerts';
+  const reqLimit   = onlyAlerts ? 3500 : 1800;
+
   try {
-    const resp = await fetch(`${API_URL}/risk/today?limit=1200`, { signal: AbortSignal.timeout(10000) });
+    const resp = await fetch(
+      `${API_URL}/risk/today?limit=${reqLimit}&only_alerts=${onlyAlerts}`,
+      { signal: AbortSignal.timeout(12000) }
+    );
     if (resp.ok) {
-      const data = await resp.json();
-      features  = data.features || [];
-      apiOnline = true;
+      const data   = await resp.json();
+      features     = data.features || [];
+      lastApiStats = data.stats || null;
+      apiOnline    = true;
     }
   } catch (_) {
     features = DEMO_FEATURES;
     isDemo   = true;
   }
+
+  // Recorte estricto al polígono oficial INEI de Cajamarca (cero puntos fuera del límite)
+  features = features.filter(f => {
+    const coords = f.geometry.coordinates[0];
+    const lat = (coords[0][1] + coords[2][1]) / 2;
+    const lon = (coords[0][0] + coords[2][0]) / 2;
+    return pointInCajamarca(lat, lon);
+  });
+
   features = applyRegionFilter(features);
   currentFeatures = features;
   renderMapLayers(features);
-  updateHeroStats(features);
-  updateRiskBadge(features);
-  // Solo mostrar banner de demo cuando la API está realmente offline
+  updateHeroStats(features, lastApiStats);
+  updateRiskBadge(features, lastApiStats);
   showDemoBanner(isDemo, apiOnline);
   showMapLoading(false);
 }
@@ -293,80 +451,261 @@ function renderMapLayers(features) {
   const showHeat = document.getElementById('toggleHeatmap').checked;
   const showPoly = document.getElementById('togglePolygons').checked;
 
-  if (showHeat) {
+  if (showHeat && features.length) {
     const heatData = features.map(f => {
       const coords = f.geometry.coordinates[0];
-      const lats = coords.map(p => p[1]);
-      const lons = coords.map(p => p[0]);
-      return [
-        lats.reduce((a,b) => a+b, 0) / lats.length,
-        lons.reduce((a,b) => a+b, 0) / lons.length,
-        f.properties.probabilidad
-      ];
+      const lat = (coords[0][1] + coords[2][1]) / 2;
+      const lon = (coords[0][0] + coords[2][0]) / 2;
+      // Escalar intensidad según nivel para que el mapa de calor destaque zonas críticas
+      const w = f.properties.nivel === 'Rojo' ? 1.0 : f.properties.nivel === 'Amarillo' ? 0.55 : 0.18;
+      return [lat, lon, w];
     });
     heatmapLayer = L.heatLayer(heatData, {
-      radius: 28, blur: 20, maxZoom: 14,
-      gradient: { 0.2: '#22c55e', 0.5: '#f97316', 0.8: '#ef4444', 1.0: '#7f1d1d' }
+      radius: 22, blur: 18, maxZoom: 13, minOpacity: 0.25,
+      gradient: { 0.2: '#22c55e', 0.55: '#f97316', 0.82: '#ef4444', 1.0: '#b91c1c' }
     }).addTo(mainMap);
   }
 
   if (showPoly) {
-    features.forEach(f => {
+    features.forEach((f, idx) => {
       const props   = f.properties;
       const isDemo  = !!props._isDemo;
       const color   = COLOR_MAP[props.nivel] || '#22c55e';
       const coords  = f.geometry.coordinates[0].map(p => [p[1], p[0]]);
+      const centerLat = (coords[0][0] + coords[2][0]) / 2;
+      const centerLon = (coords[0][1] + coords[2][1]) / 2;
+      const shapId  = `shapBox_${idx}_${Date.now() % 10000}`;
+
       const demoTag = isDemo
-        ? '<div style="margin-top:6px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:10px;color:#94a3b8">⚠️ Predicción simulada — <a href=\'#\' style=\'color:#f97316\' onclick=\'event.preventDefault();showToast("Inicia: uvicorn app.main:app --reload --port 5050",\"💻\")\'>iniciar API</a> para datos reales del modelo de IA</div>'
+        ? '<div style="margin-top:6px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:10px;color:#94a3b8">⚠️ Predicción simulada — API offline</div>'
         : '';
-      // El modelo ordena celdas por score; el percentil ubica esta celda en esa
-      // distribución (Top 1% = Rojo, Top 5% = Amarillo). Se muestra el ranking en
-      // lugar del % absoluto (que es bajo por diseño, ~0.1%).
       const ranking = (props.percentil != null)
-        ? `<b>Posición:</b> Entre el <b>Top ${Math.max(1, Math.round(100 - props.percentil))}%</b> de zonas con más riesgo<br/>`
+        ? `<b>Ranking relativo:</b> Top <b>${Math.max(1, Math.round(100 - props.percentil))}%</b> de riesgo en Cajamarca<br/>`
         : '';
 
-      // Explicación del nivel en lenguaje simple
       const nivelExplicacion = {
-        'Rojo':     '🔴 Condiciones muy peligrosas hoy. Evitar quemas y estar alerta.',
-        'Amarillo': '🟡 Condiciones de precaución. Monitorear la zona.',
+        'Rojo':     '🔴 Condiciones muy peligrosas hoy. Evitar quemas y vigilar.',
+        'Amarillo': '🟡 Condiciones de precaución. Mantener vigilancia.',
         'Verde':    '🟢 Condiciones normales. Sin alerta activa.',
       }[props.nivel] || '';
 
+      const ndviStr = (props.ndvi != null) ? props.ndvi.toFixed(2) : '—';
+      const vpdStr  = (props.vpd_kpa != null) ? `${props.vpd_kpa.toFixed(2)} kPa` : '—';
+      const propBtn = (props.nivel === 'Rojo' || props.nivel === 'Amarillo')
+        ? `<button type="button" onclick="simulatePropagation('${props.grid_id}', ${centerLat.toFixed(5)}, ${centerLon.toFixed(5)}, ${props.viento_direccion ?? 45}, ${props.viento_velocidad ?? 18})"
+             style="margin-top:7px;width:100%;background:#ea580c;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">
+             💨 Simular propagación por viento
+           </button>`
+        : '';
+
       const popup = `
-        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:230px;color:#1a1a2e">
-          <b style="font-size:13px">📍 Zona de Riesgo — ${props.grid_id}</b><hr style="margin:6px 0"/>
+        <div style="font-family:Inter,sans-serif;font-size:12px;min-width:255px;color:#0f172a">
+          <b style="font-size:13px">📍 Celda 1 km² — ${props.grid_id}</b><hr style="margin:6px 0"/>
           <div style="background:${color}22;border-left:3px solid ${color};border-radius:4px;padding:5px 8px;margin-bottom:7px">
             <b style="color:${color};font-size:13px">${props.nivel}</b> — ${nivelExplicacion}
           </div>
           ${ranking}
+          <div id="${shapId}" style="margin:6px 0;padding:6px 8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px">
+            <b style="color:#334155">🔮 Factores clave (SHAP XAI):</b>
+            <div style="color:#64748b;margin-top:3px">Calculando explicación en vivo...</div>
+          </div>
           <details style="margin:4px 0">
-            <summary style="cursor:pointer;color:#475569;font-size:11px">🌦️ Condiciones del día (haz clic para ver)</summary>
-            <div style="padding:5px 0 2px 0">
-              🌡️ <b>Temperatura:</b> ${props.temp_2m?.toFixed(1)} °C<br/>
-              💧 <b>Humedad:</b> ${props.humedad_relativa?.toFixed(0)} %<br/>
-              💨 <b>Viento:</b> ${props.viento_velocidad?.toFixed(0)} km/h<br/>
-              ⛰️ <b>Pendiente del terreno:</b> ${props.pendiente_pct?.toFixed(0)} %
+            <summary style="cursor:pointer;color:#475569;font-size:11px;font-weight:600">🌦️ Variables físicas y satelitales</summary>
+            <div style="padding:5px 0 2px 0;line-height:1.55">
+              🌡️ <b>Temperatura:</b> ${props.temp_2m?.toFixed(1)} °C · 💧 <b>Humedad:</b> ${props.humedad_relativa?.toFixed(0)} %<br/>
+              💨 <b>Viento:</b> ${props.viento_velocidad?.toFixed(0)} km/h (${props.viento_direccion?.toFixed(0) ?? 45}°)<br/>
+              ⛰️ <b>Pendiente:</b> ${props.pendiente_pct?.toFixed(0)} % · 🌿 <b>NDVI Sentinel-2:</b> ${ndviStr}<br/>
+              🔥 <b>Déficit presión vapor (VPD):</b> ${vpdStr}
             </div>
           </details>
-          <div style="margin-top:5px;padding:3px 6px;background:#f1f5f9;border-radius:4px;font-size:10px;color:#475569">
-            💡 El color indica riesgo <b>relativo</b>: el modelo ordena todas las zonas del territorio y marca el 1% más alto en rojo.
-          </div>
+          ${propBtn}
           ${demoTag}
         </div>`;
-      L.polygon(coords, {
-        color: '#000', weight: 0.4,
-        fillColor: color,
-        fillOpacity: 0.60,
-        dashArray:  isDemo ? '4 3' : null,
-      }).bindPopup(popup).addTo(polygonLayerGroup);
+
+      const fillOp = props.nivel === 'Rojo' ? 0.68 : props.nivel === 'Amarillo' ? 0.48 : 0.24;
+      const poly = L.polygon(coords, {
+        renderer:    mapCanvasRenderer,
+        stroke:      false,
+        fillColor:   color,
+        fillOpacity: fillOp,
+      }).bindPopup(popup);
+
+      poly.on('popupopen', () => {
+        if (!isDemo) loadCellShap(shapId, props);
+        else {
+          const box = document.getElementById(shapId);
+          if (box) box.innerHTML = '<b style="color:#334155">🔮 SHAP XAI:</b> <span style="color:#64748b">Disponible con API activa.</span>';
+        }
+      });
+
+      poly.addTo(polygonLayerGroup);
     });
   }
+}
+
+/**
+ * Consulta POST /predict para obtener los 3 factores SHAP reales que explican esta celda
+ */
+async function loadCellShap(boxId, props) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  try {
+    const resp = await fetch(`${API_URL}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grid_id:          props.grid_id,
+        temp_2m:          props.temp_2m,
+        humedad_relativa: props.humedad_relativa,
+        viento_velocidad: props.viento_velocidad,
+        viento_direccion: props.viento_direccion ?? 45.0,
+        pendiente_pct:    props.pendiente_pct,
+        ndvi:             props.ndvi ?? 0.4,
+        dias_sin_lluvia:  props.dias_sin_lluvia ?? 10.0,
+        dist_carretera_m: props.dist_carretera_m ?? 1000.0,
+        dist_poblado_m:   props.dist_poblado_m ?? 1500.0,
+        elevacion_m:      props.elevacion_m ?? 2500.0,
+      }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const factors = data.factores_clave || [];
+    if (!factors.length) {
+      box.innerHTML = '<b style="color:#334155">🔮 Factores SHAP:</b> <span style="color:#64748b">Sin explicación disponible.</span>';
+      return;
+    }
+    const rows = factors.map(fc => {
+      const up = fc.efecto === 'aumenta_riesgo';
+      const col = up ? '#dc2626' : '#16a34a';
+      const arrow = up ? '▲' : '▼';
+      return `<div style="display:flex;justify-content:space-between;gap:6px;margin-top:3px">
+        <span><b style="color:${col}">${arrow}</b> ${fc.etiqueta}</span>
+        <span style="color:${col};font-weight:700">${fc.impacto_shap >= 0 ? '+' : ''}${fc.impacto_shap.toFixed(2)}</span>
+      </div>`;
+    }).join('');
+    box.innerHTML = `<b style="color:#1e293b">🔮 ¿Por qué este riesgo? (SHAP):</b>${rows}`;
+  } catch (_) {
+    box.innerHTML = '<b style="color:#334155">🔮 Factores SHAP:</b> <span style="color:#64748b">No se pudo calcular ahora.</span>';
+  }
+}
+
+/**
+ * Simula propagación del fuego por viento llamando a POST /propagate y la dibuja en el mapa
+ */
+async function simulatePropagation(gridId, lat, lon, vientoDir, vientoVel) {
+  if (!mainMap || !propagationLayerGroup) return;
+  clearPropagation();
+  showToast('Simulando propagación espacial por viento...', '💨');
+
+  try {
+    const url = `${API_URL}/propagate?grid_id=${encodeURIComponent(gridId)}&viento_direccion=${encodeURIComponent(vientoDir)}&viento_velocidad=${encodeURIComponent(vientoVel)}`;
+    const resp = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const affected = data.grillas_afectadas || [];
+
+    const pathPoints = [[lat, lon]];
+    // Marcador de origen
+    L.circleMarker([lat, lon], {
+      pane: 'propPane', radius: 8, color: '#fff', weight: 2,
+      fillColor: '#dc2626', fillOpacity: 1,
+    }).bindTooltip(`🔥 Origen (${gridId})`, { permanent: false }).addTo(propagationLayerGroup);
+
+    affected.forEach((g, idx) => {
+      const parts = String(g.grid_id).split('_');
+      if (parts.length !== 2) return;
+      const gLon = parseFloat(parts[0]);
+      const gLat = parseFloat(parts[1]);
+      if (isNaN(gLat) || isNaN(gLon)) return;
+      pathPoints.push([gLat, gLon]);
+
+      const half = 0.0045;
+      L.rectangle([[gLat - half, gLon - half], [gLat + half, gLon + half]], {
+        pane: 'propPane',
+        color: '#facc15', weight: 2, dashArray: '4 3',
+        fillColor: '#f97316', fillOpacity: Math.max(0.25, 0.65 - idx * 0.15),
+      }).bindPopup(
+        `<div style="font-family:Inter,sans-serif;font-size:12px;color:#0f172a">
+           <b>💨 Propagación Paso ${idx + 1}</b><hr style="margin:4px 0"/>
+           <b>Celda:</b> ${g.grid_id}<br/>
+           <b>Dirección viento:</b> ${data.direccion_viento} (${data.velocidad_viento} km/h)<br/>
+           <b>Prob. propagación:</b> <b>${Math.round((g.probabilidad_recibir_fuego || 0) * 100)}%</b>
+         </div>`
+      ).addTo(propagationLayerGroup);
+    });
+
+    if (pathPoints.length > 1) {
+      L.polyline(pathPoints, {
+        pane: 'propPane', color: '#facc15', weight: 3.5, dashArray: '8 6',
+      }).addTo(propagationLayerGroup);
+      mainMap.fitBounds(L.latLngBounds(pathPoints).pad(0.8), { maxZoom: 12 });
+    }
+
+    const chip = document.getElementById('propChip');
+    const chipTxt = document.getElementById('propChipText');
+    if (chip && chipTxt) {
+      chipTxt.textContent = `💨 Propagación desde ${gridId} · Viento ${data.direccion_viento} (${data.velocidad_viento} km/h) · ${affected.length} zonas`;
+      chip.classList.add('visible');
+    }
+    mainMap.closePopup();
+  } catch (_) {
+    showToast('No se pudo simular la propagación en este momento.', '⚠️');
+  }
+}
+
+function clearPropagation() {
+  if (propagationLayerGroup) propagationLayerGroup.clearLayers();
+  const chip = document.getElementById('propChip');
+  if (chip) chip.classList.remove('visible');
 }
 
 function toggleHeatmapLayer()  { renderMapLayers(currentFeatures); }
 function togglePolygonLayer()  { renderMapLayers(currentFeatures); }
 function toggleExtremesLayer() { renderExtremesLayer(); }
+
+function toggleLegend() {
+  const el = document.getElementById('mapLegend');
+  const btn = document.getElementById('legendToggleBtn');
+  if (!el || !btn) return;
+  const collapsed = el.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '+' : '−';
+}
+
+function toggleMapFullscreen() {
+  const wrapper = document.getElementById('mapWrapper');
+  const btn = document.getElementById('btnFullscreen');
+  if (!wrapper) return;
+  const isFull = wrapper.classList.toggle('is-fullscreen');
+  if (btn) btn.textContent = isFull ? '✕ Salir pantalla completa' : '⛶ Pantalla completa';
+  setTimeout(() => mainMap?.invalidateSize(), 150);
+}
+
+function downloadExecutivePdf(e) {
+  if (e) e.preventDefault();
+  window.open(`${API_URL}/report/pdf`, '_blank', 'noopener');
+  showToast('Generando informe ejecutivo PDF...', '📄');
+}
+
+function locateOnMainMap() {
+  if (!navigator.geolocation) {
+    showToast('Tu navegador no soporta geolocalización.', '⚠️');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      if (userLocationMarker) userLocationMarker.remove();
+      userLocationMarker = L.circleMarker([lat, lon], {
+        pane: 'firmsPane', radius: 9, color: '#fff', weight: 3,
+        fillColor: '#38bdf8', fillOpacity: 0.95,
+      }).bindPopup(`<b>📍 Tu ubicación actual</b><br/>${lat.toFixed(4)}, ${lon.toFixed(4)}`).addTo(mainMap);
+      mainMap.flyTo([lat, lon], 11, { duration: 1.2 });
+      userLocationMarker.openPopup();
+    },
+    () => showToast('No se pudo obtener tu ubicación GPS.', '⚠️')
+  );
+}
 
 function filterByRegion() {
   currentRegion = document.getElementById('regionFilter')?.value || 'cajamarca';
@@ -376,9 +715,9 @@ function filterByRegion() {
       mainMap.flyToBounds([
         [bb.south, bb.west],
         [bb.north, bb.east]
-      ], { duration: 1.2, padding: [30, 30] });
+      ], { duration: 1.1, padding: [24, 24] });
     } else {
-      mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.2 });
+      mainMap.flyTo([-9.0, -75.5], 6, { duration: 1.1 });
     }
   }
   loadMapData();
@@ -386,83 +725,29 @@ function filterByRegion() {
 }
 
 /**
- * Filtra las grillas del modelo por la sub-región seleccionada (filtro REAL,
- * no solo movimiento de cámara). 'all' no filtra.
+ * Filtra las grillas del modelo por la provincia o sub-región seleccionada.
  */
 function applyRegionFilter(features) {
   const bb = AI_REGION_BBOX[currentRegion];
   if (!bb) return features;
   return features.filter(f => {
-    const [lon, lat] = f.geometry.coordinates[0][0];
+    const coords = f.geometry.coordinates[0];
+    const lat = (coords[0][1] + coords[2][1]) / 2;
+    const lon = (coords[0][0] + coords[2][0]) / 2;
     return lat >= bb.south && lat <= bb.north && lon >= bb.west && lon <= bb.east;
   });
 }
 
 /**
- * Renderiza los 4 puntos cardinales extremos de lectura y el cuadrante delimitador de Cajamarca
+ * Renderiza únicamente los 4 puntos cardinales extremos (capa opcional; el borde INEI siempre está visible)
  */
 function renderExtremesLayer() {
   if (!extremesLayerGroup) return;
   extremesLayerGroup.clearLayers();
 
-  const showExtremes = document.getElementById('toggleExtremes')?.checked ?? true;
+  const showExtremes = document.getElementById('toggleExtremes')?.checked ?? false;
   if (!showExtremes) return;
 
-  // 1. Límite oficial del departamento de Cajamarca
-  // Fuente: INEI Perú / juaneladio/peru-geojson (peru_departamental_simple.geojson)
-  // 118 vértices — límite administrativo oficial
-  const CAJAMARCA_BORDER = [
-    [-7.02568,-79.32259],[-6.99983,-79.29663],[-6.90134,-79.31101],[-6.85916,-79.26274],
-    [-6.77697,-79.12085],[-6.70154,-79.14156],[-6.69563,-79.21379],[-6.67141,-79.22906],
-    [-6.67567,-79.29642],[-6.54952,-79.36699],[-6.54073,-79.40328],[-6.47972,-79.43129],
-    [-6.45188,-79.42289],[-6.39684,-79.45349],[-6.31043,-79.42266],[-6.30429,-79.35356],
-    [-6.26306,-79.32179],[-6.22669,-79.25226],[-6.14673,-79.27253],[-6.05501,-79.22399],
-    [-6.00246,-79.26434],[-5.97010,-79.41861],[-5.89363,-79.33407],[-5.79109,-79.38982],
-    [-5.74951,-79.40069],[-5.60619,-79.37555],[-5.53702,-79.39832],[-5.51898,-79.27240],
-    [-5.45813,-79.29770],[-5.31591,-79.32807],[-5.28863,-79.35905],[-5.23258,-79.34865],
-    [-5.19052,-79.37841],[-5.11048,-79.29436],[-5.00136,-79.24509],[-4.96524,-79.21007],
-    [-4.97105,-79.07354],[-5.01399,-79.01195],[-4.89702,-78.97389],[-4.89144,-78.89510],
-    [-4.80801,-78.89169],[-4.79100,-78.91273],[-4.71406,-78.88275],[-4.65604,-78.83922],
-    [-4.63747,-78.80252],[-4.62387,-78.70596],[-4.65798,-78.63794],[-4.73645,-78.64466],
-    [-4.77339,-78.60065],[-4.96227,-78.64582],[-5.00053,-78.61963],[-5.06742,-78.65771],
-    [-5.10408,-78.70062],[-5.17963,-78.70911],[-5.26749,-78.68424],[-5.30990,-78.60449],
-    [-5.39928,-78.51840],[-5.45435,-78.51518],[-5.49909,-78.55852],[-5.60721,-78.60482],
-    [-5.70705,-78.68380],[-5.83044,-78.71202],[-5.95556,-78.66032],[-6.01818,-78.61227],
-    [-6.07654,-78.58944],[-6.07148,-78.51880],[-6.16569,-78.43816],[-6.31868,-78.33539],
-    [-6.35098,-78.33373],[-6.39478,-78.25515],[-6.45702,-78.19003],[-6.52630,-78.13603],
-    [-6.64233,-78.10760],[-6.67615,-78.05820],[-6.82230,-78.01406],[-6.97053,-77.99951],
-    [-7.16681,-77.89787],[-7.22139,-77.88090],[-7.31003,-77.83105],[-7.39254,-77.81344],
-    [-7.41846,-77.77199],[-7.46669,-77.74137],[-7.51438,-77.84417],[-7.58533,-77.87044],
-    [-7.67907,-77.99864],[-7.69617,-78.08122],[-7.65401,-78.11605],[-7.75933,-78.22465],
-    [-7.75352,-78.27242],[-7.69646,-78.30280],[-7.69963,-78.33014],[-7.63011,-78.38282],
-    [-7.57401,-78.35679],[-7.50039,-78.35998],[-7.48507,-78.41563],[-7.55487,-78.49139],
-    [-7.54856,-78.62457],[-7.52902,-78.64960],[-7.44550,-78.62984],[-7.41300,-78.66247],
-    [-7.40198,-78.76012],[-7.43762,-78.84162],[-7.48410,-78.88669],[-7.53744,-78.89591],
-    [-7.59842,-78.94434],[-7.65783,-78.96086],[-7.66095,-78.99215],[-7.59989,-79.04123],
-    [-7.47271,-79.06543],[-7.43982,-79.15272],[-7.39541,-79.18818],[-7.38186,-79.25633],
-    [-7.34726,-79.29312],[-7.33664,-79.34713],[-7.27506,-79.28263],[-7.19239,-79.26727],
-    [-7.14715,-79.30530],[-7.02568,-79.32259]
-  ];
-  L.polygon(CAJAMARCA_BORDER.map(c => [c[0], c[1]]), {
-    color: '#dc2626',
-    weight: 2.5,
-    dashArray: '8, 5',
-    fillColor: '#fca5a5',
-    fillOpacity: 0.04,
-  }).bindPopup(`
-    <div style="font-family:Inter,sans-serif;font-size:12px;color:#0f172a;line-height:1.5">
-      <b style="font-size:13px;color:#991b1b">🗺️ Límite Departamental — Cajamarca</b><hr style="margin:6px 0"/>
-      <b>Norte (Punto septentrional):</b> ${CAJAMARCA_EXTREMES[0].latDMS} | ${CAJAMARCA_EXTREMES[0].lonDMS}<br/>
-      <b>Sur (Punto meridional):</b> ${CAJAMARCA_EXTREMES[1].latDMS} | ${CAJAMARCA_EXTREMES[1].lonDMS}<br/>
-      <b>Este (Punto oriental):</b> ${CAJAMARCA_EXTREMES[2].latDMS} | ${CAJAMARCA_EXTREMES[2].lonDMS}<br/>
-      <b>Oeste (Punto occidental):</b> ${CAJAMARCA_EXTREMES[3].latDMS} | ${CAJAMARCA_EXTREMES[3].lonDMS}<br/>
-      <div style="margin-top:6px;padding:4px 8px;background:#fee2e2;border-radius:4px;font-size:11px;color:#991b1b">
-        🛰️ Fuente: INEI Perú — Límite administrativo oficial (118 vértices)
-      </div>
-    </div>
-  `).addTo(extremesLayerGroup);
-
-  // 2. Marcadores personalizados para los 4 puntos cardinales extremos
   CAJAMARCA_EXTREMES.forEach(pt => {
     const icon = L.divIcon({
       className: 'reading-point-marker',
@@ -776,7 +1061,13 @@ function toggleFIRMSLayer() {
 /* ═══════════════════════════════════════════════════
    HERO STATS & RISK BADGE
    ═══════════════════════════════════════════════════ */
-function updateHeroStats(features) {
+function updateHeroStats(features, stats = null) {
+  if (stats && stats.total_analizado) {
+    animateCounter('statRojas',     stats.rojo ?? 0);
+    animateCounter('statAmarillas', stats.amarillo ?? 0);
+    animateCounter('statTotal',     stats.total_analizado ?? 0);
+    return;
+  }
   animateCounter('statRojas',     features.filter(f => f.properties.nivel === 'Rojo').length);
   animateCounter('statAmarillas', features.filter(f => f.properties.nivel === 'Amarillo').length);
   animateCounter('statTotal',     features.length);
@@ -794,19 +1085,16 @@ function animateCounter(id, target) {
   }, 30);
 }
 
-function updateRiskBadge(features) {
-  const total     = features.length || 0;
-  const rojas     = features.filter(f => f.properties.nivel === 'Rojo').length;
-  const amarillas = features.filter(f => f.properties.nivel === 'Amarillo').length;
+function updateRiskBadge(features, stats = null) {
+  const total     = stats?.total_analizado ?? (features.length || 0);
+  const rojas     = stats?.rojo ?? features.filter(f => f.properties.nivel === 'Rojo').length;
+  const amarillas = stats?.amarillo ?? features.filter(f => f.properties.nivel === 'Amarillo').length;
   const pctRojas  = total ? (rojas / total) * 100 : 0;
   const el = document.getElementById('badgeLevel');
-  // El semáforo se basa en la PROPORCIÓN de celdas en riesgo.
-  // Con ~67k grillas, el modelo produce ~1% Rojo (≈680 celdas) y ~5% Amarillo (≈3400).
-  // Umbrales: ALTO si ≥2% de celdas son Rojas (≈1360+ celdas, situación crítica real).
-  //           MEDIO si hay alguna Roja (top 1%) o muchas Amarillas (top 5%).
-  //           BAJO en caso contrario.
+  // El semáforo se basa en la PROPORCIÓN real sobre todo el territorio analizado.
+  // ALTO solo si ≥2% del departamento está en Rojo; MEDIO en operación normal (~1% Rojo).
   let level, cls;
-  if (rojas > 0 && pctRojas >= 2.0) { level = 'ALTO 🔴';  cls = 'alto';  }
+  if (rojas > 0 && pctRojas >= 2.0)      { level = 'ALTO 🔴';  cls = 'alto';  }
   else if (rojas > 0 || amarillas >= 5)  { level = 'MEDIO 🟡'; cls = 'medio'; }
   else                                   { level = 'BAJO 🟢';  cls = 'bajo';  }
   el.textContent = level;
@@ -1164,7 +1452,7 @@ async function loadWeatherData() {
    ═══════════════════════════════════════════════════ */
 async function loadDataFreshness() {
   const el = document.getElementById('dataFreshness');
-  if (!el) return;
+  const mapBadge = document.getElementById('mapModelBadge');
   try {
     const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(4000) });
     if (resp.ok) {
@@ -1173,12 +1461,71 @@ async function loadDataFreshness() {
         ? new Date(h.training_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
         : '—';
       const th = h.thresholds || {};
-      el.textContent = `🤖 Modelo ${h.model_version || ''} · entrenado ${train}` +
-        (th.rojo != null ? ` · umbral Rojo ≥ ${Number(th.rojo).toFixed(3)}` : '');
+      if (el) {
+        el.textContent = `🤖 Modelo ${h.model_version || ''} · entrenado ${train}` +
+          (th.rojo != null ? ` · umbral Rojo ≥ ${Number(th.rojo).toFixed(3)}` : '');
+      }
+      if (mapBadge) {
+        mapBadge.textContent = `🤖 ${h.model_version || 'v2.5.0'} · 21 variables · NDVI Sentinel-2`;
+      }
       return;
     }
   } catch (_) {}
-  el.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
+  if (el) el.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
+  if (mapBadge) mapBadge.textContent = '⚠️ API offline · Modo demostración';
+}
+
+/* ═══════════════════════════════════════════════════
+   IMPORTANCIA GLOBAL SHAP EN VIVO (/model/importance)
+   ═══════════════════════════════════════════════════ */
+const SHAP_LABELS = {
+  dist_carretera_m:       'Proximidad a carreteras',
+  lluvia_acum_15d:        'Lluvia acumulada (15 d)',
+  indice_sequedad:        'Índice de sequedad (FWI)',
+  ndvi:                   'Vegetación (NDVI Sentinel-2)',
+  elevacion_m:            'Elevación del terreno',
+  vpd_kpa:                'Déficit presión vapor (VPD)',
+  viento_dir_cos:         'Dirección viento (N-S)',
+  viento_dir_sin:         'Dirección viento (E-O)',
+  dist_poblado_m:         'Proximidad a poblados',
+  pendiente_pct:          'Pendiente del terreno',
+  viento_pendiente:       'Viento × Pendiente',
+  humedad_relativa:       'Humedad relativa',
+  temp_2m:                'Temperatura a 2 m',
+  lluvia_acum_7d:         'Lluvia acumulada (7 d)',
+  ndvi_anomaly:           'Anomalía local NDVI',
+  viento_velocidad:       'Velocidad del viento',
+  dias_sin_lluvia:        'Días sin lluvia',
+  humedad_vecindad_media: 'Humedad entorno cercano',
+  temp_vecindad_media:    'Temperatura entorno cercano',
+  temp_lag1:              'Temperatura día previo',
+  humedad_lag1:           'Humedad día previo',
+};
+
+async function loadShapImportance() {
+  const container = document.getElementById('shapImportanceList');
+  if (!container) return;
+  try {
+    const resp = await fetch(`${API_URL}/model/importance`, { signal: AbortSignal.timeout(6000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const top = (data.feature_importance || []).slice(0, 8);
+    if (!top.length) return;
+    const maxPct = Math.max(...top.map(x => x.percentage || 0), 1);
+    container.innerHTML = top.map(item => {
+      const label = SHAP_LABELS[item.feature] || item.feature;
+      const pct   = Number(item.percentage || 0);
+      const width = Math.max(4, Math.round((pct / maxPct) * 100));
+      return `
+        <div class="shap-row">
+          <span class="shap-label" title="${item.feature}">${label}</span>
+          <div class="shap-bar-track"><div class="shap-bar-fill" style="width:${width}%"></div></div>
+          <span class="shap-pct">${pct.toFixed(1)}%</span>
+        </div>`;
+    }).join('');
+  } catch (_) {
+    container.innerHTML = '<p style="font-size:0.82rem;opacity:0.7">⚠️ Importancias SHAP disponibles cuando la API está activa.</p>';
+  }
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1273,6 +1620,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScrollAnimations();
   loadWeatherData();
   loadDataFreshness();
+  loadShapImportance();
 
   // Stats iniciales con datos demo
   updateHeroStats(DEMO_FEATURES);

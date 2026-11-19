@@ -261,10 +261,14 @@ def predict(features: GridFeatures):
 
 
 @app.get("/risk/today")
-def risk_today(limit: int = Query(default=1200, le=5000)):
+def risk_today(
+    limit: int = Query(default=1200, le=5000),
+    only_alerts: bool = Query(default=False),
+):
     """
     Retorna las predicciones de riesgo de hoy por grilla en formato GeoJSON FeatureCollection,
     cubriendo el área espacial 2D de la provincia y departamento de Cajamarca.
+    Si `only_alerts=true`, prioriza las celdas en nivel Rojo y Amarillo (sin alterar `stats`).
     """
     scored = _load_scored_cajamarca()
     if scored.empty:
@@ -283,10 +287,13 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
         "mostrados": int(min(total, limit)),
     }
 
-    # Selección para el mapa: MUESTREO ALEATORIO UNIFORME (semilla fija).
-    # No se usa la etiqueta `target` en inferencia y no se sobrerrepresentan las
-    # clases de alerta: la distribución de niveles del mapa refleja la del modelo.
-    if total > limit:
+    if only_alerts:
+        # Mostrar únicamente zonas de alerta (Rojo + Amarillo), ordenadas por riesgo
+        alerts_df = scored[s >= THRESHOLDS["amarillo"]].sort_values("_score", ascending=False)
+        df = alerts_df.head(limit).reset_index(drop=True)
+        stats["mostrados"] = int(len(df))
+    elif total > limit:
+        # Muestreo aleatorio uniforme honesto (comportamiento por defecto)
         df = scored.sample(n=limit, random_state=42).reset_index(drop=True)
     else:
         df = scored.reset_index(drop=True)
@@ -300,7 +307,6 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
         proba = float(probas[i])
         nivel = classify(proba)
 
-        
         lon, lat = float(row["longitude"]), float(row["latitude"])
         poly_coords = [
             [lon - cell_size/2, lat - cell_size/2],
@@ -327,6 +333,11 @@ def risk_today(limit: int = Query(default=1200, le=5000)):
                 "viento_direccion": float(row.get("viento_direccion", 45.0)),
                 "pendiente_pct": float(row.get("pendiente_pct", 10.0)),
                 "ndvi": float(row.get("ndvi", 0.4)),
+                "dias_sin_lluvia": float(row.get("dias_sin_lluvia", 10.0)),
+                "vpd_kpa": float(row.get("vpd_kpa", 1.2)),
+                "dist_carretera_m": float(row.get("dist_carretera_m", 1000.0)),
+                "dist_poblado_m": float(row.get("dist_poblado_m", 1500.0)),
+                "elevacion_m": float(row.get("elevacion_m", 2500.0)),
             }
         }
         features.append(feature)
