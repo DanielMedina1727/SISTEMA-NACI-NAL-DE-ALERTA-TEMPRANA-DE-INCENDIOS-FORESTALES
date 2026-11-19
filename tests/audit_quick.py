@@ -29,7 +29,7 @@ def p(path, body, timeout=8):
 results = {}
 
 print('\n' + '='*72)
-print('  AUDITORIA ISO/IEC 25010:2011 — AlertaForestal Peru v2.0')
+print('  AUDITORIA ISO/IEC 25010:2023 — AlertaForestal Peru v2.3.0')
 print('='*72)
 
 # ── 1. ADECUACION FUNCIONAL ──────────────────────────────────────────────────

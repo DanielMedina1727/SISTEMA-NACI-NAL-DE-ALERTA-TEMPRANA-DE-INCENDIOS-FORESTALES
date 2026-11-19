@@ -1,5 +1,7 @@
 # 🔥 AlertaForestal Perú — Sistema Nacional de Alerta Temprana de Incendios Forestales
-### v2.3.0 · [![CI](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions) ![pytest](https://img.shields.io/badge/pytest-13%20passed-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+### v2.3.0 · [![CI](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielMedina1727/SISTEMA-NACI-NAL-DE-ALERTA-TEMPRANA-DE-INCENDIOS-FORESTALES/actions) ![pytest](https://img.shields.io/badge/pytest-58%20passed-brightgreen) ![ruff](https://img.shields.io/badge/ruff-0%20errors-brightgreen) ![Python](https://img.shields.io/badge/python-3.11%2B-blue) ![Licencia](https://img.shields.io/badge/licencia-MIT-green)
+
+> **Despliegue en vivo (Render):** https://alerta-temprana-de-incendios-forestales.onrender.com/web/ · **OpenAPI Docs:** https://alerta-temprana-de-incendios-forestales.onrender.com/docs
 
 Portal ciudadano y API que calcula un **índice diario de susceptibilidad** y clasifica zonas geográficas (grillas de ~1 km²) en 3 niveles de riesgo (**Verde / Amarillo / Rojo**) para la fecha de referencia, integrando focos satelitales de NASA FIRMS (VIIRS, usados como etiqueta), variables atmosféricas de ERA5 (vía Open-Meteo), topografía de Copernicus DEM GLO-30, vegetación de Sentinel-2 (NDVI) e infraestructura de OpenStreetMap.
 
@@ -413,16 +415,29 @@ ruff check .          # lint (errores reales: imports/atributos indefinidos, có
 pytest -q             # pruebas: modelo, API, seguridad, pipeline y multi-cuenta
 ```
 
-**Resultado actual en `tests/test_api.py` (v2.3.0):**
+**Resultado actual de la suite completa (v2.3.0 — 4 niveles de prueba según sílabo Capstone INVE1535):**
 ```
-platform win32 — Python 3.14.5, pytest-9.2.0
-tests/test_api.py ............. [100%]
-13 passed in 2.91s
+tests/test_model.py           10 passed  (Unitarias: modelo, umbrales, features)
+tests/test_pipeline.py         5 passed  (Unitarias: KNN espacial, viento circular)
+tests/test_whatsapp_multi.py  12 passed  (Unitarias: reparto multi-instancia Green API)
+tests/test_api.py             13 passed  (Integración: endpoints REST y reportes)
+tests/test_security.py         6 passed  (Integración: CORS, API Key, rate limit, bbox)
+tests/test_acceptance.py      12 passed  (Sistema y Aceptación E2E: criterios CR01–CR09)
+---------------------------------------------------------------------------------
+Total: 58 passed · ruff check .: All checks passed (0 errores)
 ```
 
-> **Nota:** `tests/test_pipeline.py` requiere `geopandas`, que en Windows necesita Conda/OSGeo4W. En CI/CD (Linux) se instala automáticamente y todos los tests pasan sin errores.
+La CI (`.github/workflows/ci.yml`) ejecuta `ruff check .` y `pytest -q` en cada `push`/`pull request`.
 
-La CI (`.github/workflows/ci.yml`) ejecuta `ruff` y `pytest` en cada `push`/`pull request`.
+### Documentación Capstone (Sílabo INVE1535 — UPN)
+
+- [Historias de Usuario (74 HU/RNF)](docs/Historias_de_Usuario.md)
+- [Matriz de Trazabilidad y Cobertura de Requisitos](docs/Matriz_Trazabilidad_y_Cobertura.md)
+- [Informe de Revisión SQA y Pruebas](docs/Informe_SQA_y_Pruebas.md)
+- [Informe de Línea Base del Capstone Project](docs/Informe_Linea_Base.md)
+- [Informe de Resultados de Responsabilidad Social](docs/Informe_Responsabilidad_Social.md)
+- [Memoria Técnica del Sistema](docs/Memoria_Tecnica_Capstone.md)
+- [Variables de Entorno para Despliegue en Render](docs/RENDER_ENV_VARS.md)
 
 ### Pruebas de Carga
 

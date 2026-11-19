@@ -87,6 +87,7 @@ async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
@@ -378,12 +379,13 @@ def get_alert_status():
     """
     jobs = []
     for job in _scheduler.get_jobs():
-        next_run = job.next_run_time.isoformat() if job.next_run_time else "no programado"
+        next_run_dt = getattr(job, "next_run_time", None)
+        next_run = next_run_dt.isoformat() if next_run_dt else "no programado"
         jobs.append({
             "id":       job.id,
             "nombre":   job.name,
             "proxima_ejecucion": next_run,
-            "activo":   job.next_run_time is not None,
+            "activo":   next_run_dt is not None,
         })
     return {
         "scheduler_activo": _scheduler.running,

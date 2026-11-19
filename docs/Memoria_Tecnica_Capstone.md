@@ -35,19 +35,19 @@ graph TD
     subgraph Data Pipeline & Storage
         B1["fetch_firms.py (ETL Ingesta FIRMS)"]
         B2["real_features.py + grid_builder.py (Grillas 1km² + features reales)"]
-        B3["PostGIS DB / MinIO GeoTIFF"]
+        B3["Parquet / CSV (PostGIS opcional)"]
     end
 
     subgraph Core ML & API Backend
-        C1["LightGBM Classifier (models/lightgbm_wildfire.pkl)"]
-        C2["FastAPI Server (app/main.py)"]
+        C1["Ensemble LightGBM+XGBoost+RF (models/lightgbm_wildfire.pkl)"]
+        C2["FastAPI Server (app/main.py — Render / Docker)"]
         C3["Motor Propagación por Viento (app/propagation.py)"]
     end
 
     subgraph Interfaces & Notificaciones
-        D1["Dashboard Streamlit (dashboard/app.py)"]
-        D2["Bot de Alertas Telegram (app/telegram_alerts.py)"]
-        D3["Reporte Ejecutivo PDF (Generador de Expediente)"]
+        D1["Portal Web Ciudadano HTML/JS + Leaflet + Límite INEI (web/)"]
+        D2["Alertas WhatsApp Multi-Instancia Green API (app/whatsapp_alerts.py + scheduler.py)"]
+        D3["Reporte Ejecutivo PDF ReportLab (app/pdf_generator.py)"]
     end
 
     A1 --> B1
@@ -88,11 +88,14 @@ graph TD
 
 **Validación honesta (sin fuga de información):** partición espacial 5-fold *out-of-fold* por bloques de 50 km (GroupKFold), de modo que ninguna celda de test comparte vecindad de 50 km con el entrenamiento. Con solo **45 celdas positivas reales** (0.066%), esta es la única estimación defendible.
 
-- **Algoritmo:** Ensemble (LightGBM + XGBoost + RandomForest), sin calibración de probabilidades
-- **Etiqueta (target):** `fire_count > 0` (presencia real de focos NASA FIRMS en la celda)
-- **ROC-AUC (media por fold):** `0.61 ± 0.07` (línea base tutorial: `0.49`, es decir, azar)
-- **Recall @ Top-10% de celdas:** `~12%` (línea base: `~7.6%`)
-- **Recall @ Top-20% de celdas:** `~26%` (línea base: `~15%`; el azar daría 20%)
+- **Algoritmo:** Ensemble (LightGBM + XGBoost + RandomForest — `v2.3.0-spatial-ensemble-real`), sin calibración de probabilidades
+- **Etiqueta (target):** `fire_count > 0` (presencia real de focos NASA FIRMS en la celda; 45 positivos en 68 187 celdas, prevalencia 0.066%)
+- **ROC-AUC (media por fold):** `0.6489 ± 0.0685` (línea base tutorial: `0.4132`; azar: `0.5000`)
+- **PR-AUC (Average Precision):** `0.0017 ± 0.0015` (2.6× la prevalencia aleatoria de `0.00066`)
+- **Recall @ Top-1% / Top-5% de celdas:** `1.05%` / `5.05%` (equivalente al azar — el semáforo es criterio de ranking prioritario)
+- **Recall @ Top-10% de celdas:** `19.44%` (`1.94×` lo esperado por azar)
+- **Recall @ Top-20% de celdas:** `45.11%` (`2.26×` lo esperado por azar)
+- **Pruebas automatizadas:** `58/58 passed` (Unitarias, Integración, Sistema y Aceptación) + `ruff check .` (0 errores)
 
 **Fuentes de datos reales (todas sin credenciales):**
 - **Terreno:** Copernicus DEM GLO-30 (pendiente, aspecto, elevación).
