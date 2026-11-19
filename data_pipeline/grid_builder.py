@@ -204,6 +204,28 @@ def add_wind_encoding(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return grid
 
 
+def add_physical_features(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Añade las tres variables físicas de ignición/propagación (fuente única en app/model.py):
+      - vpd_kpa: Déficit de Presión de Vapor (kPa)
+      - viento_pendiente: interacción física viento × pendiente
+      - indice_sequedad: índice compuesto VPD × días sin lluvia × viento
+    """
+    from app.model import compute_physical_features
+
+    vpd, vp, seq = compute_physical_features(
+        grid["temp_2m"].to_numpy(float),
+        grid["humedad_relativa"].to_numpy(float),
+        grid["viento_velocidad"].to_numpy(float),
+        grid["pendiente_pct"].to_numpy(float),
+        grid["dias_sin_lluvia"].to_numpy(float),
+    )
+    grid["vpd_kpa"] = vpd
+    grid["viento_pendiente"] = vp
+    grid["indice_sequedad"] = seq
+    return grid
+
+
 def compute_geospatial_features(grid: gpd.GeoDataFrame, bbox: tuple, ref_date: str,
                                 start: str, end: str, use_real: bool = True) -> gpd.GeoDataFrame:
     """
@@ -232,6 +254,7 @@ def compute_geospatial_features(grid: gpd.GeoDataFrame, bbox: tuple, ref_date: s
     # add_neighborhood_features). Codificación circular del viento (sin/cos).
     grid = add_neighborhood_features(grid)
     grid = add_wind_encoding(grid)
+    grid = add_physical_features(grid)
 
     # La estacionalidad (mes_sin/mes_cos) sí se conserva como columna informativa,
     # pero NO entra al modelo: con una sola fecha de referencia es constante (std=0)

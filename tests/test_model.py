@@ -85,3 +85,25 @@ def test_metadata_documents_serving_and_oof_thresholds():
     assert "serving_thresholds" in meta
     assert "oof_thresholds" in meta
     assert meta["serving_thresholds"]["rojo"] > meta["serving_thresholds"]["amarillo"]
+
+
+def test_physical_features_monotonicity():
+    from app.model import compute_physical_features
+
+    vpd_cool, vp_calm, seq_wet = compute_physical_features(15.0, 80.0, 5.0, 5.0, 1.0)
+    vpd_hot, vp_windy, seq_dry = compute_physical_features(32.0, 20.0, 35.0, 35.0, 20.0)
+    assert vpd_hot > vpd_cool > 0
+    assert vp_windy > vp_calm > 0
+    assert seq_dry > seq_wet > 0
+
+
+@requires_metadata
+def test_predict_returns_shap_factores_clave():
+    from app.model import RiskModel
+
+    m = RiskModel()
+    factors = m.explain_prediction({"temp_2m": 32.0, "humedad_relativa": 20.0, "pendiente_pct": 30.0}, top_k=3)
+    assert len(factors) == 3
+    for item in factors:
+        assert {"feature", "etiqueta", "valor", "impacto_shap", "efecto"} <= set(item.keys())
+        assert item["efecto"] in {"aumenta_riesgo", "reduce_riesgo"}

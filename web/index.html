@@ -426,7 +426,7 @@
               <div class="flow-step-icon">🤖</div>
               <div class="flow-step-content">
                 <strong>IA clasifica el riesgo</strong>
-                <span>Ensemble (LightGBM/XGBoost/RF) evalúa 18 variables en &lt;2ms</span>
+                <span>Ensemble (LightGBM/XGBoost/RF) evalúa 21 variables + SHAP en &lt;2ms</span>
               </div>
             </div>
             <div class="flow-arrow">↓</div>
@@ -812,12 +812,12 @@
             algoritmos de árboles de decisión potenciados por gradiente, elegidos por su:</p>
           <div class="ai-metrics">
             <div class="ai-metric">
-              <span class="ai-val">~45%</span>
-              <span class="ai-lbl">Focos capturados en el Top-20% de zonas de mayor riesgo</span>
+              <span class="ai-val">2.5×</span>
+              <span class="ai-lbl">Focos capturados en el Top-5% frente al azar (12.7% vs 5%)</span>
             </div>
             <div class="ai-metric">
               <span class="ai-val">0.65</span>
-              <span class="ai-lbl">ROC-AUC (validación espacial 5-fold)</span>
+              <span class="ai-lbl">ROC-AUC (StratifiedGroupKFold espacial 5-fold)</span>
             </div>
             <div class="ai-metric">
               <span class="ai-val">&lt;2ms</span>

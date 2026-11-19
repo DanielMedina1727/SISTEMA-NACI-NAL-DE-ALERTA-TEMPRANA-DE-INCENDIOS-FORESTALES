@@ -244,13 +244,14 @@ def sample_dem(layer, lons, lats, decim=4):
 _STAC = "https://earth-search.aws.element84.com/v1/search"
 
 
-def fetch_ndvi_mosaic(bbox, start, end, res=0.005, max_scenes=10, cloud_lt=40):
+def fetch_ndvi_mosaic(bbox, start, end, res=0.005, max_scenes=30, cloud_lt=60, force_refresh=False):
     """
-    Construye un mosaico NDVI real (mediana) a partir de escenas Sentinel-2 L2A.
+    Construye un mosaico NDVI real (mediana) a partir de escenas Sentinel-2 L2A
+    diversificando por tesela MGRS para cubrir todo Cajamarca sin huecos.
     Devuelve (ndvi_array, transform) en EPSG:4326, o (None, None) si no hay datos.
     """
     cache_f = CACHE / "ndvi_mosaic.npz"
-    if cache_f.exists():
+    if cache_f.exists() and not force_refresh:
         z = np.load(cache_f)
         _log("NDVI: caché de mosaico")
         return z["ndvi"], z["transform"]
@@ -263,15 +264,25 @@ def fetch_ndvi_mosaic(bbox, start, end, res=0.005, max_scenes=10, cloud_lt=40):
         "collections": ["sentinel-2-l2a"],
         "bbox": [bbox[1], bbox[0], bbox[3], bbox[2]],  # STAC: [west, south, east, north]
         "datetime": f"{start}T00:00:00Z/{end}T23:59:59Z",
-        "limit": 40,
+        "limit": 150,
         "query": {"eo:cloud_cover": {"lt": cloud_lt}},
     }, headers=UA, timeout=TIMEOUT)
     r.raise_for_status()
     feats = r.json().get("features", [])
-    # Ordenar por menor nubosidad
+    # Ordenar por menor nubosidad y diversificar por tesela MGRS (grid:code) para
+    # cubrir de norte a sur todo el departamento en lugar de repetir la misma zona.
     feats.sort(key=lambda f: f["properties"].get("eo:cloud_cover", 100))
-    feats = feats[:max_scenes]
-    _log(f"NDVI: {len(feats)} escenas Sentinel-2 encontradas")
+    selected, per_tile = [], {}
+    for feat in feats:
+        props = feat.get("properties", {})
+        tile = props.get("grid:code") or props.get("s2:mgrs_tile") or feat.get("id", "")[:15]
+        if per_tile.get(tile, 0) < 2:
+            selected.append(feat)
+            per_tile[tile] = per_tile.get(tile, 0) + 1
+        if len(selected) >= max_scenes:
+            break
+    feats = selected or feats[:max_scenes]
+    _log(f"NDVI: {len(feats)} escenas Sentinel-2 seleccionadas ({len(per_tile)} teselas MGRS)")
     if not feats:
         return None, None
 
@@ -288,8 +299,12 @@ def fetch_ndvi_mosaic(bbox, start, end, res=0.005, max_scenes=10, cloud_lt=40):
             nir_href = feat["assets"]["nir"]["href"]
             with rasterio.open(red_href) as dred, rasterio.open(nir_href) as dnir:
                 src_crs = dred.crs
-                src_transform = dred.transform
-                nsample = 2000
+                nsample = 1200  # ~90 m efectivos (10x más fino que la grilla de 1 km)
+                # Reescalar el affine transform al tamaño muestreado (corrige bug que
+                # encogía cada escena 5.5x y dejaba ~97.8% de Cajamarca sin NDVI).
+                scale_x = dred.width / float(nsample)
+                scale_y = dred.height / float(nsample)
+                src_transform = dred.transform * dred.transform.scale(scale_x, scale_y)
                 red = dred.read(1, out_shape=(nsample, nsample)).astype("float32")
                 nir = dnir.read(1, out_shape=(nsample, nsample)).astype("float32")
             red *= 0.0001

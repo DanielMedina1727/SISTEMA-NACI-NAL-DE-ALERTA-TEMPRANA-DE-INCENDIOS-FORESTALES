@@ -33,10 +33,12 @@ client = TestClient(app)
 
 # ── CR01: Integración de 5 fuentes y 18 variables ─────────────────────────────
 @requires_model
-def test_cr01_five_sources_and_18_features():
+def test_cr01_five_sources_and_features():
+    from app.model import FEATURE_ORDER
+
     assert METADATA_PATH.exists(), "Debe existir models/model_metadata.json"
     meta = json.loads(METADATA_PATH.read_text(encoding="utf-8"))
-    assert len(meta["features"]) == 18
+    assert len(meta["features"]) == len(FEATURE_ORDER)
     assert len(meta["feature_sources"]) == 5
     for key in ("terreno", "vegetacion", "meteorologia", "infraestructura", "etiqueta"):
         assert key in meta["feature_sources"]

@@ -145,10 +145,12 @@ def test_report_recent_returns_list():
 
 
 def test_model_importance_shape():
+    from app.model import FEATURE_ORDER
+
     r = client.get("/model/importance")
     assert r.status_code == 200
     body = r.json()
-    assert body["n_features"] == 18
+    assert body["n_features"] == len(FEATURE_ORDER)
     assert len(body["feature_importance"]) >= 1
 
 

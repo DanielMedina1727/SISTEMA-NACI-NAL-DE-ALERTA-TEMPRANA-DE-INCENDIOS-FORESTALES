@@ -198,6 +198,7 @@ class PredictionResponse(BaseModel):
     probabilidad: float
     percentil: Optional[float] = None  # ubicación del score en la distribución del modelo
     nivel: str  # "Verde" | "Amarillo" | "Rojo"
+    factores_clave: Optional[list[dict]] = None  # Top-3 explicaciones SHAP por celda (XAI)
 
 
 class WhatsAppAlertRequest(BaseModel):
@@ -245,6 +246,7 @@ def predict(features: GridFeatures):
         # sus DEFAULT_VALUES en las features temporales.
         payload = {k: v for k, v in features.model_dump().items() if v is not None}
         proba = model.predict_proba(payload)
+        factores = model.explain_prediction(payload, top_k=3)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -254,6 +256,7 @@ def predict(features: GridFeatures):
         probabilidad=round(proba, 4),
         percentil=score_percentile(proba),
         nivel=nivel,
+        factores_clave=factores or None,
     )
 
 
@@ -433,46 +436,48 @@ def get_model_feature_importance():
 
     from app.model import FEATURE_ORDER
 
-    # El modelo puede ser un VotingClassifier(LGB, XGB, RF) o estar envuelto en un
-    # CalibratedClassifierCV. Ninguno de los dos expone `feature_importances_` a nivel
-    # raíz, así que localizamos el LightGBM interno en cualquiera de las dos estructuras.
-    importances = None
+    # Priorizar importancias SHAP (más fieles que el conteo de splits) cuando estén
+    # registradas en los metadatos MLOps; usar feature_importances_ como fallback.
+    meta_path = Path(__file__).parent.parent / "models" / "model_metadata.json"
+    shap_imp = {}
     try:
-        _obj = model.model
-        _ensemble = _obj.calibrated_classifiers_[0].estimator if hasattr(_obj, "calibrated_classifiers_") else _obj
-        _first = _ensemble.estimators_[0]
-        _lgb = _first[1] if isinstance(_first, tuple) else _first  # sklearn<1.5 usa tuplas
-        _imp = list(_lgb.feature_importances_)
-        if len(_imp) == len(FEATURE_ORDER):
-            importances = _imp
+        with open(meta_path, "r", encoding="utf-8") as fh:
+            meta = json.load(fh)
+        shap_imp = meta.get("shap_feature_importance", {}) or {}
     except Exception:
-        importances = None
+        shap_imp = {}
 
-    if importances is not None:
+    if shap_imp and len(shap_imp) == len(FEATURE_ORDER):
+        total = sum(shap_imp.values()) or 1.0
+        result = [
+            {"feature": k, "importance": round(v / total, 4), "percentage": round(v / total * 100, 2)}
+            for k, v in shap_imp.items()
+        ]
+        source = "shap.TreeExplainer"
+    else:
+        importances = None
+        try:
+            _obj = model.model
+            _ensemble = _obj.calibrated_classifiers_[0].estimator if hasattr(_obj, "calibrated_classifiers_") else _obj
+            _first = _ensemble.estimators_[0]
+            _lgb = _first[1] if isinstance(_first, tuple) else _first
+            _imp = list(_lgb.feature_importances_)
+            if len(_imp) == len(FEATURE_ORDER):
+                importances = _imp
+        except Exception:
+            importances = None
+
+        if importances is None:
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo obtener la importancia de características del modelo.",
+            )
         total = sum(importances) or 1.0
         result = [
             {"feature": name, "importance": round(val / total, 4), "percentage": round(val / total * 100, 2)}
             for name, val in zip(FEATURE_ORDER, importances)
         ]
         source = "lightgbm.feature_importances_"
-    else:
-        # Fallback robusto: importancias SHAP registradas en los metadatos MLOps
-        meta_path = Path(__file__).parent.parent / "models" / "model_metadata.json"
-        try:
-            with open(meta_path, "r", encoding="utf-8") as fh:
-                meta = json.load(fh)
-            shap_imp = meta.get("shap_feature_importance", {})
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail=f"No se pudo obtener la importancia de características: {exc}",
-            )
-        total = sum(shap_imp.values()) or 1.0
-        result = [
-            {"feature": k, "importance": round(v / total, 4), "percentage": round(v / total * 100, 2)}
-            for k, v in shap_imp.items()
-        ]
-        source = "model_metadata.shap_feature_importance"
 
     result.sort(key=lambda x: x["importance"], reverse=True)
     return {

@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT))
 from data_pipeline.grid_builder import (  # noqa: E402
     NEIGHBORHOOD_K,
     add_neighborhood_features,
+    add_physical_features,
     add_wind_encoding,
 )
 
@@ -62,6 +63,8 @@ def refresh(input_path: str, k: int = NEIGHBORHOOD_K) -> pd.DataFrame:
     df = add_neighborhood_features(df, k=k)
     # 2) Viento sin/cos (circular)
     df = add_wind_encoding(df)
+    # 3) Variables físicas compuestas (VPD, viento×pendiente, índice de sequedad)
+    df = add_physical_features(df)
 
     if in_path.exists():
         df.to_parquet(in_path, index=False)
