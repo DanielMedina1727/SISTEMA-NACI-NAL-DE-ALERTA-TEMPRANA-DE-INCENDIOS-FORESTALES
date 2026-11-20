@@ -391,6 +391,14 @@ function initMainMap() {
   mainMap.createPane('firmsPane');
   mainMap.getPane('firmsPane').style.zIndex = '650';
 
+  // En móvil, iniciar leyenda colapsada para no tapar el mapa
+  if (window.innerWidth <= 768) {
+    const leg = document.getElementById('mapLegend');
+    const lbtn = document.getElementById('legendToggleBtn');
+    if (leg) leg.classList.add('collapsed');
+    if (lbtn) lbtn.textContent = '+';
+  }
+
   renderCajamarcaBorder();
   renderExtremesLayer();
   loadMapData();
@@ -894,42 +902,55 @@ async function loadFIRMSHotspots() {
   let sourceLabel    = 'simulación';
   let dataSourceType = 'offline'; // 'real_today' | 'real_recent' | 'zero_active' | 'offline'
 
-  // 1) Intentar vía proxy FastAPI (datos reales de NASA FIRMS sin problemas de CORS)
+  // 1) Intentar vía proxy FastAPI (los 3 satélites VIIRS: S-NPP + NOAA-20 + NOAA-21, igual que ArcGIS)
+  const clipToCajamarca = (list) => {
+    if (regionVal === 'all') return list;
+    const bb = AI_REGION_BBOX[regionVal];
+    return list.filter(f => {
+      const [lon, lat] = f.geometry.coordinates;
+      if (!pointInCajamarca(lat, lon)) return false;
+      if (bb) return lat >= bb.south && lat <= bb.north && lon >= bb.west && lon <= bb.east;
+      return true;
+    });
+  };
+
   try {
-    // Primero consultar la ventana seleccionada en el filtro (1-3 días)
+    // Primero consultar la ventana seleccionada en el filtro (1-3 días) con TODOS los satélites VIIRS
     const proxyResp = await fetch(
-      `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=${lookback}`,
-      { signal: AbortSignal.timeout(5000) }
+      `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_ALL&days=${lookback}`,
+      { signal: AbortSignal.timeout(15000) }
     );
     if (proxyResp.ok) {
       const data = await proxyResp.json();
-      if (Array.isArray(data.features) && data.features.length > 0) {
-        features       = data.features;
-        sourceLabel    = 'NASA FIRMS (Hoy)';
-        dataSourceType = 'real_today';
+      const clipped = clipToCajamarca(Array.isArray(data.features) ? data.features : []);
+      if (clipped.length > 0) {
+        features       = clipped;
+        sourceLabel    = lookback === 1 ? 'NASA FIRMS VIIRS (Hoy)' : `NASA FIRMS VIIRS (${lookback * 24}h)`;
+        dataSourceType = lookback === 1 ? 'real_today' : 'real_recent';
       } else {
-        // Si hoy temprano aún no hubo pasadas satelitales con focos activos,
-        // consultamos las últimas 48-72h para ver los focos satelitales reales detectados en Cajamarca
+        // Si hoy aún no hubo pasadas satelitales con focos activos,
+        // consultamos las últimas 72h en los 3 satélites VIIRS (S-NPP + NOAA-20 + NOAA-21)
         try {
           const respReciente = await fetch(
-            `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_SNPP_NRT&days=3`,
-            { signal: AbortSignal.timeout(5000) }
+            `${API_URL}/firms/hotspots?region=${bboxKey}&source=VIIRS_ALL&days=3`,
+            { signal: AbortSignal.timeout(15000) }
           );
           if (respReciente.ok) {
             const dataReciente = await respReciente.json();
-            if (Array.isArray(dataReciente.features) && dataReciente.features.length > 0) {
-              features       = dataReciente.features;
-              sourceLabel    = 'NASA FIRMS (Últimas 48-72h)';
+            const clippedRec = clipToCajamarca(Array.isArray(dataReciente.features) ? dataReciente.features : []);
+            if (clippedRec.length > 0) {
+              features       = clippedRec;
+              sourceLabel    = 'NASA FIRMS VIIRS (Últimas 72h)';
               dataSourceType = 'real_recent';
             }
           }
         } catch (_) {}
 
-        // Si ni en 72h hay focos activos detectados por el satélite
+        // Si ni en 72h hay focos activos detectados por los 3 satélites
         if (features.length === 0) {
           dataSourceType = 'zero_active';
-          sourceLabel    = 'NASA FIRMS (0 fuegos activos en 72h)';
-          features       = []; // Sin datos demo — mostrar mapa limpio
+          sourceLabel    = 'NASA FIRMS VIIRS (0 focos activos en 72h)';
+          features       = [];
         }
       }
     }

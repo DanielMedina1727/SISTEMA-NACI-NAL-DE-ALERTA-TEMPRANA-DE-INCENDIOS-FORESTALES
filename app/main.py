@@ -575,35 +575,79 @@ BBOXES = {
 CONF_MAP = {"l": 0.40, "n": 0.75, "h": 0.95}
 
 
+VIIRS_SOURCES = ("VIIRS_SNPP_NRT", "VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT")
+
+
+def _fetch_firms_source(api_key: str, source: str, bbox: str, days: int) -> list[dict]:
+    """Consulta un sensor NASA FIRMS y devuelve lista de filas CSV."""
+    url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{api_key}/{source}/{bbox}/{days}"
+    req = urllib.request.Request(url, headers={"User-Agent": "AlertaForestalPeru/2.5"})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read().decode("utf-8")
+    if "Invalid" in raw[:80] or "latitude" not in raw[:120]:
+        return []
+    rows = []
+    for row in csv.DictReader(io.StringIO(raw)):
+        row["_source"] = source
+        rows.append(row)
+    return rows
+
+
 @app.get("/firms/hotspots")
 def get_firms_hotspots(
     region: str = Query(default="peru", description="Region preset: peru, cajamarca, norte, sur, amazonia"),
-    source: str = Query(default="VIIRS_SNPP_NRT", description="VIIRS_SNPP_NRT | VIIRS_NOAA20_NRT | MODIS_NRT"),
+    source: str = Query(
+        default="VIIRS_ALL",
+        description="VIIRS_ALL (S-NPP + NOAA-20 + NOAA-21) | VIIRS_SNPP_NRT | VIIRS_NOAA20_NRT | VIIRS_NOAA21_NRT | MODIS_NRT",
+    ),
     days: int   = Query(default=1, ge=1, le=7, description="Últimos N días (1-7)"),
 ):
     """
     Retorna focos de calor satelitales reales de NASA FIRMS en GeoJSON.
-    Fuente: VIIRS (375m resolución) o MODIS (1km resolución).
+    Con `source=VIIRS_ALL` consulta en paralelo los 3 satélites VIIRS
+    (S-NPP, NOAA-20 y NOAA-21), igual que el tablero oficial ArcGIS/SERFOR.
     """
+    from concurrent.futures import ThreadPoolExecutor
+
+    api_key = os.getenv("FIRMS_MAP_KEY", "").strip() or FIRMS_MAP_KEY
     bbox = BBOXES.get(region, BBOXES["peru"])
-    url  = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{FIRMS_MAP_KEY}/{source}/{bbox}/{days}"
+    sources = list(VIIRS_SOURCES) if source.upper() == "VIIRS_ALL" else [source]
 
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "AlertaForestalPeru/2.0"})
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            raw = resp.read().decode("utf-8")
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Error al consultar NASA FIRMS: {exc}")
+    all_rows: list[dict] = []
+    errors: list[str] = []
+    if len(sources) == 1:
+        try:
+            all_rows = _fetch_firms_source(api_key, sources[0], bbox, days)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Error al consultar NASA FIRMS: {exc}")
+    else:
+        with ThreadPoolExecutor(max_workers=len(sources)) as pool:
+            futs = {pool.submit(_fetch_firms_source, api_key, src, bbox, days): src for src in sources}
+            for fut, src in futs.items():
+                try:
+                    all_rows.extend(fut.result())
+                except Exception as exc:
+                    errors.append(f"{src}: {exc}")
+        if not all_rows and len(errors) == len(sources):
+            raise HTTPException(status_code=502, detail=f"Error al consultar NASA FIRMS: {'; '.join(errors)}")
 
-    reader  = csv.DictReader(io.StringIO(raw))
+    seen: set[tuple] = set()
     features = []
 
-    for row in reader:
+    for row in all_rows:
         try:
             lat  = float(row["latitude"])
             lon  = float(row["longitude"])
+            sat  = row.get("satellite", row.get("_source", source))
+            acq_d = row.get("acq_date", "")
+            acq_t = str(row.get("acq_time", ""))
+            dedup_key = (round(lat, 4), round(lon, 4), acq_d, acq_t, sat)
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
             frp  = float(row.get("frp", 0) or 0)       # Fire Radiative Power (MW)
-            conf_raw = row.get("confidence", "n")
+            conf_raw = str(row.get("confidence", "n")).lower().strip()
             # VIIRS usa 'l'/'n'/'h'; MODIS usa 0-100
             if conf_raw in ("l", "n", "h"):
                 confidence = CONF_MAP.get(conf_raw, 0.75)
@@ -622,10 +666,10 @@ def get_firms_hotspots(
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [lon, lat]},
                 "properties": {
-                    "satellite":    row.get("satellite", source),
+                    "satellite":    sat,
                     "instrument":   row.get("instrument", "VIIRS"),
-                    "acq_date":     row.get("acq_date", ""),
-                    "acq_time":     row.get("acq_time", ""),
+                    "acq_date":     acq_d,
+                    "acq_time":     acq_t,
                     "frp":          round(frp, 2),
                     "confidence":   round(confidence, 2),
                     "bright_ti4":   float(row.get("bright_ti4") or row.get("brightness") or 0),
