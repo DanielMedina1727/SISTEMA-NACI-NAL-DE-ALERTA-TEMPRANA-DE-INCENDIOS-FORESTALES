@@ -64,13 +64,24 @@ def _fetch_risk_data() -> list[dict]:
         dataset_path = Path(__file__).parent.parent / "data" / "dataset.parquet"
         csv_path = dataset_path.with_suffix(".csv")
 
-        if csv_path.exists():
+        if dataset_path.exists():
+            try:
+                df_full = pd.read_parquet(dataset_path).drop(columns=["geometry"], errors="ignore")
+            except Exception:
+                df_full = pd.read_csv(csv_path)
+        elif csv_path.exists():
             df_full = pd.read_csv(csv_path)
-        elif dataset_path.exists():
-            df_full = pd.read_parquet(dataset_path).drop(columns=["geometry"], errors="ignore")
         else:
             logger.warning("Dataset no encontrado en data/")
             return []
+
+        # Aplicar clima real de hoy (Open-Meteo) para que las alertas 07:00 reflejen el día actual
+        try:
+            from app.live_weather import apply_live_weather
+
+            df_full, _ = apply_live_weather(df_full)
+        except Exception as exc:
+            logger.warning("⚠️ Scheduler: clima en vivo no disponible (%s), usando snapshot.", exc)
 
         # Filtrar area de Cajamarca con los límites extremos exactos
         df = df_full[
@@ -263,19 +274,22 @@ def _build_message(zona_info: dict) -> str:
         )
 
 
-async def run_daily_alerts() -> None:
+async def run_daily_alerts() -> dict:
     """
     Tarea principal del scheduler:
-    - Descarga las predicciones de riesgo de hoy.
+    - Refresca el clima real de hoy y calcula las predicciones de riesgo.
     - Para cada zona, calcula el nivel de riesgo y envía el mensaje al grupo correspondiente.
+    - Devuelve un resumen estructurado con los envíos exitosos, omitidos y errores.
     """
     logger.info("🕐 Iniciando envío de alertas automáticas diarias...")
+    summary: dict = {"enviados": 0, "fallidos": 0, "omitidos": 0, "detalle": []}
 
     try:
         accounts = get_accounts()
     except RuntimeError as exc:
         logger.error("⛔ Scheduler: credenciales no configuradas — %s", exc)
-        return
+        summary["error"] = str(exc)
+        return summary
 
     logger.info(
         "🔔 Cuentas Green API: %s",
@@ -285,7 +299,8 @@ async def run_daily_alerts() -> None:
     features = _fetch_risk_data()
     if not features:
         logger.warning("⚠️  Scheduler: no hay datos de riesgo disponibles hoy.")
-        return
+        summary["error"] = "sin_datos_riesgo"
+        return summary
 
     logger.info("📊 %d grillas cargadas. Analizando por zona...", len(features))
 
@@ -296,6 +311,8 @@ async def run_daily_alerts() -> None:
                 "⚠️  Sin ChatID para zona %s (env_key: %s). Saltando.",
                 zona["nombre"], zona["env_key"]
             )
+            summary["omitidos"] += 1
+            summary["detalle"].append({"zona": zona["nombre"], "status": "omitido", "motivo": "sin_chat_id"})
             continue
 
         zona_info = _classify_zone(features, zona)
@@ -308,7 +325,21 @@ async def run_daily_alerts() -> None:
                 zona_info["nivel"], zona["nombre"], chat_id,
                 result["account"], result["response"]
             )
+            summary["enviados"] += 1
+            summary["detalle"].append({
+                "zona": zona["nombre"],
+                "nivel": zona_info["nivel"],
+                "status": "enviado",
+                "cuenta": result["account"],
+            })
         except Exception as exc:
+            summary["fallidos"] += 1
+            summary["detalle"].append({
+                "zona": zona["nombre"],
+                "nivel": zona_info["nivel"],
+                "status": "error",
+                "motivo": str(exc)[:180],
+            })
             if "466" in str(exc):
                 logger.warning(
                     "⚠️  Green API rechazó el grupo %s (%s): puede ser el límite Free "
@@ -328,7 +359,11 @@ async def run_daily_alerts() -> None:
                     zona["nombre"], chat_id, exc
                 )
 
-    logger.info("🏁 Envío de alertas diarias completado.")
+    logger.info(
+        "🏁 Envío de alertas diarias completado (enviados=%d, fallidos=%d, omitidos=%d).",
+        summary["enviados"], summary["fallidos"], summary["omitidos"],
+    )
+    return summary
 
 
 def init_scheduler() -> AsyncIOScheduler:

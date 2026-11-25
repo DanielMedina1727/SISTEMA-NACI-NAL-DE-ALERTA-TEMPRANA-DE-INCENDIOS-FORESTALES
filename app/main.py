@@ -52,8 +52,23 @@ _scheduler = init_scheduler()
 
 @asynccontextmanager
 async def _lifespan(application: FastAPI):
+    import threading
+
     _scheduler.start()
     logger.info("⏰ Scheduler iniciado — alertas diarias programadas para las 07:00 (Lima)")
+
+    # Actualizar meteorología real de hoy en segundo plano tras arrancar (no bloquea /healthz)
+    if os.getenv("DISABLE_STARTUP_WEATHER_REFRESH", "").strip() != "1":
+        def _bg_weather_refresh():
+            import time as _t
+            _t.sleep(2.0)
+            try:
+                refresh_scored_with_live_weather()
+            except Exception as exc:
+                logger.warning("⚠️ No se pudo refrescar clima en vivo al inicio (se usa snapshot): %s", exc)
+
+        threading.Thread(target=_bg_weather_refresh, daemon=True).start()
+
     try:
         yield
     finally:
@@ -107,9 +122,16 @@ model = RiskModel()
 DATASET_PATH = Path(__file__).parent.parent / "data" / "dataset.parquet"
 MODEL_PATH = Path(__file__).parent.parent / "models" / "lightgbm_wildfire.pkl"
 
-# Caché en memoria del dataset puntuado. El score depende solo del modelo y del
-# dataset (estáticos entre reentrenamientos); se invalida por fecha de modificación.
-_SCORED_CACHE: dict = {"key": None, "df": None}
+# Caché en memoria del dataset puntuado. Se invalida por fecha de modificación
+# del archivo o cuando se refresca la meteorología real de hoy (/risk/refresh).
+import threading as _threading
+
+_SCORED_LOCK = _threading.Lock()
+_SCORED_CACHE: dict = {
+    "key": None,
+    "df": None,
+    "weather_info": {"source": "snapshot", "updated_at": None},
+}
 
 
 def _dataset_signature() -> tuple:
@@ -125,40 +147,82 @@ def _dataset_signature() -> tuple:
 
 
 def _invalidate_scored_cache() -> None:
-    _SCORED_CACHE["key"] = None
-    _SCORED_CACHE["df"] = None
+    with _SCORED_LOCK:
+        _SCORED_CACHE["key"] = None
+        _SCORED_CACHE["df"] = None
+        _SCORED_CACHE["weather_info"] = {"source": "snapshot", "updated_at": None}
 
 
-def _load_scored_dataset() -> pd.DataFrame:
-    """Carga el dataset completo y añade la columna `_score` (probabilidad del modelo). Cacheado."""
-    key = _dataset_signature()
-    if _SCORED_CACHE["key"] == key and _SCORED_CACHE["df"] is not None:
-        return _SCORED_CACHE["df"]
-
+def _read_base_dataset() -> pd.DataFrame:
+    """Lee el dataset prefiriendo Parquet (~15x más rápido que CSV en cold start)."""
     csv_path = DATASET_PATH.with_suffix(".csv")
-    if not csv_path.exists() and not DATASET_PATH.exists():
+    if not DATASET_PATH.exists() and not csv_path.exists():
         raise HTTPException(
             status_code=404,
             detail="Dataset no encontrado. Ejecuta data_pipeline/grid_builder.py primero.",
         )
+    if DATASET_PATH.exists():
+        try:
+            return pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
+        except Exception:
+            pass
+    return pd.read_csv(csv_path)
 
-    if csv_path.exists():
-        df = pd.read_csv(csv_path)
-    else:
-        df = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
 
+def _score_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     for col in FEATURE_ORDER:
         if col not in df.columns:
             df[col] = 0.0
-
     try:
         df["_score"] = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
     except Exception:
         df["_score"] = 0.1
-
-    _SCORED_CACHE["key"] = key
-    _SCORED_CACHE["df"] = df
     return df
+
+
+def _load_scored_dataset() -> pd.DataFrame:
+    """Carga el dataset completo y añade `_score` (probabilidad del modelo). Cacheado."""
+    key = _dataset_signature()
+    with _SCORED_LOCK:
+        if _SCORED_CACHE["key"] == key and _SCORED_CACHE["df"] is not None:
+            return _SCORED_CACHE["df"]
+
+    df = _score_dataframe(_read_base_dataset())
+    with _SCORED_LOCK:
+        _SCORED_CACHE["key"] = key
+        _SCORED_CACHE["df"] = df
+        _SCORED_CACHE["weather_info"] = {"source": "snapshot", "updated_at": None}
+    return df
+
+
+def refresh_scored_with_live_weather() -> dict:
+    """
+    Descarga la meteorología REAL de hoy vía Open-Meteo, la interpola a las 68k celdas,
+    recalcula vecindario + VPD/FWI y vuelve a puntuar todo Cajamarca en memoria.
+    """
+    from app.live_weather import apply_live_weather
+
+    base_df = _read_base_dataset()
+    live_df, info = apply_live_weather(base_df)
+    scored_df = _score_dataframe(live_df)
+
+    key = _dataset_signature()
+    with _SCORED_LOCK:
+        _SCORED_CACHE["key"] = key
+        _SCORED_CACHE["df"] = scored_df
+        _SCORED_CACHE["weather_info"] = info
+
+    s = scored_df["_score"].to_numpy()
+    return {
+        "status": "ok",
+        "weather": info,
+        "stats": {
+            "total_analizado": int(len(scored_df)),
+            "rojo": int((s >= THRESHOLDS["rojo"]).sum()),
+            "amarillo": int(((s >= THRESHOLDS["amarillo"]) & (s < THRESHOLDS["rojo"])).sum()),
+            "verde": int((s < THRESHOLDS["amarillo"]).sum()),
+        },
+    }
 
 
 def _load_scored_cajamarca() -> pd.DataFrame:
@@ -227,6 +291,7 @@ def health():
     except Exception:
         pass
 
+    w_info = _SCORED_CACHE.get("weather_info") or {}
     return {
         "status": "ok",
         "service": "Wildfire Risk API",
@@ -234,8 +299,26 @@ def health():
         "dataset_available": DATASET_PATH.exists(),
         "model_version": model_version,
         "training_date": training_date,
+        "weather_source": w_info.get("source", "snapshot"),
+        "weather_updated_at": w_info.get("updated_at"),
         "thresholds": get_thresholds(),
     }
+
+
+@app.post(
+    "/risk/refresh",
+    tags=["Predicción"],
+    dependencies=[Depends(rate_limit(max_calls=4, window_seconds=600))],
+)
+def refresh_risk_live_weather():
+    """
+    Actualiza en vivo las variables meteorológicas de HOY (Open-Meteo) y recalcula
+    el mapa de riesgo IA de las ~68k celdas de Cajamarca.
+    """
+    try:
+        return refresh_scored_with_live_weather()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo actualizar clima en vivo: {exc}")
 
 
 @app.post("/predict", response_model=PredictionResponse)
@@ -379,8 +462,12 @@ async def trigger_daily_alerts():
     Requiere X-API-Key si ADMIN_API_KEY está definida.
     """
     try:
-        await run_daily_alerts()
-        return {"status": "ok", "mensaje": "Alertas diarias enviadas a todos los grupos."}
+        summary = await run_daily_alerts()
+        return {
+            "status": "ok",
+            "mensaje": "Ejecución de alertas diarias finalizada.",
+            "resumen": summary,
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error en el envío de alertas: {exc}")
 

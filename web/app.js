@@ -433,6 +433,60 @@ function renderCajamarcaBorder() {
   }).addTo(cajamarcaBorderLayer);
 }
 
+/* ── Auto-despertado inteligente para Render Free (cold start 20-55 s) ── */
+let _wakeupInProgress = false;
+let _liveWeatherRechecked = false;
+
+function showWakeupBanner(attempt, maxAttempts) {
+  let banner = document.getElementById('demoBanner');
+  if (!banner) {
+    showDemoBanner(false, false);
+    banner = document.getElementById('demoBanner');
+  }
+  if (!banner) return;
+  banner.style.background = 'rgba(12, 32, 58, 0.92)';
+  banner.style.border     = '1px solid #38bdf8';
+  banner.style.color      = '#bae6fd';
+  banner.innerHTML = `⏳ <b>Despertando servidor en la nube…</b> (intento ${attempt}/${maxAttempts}) — se actualizará automáticamente`;
+  banner.style.opacity = '1';
+  banner.style.display = 'block';
+}
+
+async function scheduleAutoWakeup() {
+  if (_wakeupInProgress) return;
+  _wakeupInProgress = true;
+  const maxAttempts = 6;
+  const elFresh = document.getElementById('dataFreshness');
+  const mapBadge = document.getElementById('mapModelBadge');
+
+  for (let i = 1; i <= maxAttempts; i++) {
+    showWakeupBanner(i, maxAttempts);
+    if (elFresh) elFresh.textContent = `⏳ Despertando servidor en Render (${i}/${maxAttempts})...`;
+    if (mapBadge) mapBadge.textContent = `⏳ Despertando servidor (${i}/${maxAttempts})...`;
+    try {
+      const r = await fetch(`${API_URL}/healthz`, { signal: AbortSignal.timeout(15000) });
+      if (r.ok) {
+        _wakeupInProgress = false;
+        showToast('¡Servidor activo! Cargando datos reales de hoy...', '✅');
+        await Promise.all([
+          loadMapData(),
+          loadFIRMSHotspots(),
+          loadWeatherData(),
+          loadDataFreshness(),
+          loadShapImportance(),
+        ]);
+        return;
+      }
+    } catch (_) { /* aún despertando */ }
+    await new Promise(res => setTimeout(res, 6000));
+  }
+
+  _wakeupInProgress = false;
+  showDemoBanner(true, false);
+  if (elFresh) elFresh.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
+  if (mapBadge) mapBadge.textContent = '⚠️ API offline · Modo demostración';
+}
+
 /* ── Predicciones IA ── */
 async function loadMapData() {
   showMapLoading(true);
@@ -448,13 +502,15 @@ async function loadMapData() {
   try {
     const resp = await fetch(
       `${API_URL}/risk/today?limit=${reqLimit}&only_alerts=${onlyAlerts}`,
-      { signal: AbortSignal.timeout(12000) }
+      { signal: AbortSignal.timeout(25000) }
     );
     if (resp.ok) {
       const data   = await resp.json();
       features     = data.features || [];
       lastApiStats = data.stats || null;
       apiOnline    = true;
+    } else {
+      throw new Error('HTTP ' + resp.status);
     }
   } catch (_) {
     features = DEMO_FEATURES;
@@ -474,7 +530,13 @@ async function loadMapData() {
   renderMapLayers(features);
   updateHeroStats(features, lastApiStats);
   updateRiskBadge(features, lastApiStats);
-  showDemoBanner(isDemo, apiOnline);
+
+  if (isDemo && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    // En la nube (Render Free), no alarmar con "API offline": despertar y recargar automáticamente
+    scheduleAutoWakeup();
+  } else {
+    showDemoBanner(isDemo, apiOnline);
+  }
   showMapLoading(false);
 }
 
@@ -1501,23 +1563,38 @@ async function loadDataFreshness() {
   const el = document.getElementById('dataFreshness');
   const mapBadge = document.getElementById('mapModelBadge');
   try {
-    const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(15000) });
     if (resp.ok) {
       const h = await resp.json();
       const train = h.training_date
         ? new Date(h.training_date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
         : '—';
       const th = h.thresholds || {};
+      const liveTag = h.weather_source === 'open-meteo-live'
+        ? ' · 🌤️ clima de hoy en vivo'
+        : ' · ⏳ sincronizando clima...';
       if (el) {
         el.textContent = `🤖 Modelo ${h.model_version || ''} · entrenado ${train}` +
-          (th.rojo != null ? ` · umbral Rojo ≥ ${Number(th.rojo).toFixed(3)}` : '');
+          (th.rojo != null ? ` · umbral Rojo ≥ ${Number(th.rojo).toFixed(3)}` : '') + liveTag;
       }
       if (mapBadge) {
-        mapBadge.textContent = `🤖 ${h.model_version || 'v2.5.0'} · 21 variables · NDVI Sentinel-2`;
+        mapBadge.textContent = `🤖 ${h.model_version || 'v2.5.0'} · 21 variables${liveTag}`;
+      }
+      // Si el clima en vivo acaba de arrancar en segundo plano en Render, refrescar una vez a los 7 s
+      if (h.weather_source !== 'open-meteo-live' && !_liveWeatherRechecked) {
+        _liveWeatherRechecked = true;
+        setTimeout(() => {
+          loadDataFreshness();
+          if (mainMap) loadMapData();
+        }, 7000);
       }
       return;
     }
   } catch (_) {}
+  if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    scheduleAutoWakeup();
+    return;
+  }
   if (el) el.textContent = '🤖 Modelo offline — mostrando datos simulados (demo)';
   if (mapBadge) mapBadge.textContent = '⚠️ API offline · Modo demostración';
 }

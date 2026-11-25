@@ -1,0 +1,55 @@
+name: Alertas Diarias 07:00 AM (Render Wakeup + Clima Vivo + WhatsApp)
+
+on:
+  schedule:
+    # 11:55 UTC = 06:55 AM America/Lima (UTC-5) — da 5 min de margen para despertar Render Free
+    - cron: "55 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  daily-alerts:
+    name: Despertar Render, actualizar clima y enviar alertas WhatsApp
+    runs-on: ubuntu-latest
+    env:
+      RENDER_URL: https://alerta-temprana-de-incendios-forestales.onrender.com
+    steps:
+      - name: 1. Despertar servicio en Render (/healthz)
+        run: |
+          echo "Despertando $RENDER_URL ..."
+          for i in $(seq 1 12); do
+            CODE=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 25 "$RENDER_URL/healthz" || echo "000")
+            echo "Intento $i/12 -> HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              cat /tmp/health.json
+              echo ""
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Error: Render no respondió a tiempo tras 12 intentos."
+          exit 1
+
+      - name: 2. Actualizar meteorología real de HOY (/risk/refresh)
+        run: |
+          CODE=$(curl -s -o /tmp/refresh.json -w "%{http_code}" -X POST --max-time 60 "$RENDER_URL/risk/refresh" || echo "000")
+          echo "POST /risk/refresh -> HTTP $CODE"
+          cat /tmp/refresh.json || true
+          echo ""
+
+      - name: 3. Disparar alertas diarias por WhatsApp (/alert/daily)
+        env:
+          ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+        run: |
+          if [ -n "$ADMIN_API_KEY" ]; then
+            CODE=$(curl -s -o /tmp/daily.json -w "%{http_code}" -X POST --max-time 90 \
+              -H "X-API-Key: $ADMIN_API_KEY" "$RENDER_URL/alert/daily" || echo "000")
+          else
+            CODE=$(curl -s -o /tmp/daily.json -w "%{http_code}" -X POST --max-time 90 \
+              "$RENDER_URL/alert/daily" || echo "000")
+          fi
+          echo "POST /alert/daily -> HTTP $CODE"
+          cat /tmp/daily.json || true
+          echo ""
+          if [ "$CODE" != "200" ]; then
+            exit 1
+          fi

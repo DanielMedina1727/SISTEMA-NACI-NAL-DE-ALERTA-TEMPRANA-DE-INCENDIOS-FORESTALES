@@ -107,3 +107,40 @@ def test_predict_returns_shap_factores_clave():
     for item in factors:
         assert {"feature", "etiqueta", "valor", "impacto_shap", "efecto"} <= set(item.keys())
         assert item["efecto"] in {"aumenta_riesgo", "reduce_riesgo"}
+
+
+def test_apply_live_weather_updates_features_and_physics():
+    import pandas as pd
+    from app.live_weather import apply_live_weather
+
+    base = pd.DataFrame({
+        "latitude": [-7.16, -7.15, -6.50, -5.70],
+        "longitude": [-78.51, -78.50, -78.80, -78.81],
+        "pendiente_pct": [25.0, 10.0, 15.0, 5.0],
+        "temp_2m": [15.0, 15.0, 15.0, 15.0],
+        "humedad_relativa": [80.0, 80.0, 80.0, 80.0],
+        "viento_velocidad": [5.0, 5.0, 5.0, 5.0],
+        "viento_direccion": [0.0, 0.0, 0.0, 0.0],
+        "dias_sin_lluvia": [0.0, 0.0, 0.0, 0.0],
+    })
+    meteo = pd.DataFrame({
+        "latitude": [-7.16, -5.70],
+        "longitude": [-78.51, -78.81],
+        "temp_2m": [28.0, 22.0],
+        "humedad_relativa": [30.0, 65.0],
+        "viento_velocidad": [18.0, 9.0],
+        "viento_direccion": [90.0, 180.0],
+        "dias_sin_lluvia": [10, 1],
+        "lluvia_acum_7d": [0.0, 18.5],
+        "lluvia_acum_15d": [0.5, 42.0],
+        "temp_lag1": [27.0, 21.0],
+        "humedad_lag1": [32.0, 68.0],
+    })
+
+    updated, info = apply_live_weather(base, meteo_df=meteo)
+    assert info["source"] == "open-meteo-live"
+    assert info["points"] == 2
+    assert updated.loc[0, "temp_2m"] > updated.loc[3, "temp_2m"]
+    assert updated.loc[0, "vpd_kpa"] > updated.loc[3, "vpd_kpa"] > 0
+    assert updated.loc[0, "indice_sequedad"] > updated.loc[3, "indice_sequedad"]
+    assert {"viento_dir_sin", "viento_dir_cos", "temp_vecindad_media", "humedad_vecindad_media"} <= set(updated.columns)
