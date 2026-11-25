@@ -122,10 +122,15 @@ def fetch_today_meteo(bbox: tuple[float, float, float, float] = CAJAMARCA_BBOX, 
     return pd.DataFrame(filas)
 
 
-def apply_live_weather(df: pd.DataFrame, meteo_df: pd.DataFrame | None = None) -> tuple[pd.DataFrame, dict]:
+def apply_live_weather(
+    df: pd.DataFrame,
+    meteo_df: pd.DataFrame | None = None,
+    inplace: bool = False,
+) -> tuple[pd.DataFrame, dict]:
     """
     Aplica la meteorología real de HOY sobre un DataFrame de grillas de Cajamarca
     usando interpolación IDW (k=4) + vecindario KNN geográfico + 3 variables físicas.
+    Con `inplace=True` actualiza el DataFrame sin duplicar memoria (ideal para 512 MB).
     Devuelve (df_actualizado, info_dict).
     """
     if meteo_df is None:
@@ -134,15 +139,15 @@ def apply_live_weather(df: pd.DataFrame, meteo_df: pd.DataFrame | None = None) -
     if meteo_df.empty:
         raise RuntimeError("Open-Meteo devolvió 0 puntos meteorológicos.")
 
-    out = df.copy()
-    grid_coords = np.column_stack([out["longitude"].to_numpy(float), out["latitude"].to_numpy(float)])
-    m_coords = np.column_stack([meteo_df["longitude"].to_numpy(float), meteo_df["latitude"].to_numpy(float)])
+    out = df if inplace else df.copy()
+    grid_coords = np.column_stack([out["longitude"].to_numpy(np.float32), out["latitude"].to_numpy(np.float32)])
+    m_coords = np.column_stack([meteo_df["longitude"].to_numpy(np.float32), meteo_df["latitude"].to_numpy(np.float32)])
 
     k = min(4, len(m_coords))
     dists, idxs = cKDTree(m_coords).query(grid_coords, k=k)
     if k == 1:
         dists, idxs = dists[:, None], idxs[:, None]
-    w = 1.0 / np.maximum(dists, 1e-4)
+    w = (1.0 / np.maximum(dists, 1e-4)).astype(np.float32)
     w /= w.sum(axis=1, keepdims=True)
 
     for col in (
@@ -150,43 +155,45 @@ def apply_live_weather(df: pd.DataFrame, meteo_df: pd.DataFrame | None = None) -
         "dias_sin_lluvia", "lluvia_acum_7d", "lluvia_acum_15d",
         "temp_lag1", "humedad_lag1",
     ):
-        vals = meteo_df[col].to_numpy(float)[idxs]
-        out[col] = np.round(np.sum(vals * w, axis=1), 2)
+        vals = meteo_df[col].to_numpy(np.float32)[idxs]
+        out[col] = np.round(np.sum(vals * w, axis=1), 2).astype(np.float32)
 
     # Dirección del viento por promedio vectorial circular (sin/cos)
-    ang = np.deg2rad(meteo_df["viento_direccion"].to_numpy(float)[idxs])
+    ang = np.deg2rad(meteo_df["viento_direccion"].to_numpy(np.float32)[idxs])
     s_mean = np.sum(np.sin(ang) * w, axis=1)
     c_mean = np.sum(np.cos(ang) * w, axis=1)
     norm = np.maximum(np.hypot(s_mean, c_mean), 1e-6)
-    out["viento_dir_sin"] = np.round(s_mean / norm, 4)
-    out["viento_dir_cos"] = np.round(c_mean / norm, 4)
-    out["viento_direccion"] = np.round(np.rad2deg(np.arctan2(s_mean, c_mean)) % 360.0, 1)
+    out["viento_dir_sin"] = np.round(s_mean / norm, 4).astype(np.float32)
+    out["viento_dir_cos"] = np.round(c_mean / norm, 4).astype(np.float32)
+    out["viento_direccion"] = np.round(np.rad2deg(np.arctan2(s_mean, c_mean)) % 360.0, 1).astype(np.float32)
+    del grid_coords, m_coords, dists, idxs, w, ang, s_mean, c_mean, norm
 
     # Vecindario geográfico KNN (k=8, excluyendo la propia celda)
-    lats = out["latitude"].to_numpy(float)
-    lons = out["longitude"].to_numpy(float)
+    lats = out["latitude"].to_numpy(np.float32)
+    lons = out["longitude"].to_numpy(np.float32)
     lat0 = np.deg2rad(float(lats.mean()))
-    geo_km = np.column_stack([lons * 111.32 * np.cos(lat0), lats * 110.57])
+    geo_km = np.column_stack([lons * np.float32(111.32 * np.cos(lat0)), lats * np.float32(110.57)])
     kk = max(1, min(9, len(out)))
     _, knn_idx = cKDTree(geo_km).query(geo_km, k=kk)
     if knn_idx.ndim == 1:
         knn_idx = knn_idx[:, None]
     neigh = knn_idx[:, 1:] if knn_idx.shape[1] > 1 else knn_idx
 
-    out["temp_vecindad_media"] = np.round(out["temp_2m"].to_numpy(float)[neigh].mean(axis=1), 1)
-    out["humedad_vecindad_media"] = np.round(out["humedad_relativa"].to_numpy(float)[neigh].mean(axis=1), 1)
+    out["temp_vecindad_media"] = np.round(out["temp_2m"].to_numpy(np.float32)[neigh].mean(axis=1), 1).astype(np.float32)
+    out["humedad_vecindad_media"] = np.round(out["humedad_relativa"].to_numpy(np.float32)[neigh].mean(axis=1), 1).astype(np.float32)
+    del geo_km, knn_idx, neigh
 
     # Recalcular variables físicas compuestas (VPD, viento×pendiente, índice de sequedad)
     vpd, vp, seq = compute_physical_features(
-        out["temp_2m"].to_numpy(float),
-        out["humedad_relativa"].to_numpy(float),
-        out["viento_velocidad"].to_numpy(float),
-        out["pendiente_pct"].to_numpy(float),
-        out["dias_sin_lluvia"].to_numpy(float),
+        out["temp_2m"].to_numpy(np.float32),
+        out["humedad_relativa"].to_numpy(np.float32),
+        out["viento_velocidad"].to_numpy(np.float32),
+        out["pendiente_pct"].to_numpy(np.float32),
+        out["dias_sin_lluvia"].to_numpy(np.float32),
     )
-    out["vpd_kpa"] = vpd
-    out["viento_pendiente"] = vp
-    out["indice_sequedad"] = seq
+    out["vpd_kpa"] = np.asarray(vpd, dtype=np.float32)
+    out["viento_pendiente"] = np.asarray(vp, dtype=np.float32)
+    out["indice_sequedad"] = np.asarray(seq, dtype=np.float32)
 
     now_iso = datetime.now(timezone.utc).isoformat()
     info = {
@@ -202,3 +209,4 @@ def apply_live_weather(df: pd.DataFrame, meteo_df: pd.DataFrame | None = None) -
         info["points"], info["temp_mean"], info["humidity_mean"], info["rain_7d_mean"],
     )
     return out, info
+

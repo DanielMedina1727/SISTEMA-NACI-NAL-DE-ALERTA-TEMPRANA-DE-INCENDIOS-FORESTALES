@@ -113,7 +113,7 @@ if _WEB_DIR.exists():
 
 from fastapi.responses import RedirectResponse
 
-@app.get("/", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def root():
     """Redirige a la página principal del portal ciudadano."""
     return RedirectResponse(url="/web/")
@@ -153,30 +153,59 @@ def _invalidate_scored_cache() -> None:
         _SCORED_CACHE["weather_info"] = {"source": "snapshot", "updated_at": None}
 
 
+_REQUIRED_DATASET_COLS = {
+    "grid_id", "latitude", "longitude", "viento_direccion", *FEATURE_ORDER,
+}
+
+
 def _read_base_dataset() -> pd.DataFrame:
-    """Lee el dataset prefiriendo Parquet (~15x más rápido que CSV en cold start)."""
+    """
+    Lee el dataset optimizado para contenedores de 512 MB (Render Free):
+    - Prioriza CSV con `usecols` + `float32` (~0.16 s y evita importar pyarrow,
+      ahorrando ~50 MB permanentes de RAM).
+    - Usa Parquet como respaldo si el CSV no existe.
+    """
+    import numpy as np
+
     csv_path = DATASET_PATH.with_suffix(".csv")
     if not DATASET_PATH.exists() and not csv_path.exists():
         raise HTTPException(
             status_code=404,
             detail="Dataset no encontrado. Ejecuta data_pipeline/grid_builder.py primero.",
         )
-    if DATASET_PATH.exists():
-        try:
-            return pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
-        except Exception:
-            pass
-    return pd.read_csv(csv_path)
+
+    if csv_path.exists():
+        df = pd.read_csv(csv_path, usecols=lambda c: c in _REQUIRED_DATASET_COLS)
+    else:
+        df = pd.read_parquet(DATASET_PATH).drop(columns=["geometry"], errors="ignore")
+        keep = [c for c in df.columns if c in _REQUIRED_DATASET_COLS]
+        if keep:
+            df = df[keep]
+
+    for c in df.select_dtypes(include=["float64", "int64"]).columns:
+        df[c] = df[c].astype(np.float32)
+    return df
 
 
-def _score_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+def _score_dataframe(df: pd.DataFrame, chunk_size: int = 8000) -> pd.DataFrame:
+    """Puntúa por bloques de 8k filas en float32 para minimizar picos de RAM (<300 MB)."""
+    import gc
+    import numpy as np
+
     for col in FEATURE_ORDER:
         if col not in df.columns:
-            df[col] = 0.0
+            df[col] = np.float32(0.0)
     try:
-        df["_score"] = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
+        n = len(df)
+        scores = np.empty(n, dtype=np.float32)
+        est = model.model
+        for start in range(0, n, chunk_size):
+            end = min(start + chunk_size, n)
+            scores[start:end] = est.predict_proba(df[FEATURE_ORDER].iloc[start:end])[:, 1].astype(np.float32)
+        df["_score"] = scores
     except Exception:
-        df["_score"] = 0.1
+        df["_score"] = np.float32(0.1)
+    gc.collect()
     return df
 
 
@@ -197,31 +226,37 @@ def _load_scored_dataset() -> pd.DataFrame:
 
 def refresh_scored_with_live_weather() -> dict:
     """
-    Descarga la meteorología REAL de hoy vía Open-Meteo, la interpola a las 68k celdas,
-    recalcula vecindario + VPD/FWI y vuelve a puntuar todo Cajamarca en memoria.
+    Descarga la meteorología REAL de hoy vía Open-Meteo, la aplica IN-PLACE sobre
+    el dataset (sin duplicar memoria) y vuelve a puntuar por bloques en float32.
     """
-    from app.live_weather import apply_live_weather
+    import gc
+    from app.live_weather import apply_live_weather, fetch_today_meteo
 
-    base_df = _read_base_dataset()
-    live_df, info = apply_live_weather(base_df)
-    scored_df = _score_dataframe(live_df)
-
+    # Descargar Open-Meteo primero (sin bloquear el lock durante la red)
+    meteo_df = fetch_today_meteo()
     key = _dataset_signature()
-    with _SCORED_LOCK:
-        _SCORED_CACHE["key"] = key
-        _SCORED_CACHE["df"] = scored_df
-        _SCORED_CACHE["weather_info"] = info
 
-    s = scored_df["_score"].to_numpy()
-    return {
-        "status": "ok",
-        "weather": info,
-        "stats": {
-            "total_analizado": int(len(scored_df)),
+    with _SCORED_LOCK:
+        df = _SCORED_CACHE["df"] if (_SCORED_CACHE["key"] == key and _SCORED_CACHE["df"] is not None) else _read_base_dataset()
+        df, info = apply_live_weather(df, meteo_df=meteo_df, inplace=True)
+        df = _score_dataframe(df)
+        _SCORED_CACHE["key"] = key
+        _SCORED_CACHE["df"] = df
+        _SCORED_CACHE["weather_info"] = info
+        s = df["_score"].to_numpy()
+        stats = {
+            "total_analizado": int(len(df)),
             "rojo": int((s >= THRESHOLDS["rojo"]).sum()),
             "amarillo": int(((s >= THRESHOLDS["amarillo"]) & (s < THRESHOLDS["rojo"])).sum()),
             "verde": int((s < THRESHOLDS["amarillo"]).sum()),
-        },
+        }
+
+    del meteo_df
+    gc.collect()
+    return {
+        "status": "ok",
+        "weather": info,
+        "stats": stats,
     }
 
 

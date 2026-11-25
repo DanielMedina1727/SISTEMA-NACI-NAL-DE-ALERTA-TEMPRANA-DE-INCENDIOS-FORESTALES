@@ -180,6 +180,27 @@ def _extract_lgb_estimator(model_obj):
     return model_obj
 
 
+_SHARED_MODEL_CACHE: dict[str, object] = {}
+
+
+def _limit_estimator_threads(est) -> None:
+    """Limita n_jobs/nthread a 1 para evitar picos de RAM OpenMP en contenedores de 512 MB."""
+    if hasattr(est, "n_jobs"):
+        try:
+            est.n_jobs = 1
+        except Exception:
+            pass
+    if hasattr(est, "nthread"):
+        try:
+            est.nthread = 1
+        except Exception:
+            pass
+    for sub in getattr(est, "estimators_", []) or []:
+        _limit_estimator_threads(sub)
+    for sub in getattr(est, "calibrated_classifiers_", []) or []:
+        _limit_estimator_threads(getattr(sub, "estimator", None))
+
+
 class RiskModel:
     def __init__(self, model_path: Path = MODEL_PATH):
         self.model_path = model_path
@@ -189,12 +210,19 @@ class RiskModel:
     @property
     def model(self):
         if self._model is None:
+            cache_key = str(self.model_path.resolve())
+            if cache_key in _SHARED_MODEL_CACHE:
+                self._model = _SHARED_MODEL_CACHE[cache_key]
+                return self._model
             if not self.model_path.exists():
                 raise FileNotFoundError(
                     f"No se encontró el modelo en {self.model_path}. "
                     "Ejecuta data_pipeline/train_model.py primero."
                 )
-            self._model = joblib.load(self.model_path)
+            loaded = joblib.load(self.model_path)
+            _limit_estimator_threads(loaded)
+            _SHARED_MODEL_CACHE[cache_key] = loaded
+            self._model = loaded
         return self._model
 
     def _build_feature_df(self, features: dict) -> pd.DataFrame:

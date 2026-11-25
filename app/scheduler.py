@@ -31,7 +31,6 @@ Dependencias adicionales:
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -52,102 +51,87 @@ def _get_zone_group_id(zona: dict) -> str | None:
     return chat_id if chat_id else None
 
 
-def _fetch_risk_data() -> list[dict]:
+def _fetch_risk_data():
     """
-    Carga las predicciones de riesgo directamente desde el dataset y el modelo,
-    sin hacer una llamada HTTP interna (evita timeout circular).
+    Reutiliza el DataFrame ya puntuado en caché de `app.main` (0 MB extra de RAM,
+    sin duplicar el modelo ni construir 68k diccionarios GeoJSON en Python).
+    Si el clima en vivo aún no se aplicó, intenta refrescarlo una vez.
     """
     try:
-        import pandas as pd
-        from app.model import RiskModel
+        from app.main import (
+            _SCORED_CACHE,
+            _load_scored_cajamarca,
+            refresh_scored_with_live_weather,
+        )
 
-        dataset_path = Path(__file__).parent.parent / "data" / "dataset.parquet"
-        csv_path = dataset_path.with_suffix(".csv")
-
-        if dataset_path.exists():
+        if _SCORED_CACHE.get("weather_info", {}).get("source") != "open-meteo-live":
             try:
-                df_full = pd.read_parquet(dataset_path).drop(columns=["geometry"], errors="ignore")
-            except Exception:
-                df_full = pd.read_csv(csv_path)
-        elif csv_path.exists():
-            df_full = pd.read_csv(csv_path)
-        else:
-            logger.warning("Dataset no encontrado en data/")
-            return []
+                refresh_scored_with_live_weather()
+            except Exception as exc:
+                logger.warning("⚠️ Scheduler: clima en vivo no disponible (%s), usando caché actual.", exc)
 
-        # Aplicar clima real de hoy (Open-Meteo) para que las alertas 07:00 reflejen el día actual
-        try:
-            from app.live_weather import apply_live_weather
-
-            df_full, _ = apply_live_weather(df_full)
-        except Exception as exc:
-            logger.warning("⚠️ Scheduler: clima en vivo no disponible (%s), usando snapshot.", exc)
-
-        # Filtrar area de Cajamarca con los límites extremos exactos
-        df = df_full[
-            (df_full["latitude"] >= -7.7592) & (df_full["latitude"] <= -4.5519) &
-            (df_full["longitude"] >= -79.4517) & (df_full["longitude"] <= -77.7389)
-        ]
-
-        if df.empty:
-            df = df_full.head(2000)
-
-        model = RiskModel()
-        from app.model import FEATURE_ORDER, classify
-        for col in FEATURE_ORDER:
-            if col not in df.columns:
-                df[col] = 0.0
-
-        try:
-            probas = model.model.predict_proba(df[FEATURE_ORDER])[:, 1]
-        except Exception:
-            probas = [0.1] * len(df)
-
-        cell_size = 0.009
-        features = []
-        for i, (_, row) in enumerate(df.iterrows()):
-            proba = float(probas[i])
-            nivel = classify(proba)
-            lon, lat = float(row["longitude"]), float(row["latitude"])
-            poly_coords = [
-                [lon - cell_size/2, lat - cell_size/2],
-                [lon + cell_size/2, lat - cell_size/2],
-                [lon + cell_size/2, lat + cell_size/2],
-                [lon - cell_size/2, lat + cell_size/2],
-                [lon - cell_size/2, lat - cell_size/2],
-            ]
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Polygon", "coordinates": [poly_coords]},
-                "properties": {
-                    "grid_id": str(row.get("grid_id", f"{lon:.4f}_{lat:.4f}")),
-                    "probabilidad": round(proba, 4),
-                    "nivel": nivel,
-                }
-            })
-        logger.info("Dataset cargado: %d grillas procesadas", len(features))
-        return features
+        df = _load_scored_cajamarca()
+        logger.info("Dataset en caché listo para alertas: %d grillas (0 MB extra)", len(df))
+        return df
 
     except Exception as exc:
         logger.error("Error al cargar datos de riesgo: %s", exc)
         return []
 
 
-def _classify_zone(features: list[dict], zona: dict) -> dict:
+def _classify_zone(features, zona: dict) -> dict:
     """
     Filtra las grillas que caen dentro del bbox de la zona y calcula estadísticas.
-
-    Returns:
-        {
-          "nombre": str,
-          "nivel": "Rojo" | "Amarillo" | "Verde",
-          "n_rojas": int,
-          "n_amarillas": int,
-          "n_total": int,
-          "max_proba": float,
-          "top_grid": {"grid_id", "lat", "lon", "probabilidad"},
-        }
+    Soporta tanto `pd.DataFrame` (ruta vectorizada O(1) RAM usada en producción)
+    como `list[dict]` GeoJSON (compatibilidad con pruebas unitarias).
     """
+    import pandas as pd
+
+    if isinstance(features, pd.DataFrame):
+        from app.model import THRESHOLDS
+
+        sub = features[
+            (features["latitude"] >= zona["lat_min"]) & (features["latitude"] <= zona["lat_max"]) &
+            (features["longitude"] >= zona["lon_min"]) & (features["longitude"] <= zona["lon_max"])
+        ]
+        if sub.empty:
+            return {
+                "nombre": zona["nombre"],
+                "nivel": "Verde",
+                "n_rojas": 0,
+                "n_amarillas": 0,
+                "n_total": 0,
+                "max_proba": 0.0,
+                "top_grid": None,
+            }
+
+        scores = sub["_score"].to_numpy(dtype=float)
+        n_rojas = int((scores >= THRESHOLDS["rojo"]).sum())
+        n_amarillas = int(((scores >= THRESHOLDS["amarillo"]) & (scores < THRESHOLDS["rojo"])).sum())
+        nivel = "Rojo" if n_rojas > 0 else ("Amarillo" if n_amarillas > 0 else "Verde")
+
+        top_pos = int(scores.argmax())
+        top_row = sub.iloc[top_pos]
+        top_proba = round(float(scores[top_pos]), 4)
+        top_lat = float(top_row["latitude"])
+        top_lon = float(top_row["longitude"])
+        grid_id = str(top_row["grid_id"]) if "grid_id" in sub.columns else f"{top_lon:.4f}_{top_lat:.4f}"
+
+        return {
+            "nombre": zona["nombre"],
+            "nivel": nivel,
+            "n_rojas": n_rojas,
+            "n_amarillas": n_amarillas,
+            "n_total": int(len(sub)),
+            "max_proba": top_proba,
+            "top_grid": {
+                "grid_id": grid_id,
+                "lat": round(top_lat, 5),
+                "lon": round(top_lon, 5),
+                "probabilidad": top_proba,
+            },
+        }
+
     grillas = [
         f for f in features
         if (
@@ -297,7 +281,7 @@ async def run_daily_alerts() -> dict:
     )
 
     features = _fetch_risk_data()
-    if not features:
+    if features is None or len(features) == 0:
         logger.warning("⚠️  Scheduler: no hay datos de riesgo disponibles hoy.")
         summary["error"] = "sin_datos_riesgo"
         return summary
